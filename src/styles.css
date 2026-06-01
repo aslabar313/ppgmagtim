@@ -1,0 +1,256 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * PintarYuk Design System
+ * Warm, playful, trustworthy. Rounded everywhere. Vibrant but not eye-straining.
+ */
+
+@theme inline {
+  --font-display: "Fredoka", "Nunito", system-ui, sans-serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
+  --radius-4xl: calc(var(--radius) + 28px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Brand semantic */
+  --color-sunny: var(--sunny);
+  --color-sunny-foreground: var(--sunny-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+  --color-creative: var(--creative);
+  --color-creative-foreground: var(--creative-foreground);
+  --color-challenge: var(--challenge);
+  --color-challenge-foreground: var(--challenge-foreground);
+
+  /* Category tokens */
+  --color-cat-math: var(--cat-math);
+  --color-cat-reading: var(--cat-reading);
+  --color-cat-science: var(--cat-science);
+  --color-cat-creative: var(--cat-creative);
+  --color-cat-english: var(--cat-english);
+  --color-cat-music: var(--cat-music);
+  --color-cat-islamic: var(--cat-islamic);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Backgrounds */
+  --background: oklch(0.985 0.005 80); /* warm white #FAFAFA */
+  --foreground: oklch(0.22 0.04 265); /* deep navy */
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.04 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.04 265);
+
+  /* Cheerful Blue */
+  --primary: oklch(0.62 0.16 250);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.965 0.01 80);
+  --secondary-foreground: oklch(0.22 0.04 265);
+
+  --muted: oklch(0.955 0.012 85);
+  --muted-foreground: oklch(0.5 0.03 260);
+
+  --accent: oklch(0.95 0.05 95);
+  --accent-foreground: oklch(0.3 0.05 60);
+
+  --destructive: oklch(0.66 0.2 22);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.92 0.012 85);
+  --input: oklch(0.94 0.012 85);
+  --ring: oklch(0.62 0.16 250);
+
+  /* Brand semantic */
+  --sunny: oklch(0.87 0.16 90); /* sunny yellow #FFD93D */
+  --sunny-foreground: oklch(0.3 0.08 70);
+  --success: oklch(0.72 0.16 145); /* green #6BCB77 */
+  --success-foreground: oklch(1 0 0);
+  --coral: oklch(0.7 0.18 25); /* coral #FF6B6B */
+  --coral-foreground: oklch(1 0 0);
+  --creative: oklch(0.62 0.22 305); /* purple #A855F7 */
+  --creative-foreground: oklch(1 0 0);
+  --challenge: oklch(0.74 0.17 55); /* orange #FF9A3C */
+  --challenge-foreground: oklch(1 0 0);
+
+  /* Category colors */
+  --cat-math: oklch(0.62 0.16 250);
+  --cat-reading: oklch(0.72 0.16 145);
+  --cat-science: oklch(0.74 0.17 55);
+  --cat-creative: oklch(0.62 0.22 305);
+  --cat-english: oklch(0.74 0.16 350);
+  --cat-music: oklch(0.87 0.16 90);
+  --cat-islamic: oklch(0.65 0.14 175);
+}
+
+.dark {
+  --background: oklch(0.2 0.04 265);
+  --foreground: oklch(0.98 0.005 80);
+  --card: oklch(0.25 0.04 265);
+  --card-foreground: oklch(0.98 0.005 80);
+  --popover: oklch(0.25 0.04 265);
+  --popover-foreground: oklch(0.98 0.005 80);
+  --primary: oklch(0.72 0.14 250);
+  --primary-foreground: oklch(0.15 0.04 265);
+  --secondary: oklch(0.3 0.04 265);
+  --secondary-foreground: oklch(0.98 0.005 80);
+  --muted: oklch(0.3 0.04 265);
+  --muted-foreground: oklch(0.7 0.03 260);
+  --accent: oklch(0.3 0.04 265);
+  --accent-foreground: oklch(0.98 0.005 80);
+  --destructive: oklch(0.7 0.18 22);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.72 0.14 250);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .gradient-brand {
+    background-image: linear-gradient(135deg, var(--color-primary), var(--color-creative));
+  }
+  .gradient-warm {
+    background-image: linear-gradient(180deg, var(--color-background), oklch(0.98 0.02 85));
+  }
+  .shadow-soft {
+    box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--color-primary) 20%, transparent);
+  }
+  .shadow-playful {
+    box-shadow: 0 12px 32px -10px color-mix(in oklab, var(--color-creative) 30%, transparent);
+  }
+
+  @keyframes bounce-soft {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  .animate-bounce-soft {
+    animation: bounce-soft 2s ease-in-out infinite;
+  }
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(-6deg);
+    }
+    75% {
+      transform: rotate(6deg);
+    }
+  }
+  .animate-wiggle {
+    animation: wiggle 0.6s ease-in-out;
+  }
+
+  @keyframes sparkle {
+    0%,
+    100% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+  .animate-sparkle {
+    animation: sparkle 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pop-in {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .animate-pop-in {
+    animation: pop-in 0.4s ease-out;
+  }
+
+  @keyframes flame {
+    0%,
+    100% {
+      transform: scale(1) rotate(-2deg);
+    }
+    50% {
+      transform: scale(1.1) rotate(2deg);
+    }
+  }
+  .animate-flame {
+    animation: flame 1.2s ease-in-out infinite;
+  }
+}

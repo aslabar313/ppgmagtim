@@ -60,15 +60,17 @@ function LoginPage() {
           redirectTo: window.location.origin,
         },
       });
+      
       if (error) {
-        if (error.message.includes("provider is not enabled")) {
-          toast.error("Login Google belum dikonfigurasi oleh Admin. Silakan gunakan email/password.");
+        if (error.message.includes("provider is not enabled") || error.status === 400) {
+          toast.error("Login Google sedang disiapkan. Silakan masuk menggunakan Email & Password terlebih dahulu.");
         } else {
           toast.error(error.message);
         }
+        return;
       }
     } catch (err) {
-      toast.error("Gagal menghubungkan ke Google. Silakan coba lagi nanti.");
+      toast.error("Gagal terhubung ke layanan Google. Silakan coba lagi.");
     }
   };
 

@@ -53,13 +53,23 @@ function LoginPage() {
   };
 
   const onGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) toast.error(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        if (error.message.includes("provider is not enabled")) {
+          toast.error("Login Google belum dikonfigurasi oleh Admin. Silakan gunakan email/password.");
+        } else {
+          toast.error(error.message);
+        }
+      }
+    } catch (err) {
+      toast.error("Gagal menghubungkan ke Google. Silakan coba lagi nanti.");
+    }
   };
 
   return (

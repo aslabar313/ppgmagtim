@@ -69,15 +69,18 @@ function OnboardingPage() {
       // 2. Create first child
       const { error: childError } = await supabase.from("children").insert({
         parent_id: user.id,
-        name: childName,
+        name: childName.trim(),
         age_group: ageGroup,
         gender,
         islamic_content: islamicContent,
         language_mode: language,
-        daily_limit_min: parseInt(dailyLimit),
+        daily_limit_min: parseInt(dailyLimit) || 60,
       });
 
-      if (childError) throw childError;
+      if (childError) {
+        console.error("Child Insert Error:", childError);
+        throw new Error("Gagal menyimpan profil anak: " + childError.message);
+      }
 
       toast.success("Profil berhasil disiapkan! 🎉");
       navigate({ to: "/" }); // Will redirect to child selection or home later

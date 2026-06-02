@@ -4,11 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { BarChart3, Clock, Settings, User, ArrowLeft, ShieldCheck, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-
+import { Badge } from "@/components/ui/badge";
 export const Route = createFileRoute("/parent")({
   component: ParentDashboard,
 });
@@ -231,7 +235,43 @@ function ParentDashboard() {
               {children.map(child => (
                 <Card key={child.id} className="p-6 rounded-[2rem] border-2 shadow-sm flex flex-col items-center text-center relative overflow-hidden group">
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 bg-accent rounded-full text-muted-foreground hover:text-primary"><Pencil className="w-4 h-4"/></button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button className="p-2 bg-accent rounded-full text-muted-foreground hover:text-primary"><Pencil className="w-4 h-4"/></button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
+                        <DialogHeader>
+                          <DialogTitle className="font-display text-2xl">Edit Profil {child.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Nama</Label>
+                            <Input 
+                              defaultValue={child.name} 
+                              className="rounded-xl h-12" 
+                              onChange={(e) => child.newName = e.target.value}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Untuk mengubah preferensi secara lengkap, fitur ini akan segera hadir.</p>
+                        </div>
+                        <DialogFooter>
+                          <Button 
+                            className="rounded-full h-12 w-full font-bold"
+                            onClick={async () => {
+                              if (!child.newName) return toast.error("Nama tidak boleh kosong.");
+                              const { error } = await supabase.from('children').update({ name: child.newName }).eq('id', child.id);
+                              if (error) toast.error("Gagal mengubah nama: " + error.message);
+                              else {
+                                toast.success("Nama anak berhasil diubah!");
+                                fetchData();
+                              }
+                            }}
+                          >
+                            Simpan Perubahan
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   <div className="w-24 h-24 rounded-full bg-accent flex items-center justify-center text-5xl mb-4 border-4 border-background shadow-sm">
                     {child.avatar === "rabbit" ? "🐰" : "🐻"}

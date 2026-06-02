@@ -24,6 +24,7 @@ function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([]);
   const [selectedChild, setSelectedChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [childProgress, setChildProgress] = useState<any>(null);
 
   // Screen Time State
   const [dailyLimit, setDailyLimit] = useState("60");
@@ -36,9 +37,21 @@ function ParentDashboard() {
     }
   }, [user, authLoading]);
 
+  useEffect(() => {
+    if (selectedChild) {
+      fetchProgress();
+    }
+  }, [selectedChild]);
+
   async function checkAdmin() {
     const { data } = await supabase.rpc("has_role", { _user_id: user?.id, _role: "admin" });
     setIsAdmin(!!data);
+  }
+
+  async function fetchProgress() {
+    const { data } = await supabase.from("child_progress").select("*").eq("child_id", selectedChild.id).single();
+    if (data) setChildProgress(data);
+    else setChildProgress({ xp: 0, level: 1, current_streak: 0 }); // Fallback
   }
 
   async function fetchData() {
@@ -158,13 +171,13 @@ function ParentDashboard() {
               </Card>
               <Card className="p-6 rounded-3xl border-2 shadow-sm">
                 <h3 className="font-bold text-muted-foreground text-sm uppercase">XP Terkumpul</h3>
-                <div className="text-3xl font-display font-bold mt-2 text-sunny-foreground">1,250 XP</div>
-                <p className="text-xs text-muted-foreground mt-1">Level 4: Penjelajah Cilik</p>
+                <div className="text-3xl font-display font-bold mt-2 text-sunny-foreground">{childProgress?.xp || 0} XP</div>
+                <p className="text-xs text-muted-foreground mt-1">Level {childProgress?.level || 1}</p>
               </Card>
               <Card className="p-6 rounded-3xl border-2 shadow-sm">
-                <h3 className="font-bold text-muted-foreground text-sm uppercase">Badge Spesial</h3>
-                <div className="text-3xl font-display font-bold mt-2 text-creative">3 Badge</div>
-                <p className="text-xs text-muted-foreground mt-1">🏆 🌟 📚</p>
+                <h3 className="font-bold text-muted-foreground text-sm uppercase">Daily Streak</h3>
+                <div className="text-3xl font-display font-bold mt-2 text-creative">{childProgress?.current_streak || 0} Hari</div>
+                <p className="text-xs text-muted-foreground mt-1">🔥 Pertahankan streak-mu!</p>
               </Card>
             </div>
 

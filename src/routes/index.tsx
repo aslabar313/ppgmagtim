@@ -81,43 +81,49 @@ function ChildSelector() {
   };
 
   return (
-    <div className="min-h-screen bg-accent/30 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-2xl text-center space-y-8">
+    <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-sunny/30 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-creative/20 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <div className="w-full max-w-2xl text-center space-y-10 relative z-10">
         <div>
-          <h1 className="font-display text-4xl font-bold">Siapa yang mau main? 🎮</h1>
-          <p className="text-muted-foreground mt-2">Pilih profil untuk mulai belajar</p>
+          <h1 className="font-display text-5xl font-black text-foreground drop-shadow-sm">Siapa yang mau main? 🎮</h1>
+          <p className="text-muted-foreground mt-3 text-lg font-medium">Pilih profil jagoanmu di bawah ini!</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 justify-center">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 justify-center items-end">
           {children.map((child) => (
             <button
               key={child.id}
               onClick={() => navigate({ to: "/play", search: { childId: child.id } })}
-              className="flex flex-col items-center gap-3 group transition"
+              className="flex flex-col items-center gap-4 group transition"
             >
-              <div className="w-32 h-32 rounded-[2.5rem] bg-card border-4 border-transparent group-hover:border-primary group-hover:scale-105 transition flex items-center justify-center text-6xl shadow-soft relative overflow-hidden">
-                {child.avatar === "rabbit" ? "🐰" : "🐻"}
-                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition" />
+              <div className="w-36 h-36 rounded-[3rem] bg-white border-4 border-[#E0E7FF] group-hover:border-primary group-hover:-translate-y-2 group-hover:shadow-[0_12px_0_0_oklch(0.5_0.16_250)] transition-all duration-300 flex items-center justify-center text-7xl shadow-sm relative overflow-hidden">
+                <span className="drop-shadow-sm">{child.avatar === "rabbit" ? "🐰" : "🐻"}</span>
               </div>
-              <span className="font-display text-lg font-bold">{child.name}</span>
+              <span className="font-display text-xl font-black text-foreground group-hover:text-primary transition-colors">{child.name}</span>
             </button>
           ))}
 
           {children.length < 5 && (
-            <Link to="/onboarding" className="flex flex-col items-center gap-3 group transition">
-              <div className="w-32 h-32 rounded-[2.5rem] bg-card border-4 border-dashed border-muted-foreground/30 flex items-center justify-center text-3xl text-muted-foreground group-hover:border-primary group-hover:text-primary transition shadow-sm">
-                <Plus className="w-10 h-10" />
+            <Link to="/onboarding" className="flex flex-col items-center gap-4 group transition">
+              <div className="w-36 h-36 rounded-[3rem] bg-white/50 backdrop-blur-sm border-4 border-dashed border-muted-foreground/30 flex items-center justify-center text-4xl text-muted-foreground group-hover:border-primary group-hover:text-primary group-hover:-translate-y-2 group-hover:bg-white transition-all duration-300 shadow-sm">
+                <Plus className="w-12 h-12" />
               </div>
-              <span className="font-display text-lg font-bold opacity-60">Tambah</span>
+              <span className="font-display text-xl font-black text-muted-foreground group-hover:text-primary transition-colors">Tambah Anak</span>
             </Link>
           )}
         </div>
 
-        <div className="pt-10 flex items-center justify-center gap-4">
+        <div className="pt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link to="/parent">
-            <Button variant="outline" className="rounded-full h-12 px-6 gap-2">
-              <Settings className="w-4 h-4" /> Dashboard Orang Tua
+            <Button variant="outline" className="rounded-full h-14 px-8 gap-2 font-bold border-2 shadow-sm bg-white hover:bg-accent">
+              <Settings className="w-5 h-5" /> Dashboard Orang Tua
             </Button>
+
           </Link>
           <Button
             variant="ghost"

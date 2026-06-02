@@ -42,20 +42,24 @@ function ParentDashboard() {
     if (!user) return;
     
     // Ambil data anak
-    const { data: kids } = await supabase.from("children").select("*").eq("parent_id", user.id);
+    const { data: kids, error } = await supabase.from("children").select("*").eq("parent_id", user.id);
+    if (error) {
+      console.error(error);
+      toast.error("Gagal mengambil data anak.");
+    }
     if (kids && kids.length > 0) {
       setChildren(kids);
       setSelectedChild(kids[0]);
-      setDailyLimit(kids[0].daily_limit_min.toString());
+      setDailyLimit(kids[0].daily_limit_min?.toString() || "60");
     }
     setLoading(false);
   }
 
   const handleSaveScreenTime = async () => {
-    if (!selectedChild) return;
+    if (!selectedChild) return toast.error("Pilih profil anak terlebih dahulu.");
     const { error } = await supabase
       .from("children")
-      .update({ daily_limit_min: parseInt(dailyLimit) })
+      .update({ daily_limit_min: parseInt(dailyLimit) || 60 })
       .eq("id", selectedChild.id);
       
     if (error) toast.error(error.message);
@@ -111,7 +115,7 @@ function ParentDashboard() {
                 key={child.id}
                 onClick={() => {
                   setSelectedChild(child);
-                  setDailyLimit(child.daily_limit_min.toString());
+                  setDailyLimit(child.daily_limit_min?.toString() || "60");
                 }}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedChild?.id === child.id 
@@ -233,7 +237,7 @@ function ParentDashboard() {
                     {child.avatar === "rabbit" ? "🐰" : "🐻"}
                   </div>
                   <h3 className="font-display font-bold text-xl">{child.name}</h3>
-                  <Badge variant="outline" className="mt-2">{child.age_group.replace('_', ' ').toUpperCase()}</Badge>
+                  <Badge variant="outline" className="mt-2">{(child.age_group || "").replace('_', ' ').toUpperCase()}</Badge>
                   <div className="mt-4 pt-4 border-t w-full flex justify-between text-sm text-muted-foreground">
                     <span>{child.language_mode === 'id' ? '🇮🇩 Indo' : '🇺🇸 Eng'}</span>
                     <span>{child.islamic_content ? '☪️ Islami On' : '⭐ Umum'}</span>

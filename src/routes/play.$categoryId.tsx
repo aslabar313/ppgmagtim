@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CATEGORIES, ENCOURAGEMENTS, RETRY_MESSAGES } from "@/lib/pintar";
 import { toast } from "sonner";
-import { X, Check, ArrowRight, Star, Volume2, Sparkles, Trophy } from "lucide-react";
+import { X, Check, ArrowRight, Star, Volume2, Sparkles, Trophy, Bot } from "lucide-react";
+import { generateQuestions } from "@/server-functions/gemini";
 
 export const Route = createFileRoute("/play/$categoryId")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -26,6 +27,7 @@ function GameEngine() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [loadingAi, setLoadingAi] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -43,16 +45,34 @@ function GameEngine() {
 
   async function loadQuestions() {
     setLoading(true);
-    // Placeholder questions until Gemini integration is ready
-    const mockQuestions = [
-      { q: "Berapa 2 + 3?", a: ["4", "5", "6"], c: "5", type: "tap" },
-      { q: "Yang mana gambar Gajah?", a: ["🦒", "🐘", "🦁"], c: "🐘", type: "tap" },
-      { q: "Lengkapi kata: B_KU", a: ["A", "I", "U"], c: "U", type: "tap" },
-      { q: "Ada berapa bintang? ⭐⭐⭐", a: ["2", "3", "4"], c: "3", type: "tap" },
-      { q: "Warna langit adalah...", a: ["Biru", "Merah", "Hijau"], c: "Biru", type: "tap" },
-    ];
-    setQuestions(mockQuestions);
-    setLoading(false);
+    setLoadingAi(true);
+    try {
+      const { data: child } = await supabase.from('children').select('*').eq('id', childId).single();
+      if (!child) throw new Error("Profil anak tidak ditemukan");
+
+      // Panggil AI Tutor (Gemini Server Function)
+      const aiQuestions = await generateQuestions({
+        data: {
+          categoryId: categoryId as string,
+          ageGroup: child.age_group,
+          language: child.language_mode || 'id',
+          islamicContent: child.islamic_content || false
+        }
+      });
+      
+      setQuestions(aiQuestions);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Gagal memuat soal. Pastikan API Key Gemini sudah disetel di Admin.");
+      // Fallback ke soal dummy jika error
+      setQuestions([
+        { q: "Berapa 2 + 3?", a: ["4", "5", "6"], c: "5", type: "tap" },
+        { q: "Yang mana gambar Gajah?", a: ["🦒", "🐘", "🦁"], c: "🐘", type: "tap" }
+      ]);
+    } finally {
+      setLoading(false);
+      setLoadingAi(false);
+    }
   }
 
   const handleAnswer = (ans: string) => {
@@ -64,14 +84,10 @@ function GameEngine() {
       setShowFeedback("correct");
       setFeedbackMsg(ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]);
       setWrongCount(0);
-
-      // Play sound placeholder
-      // new Audio('/sounds/correct.mp3').play();
     } else {
       setShowFeedback("wrong");
       setFeedbackMsg(RETRY_MESSAGES[Math.floor(Math.random() * RETRY_MESSAGES.length)]);
       setWrongCount((w) => w + 1);
-      // new Audio('/sounds/wrong.mp3').play();
     }
 
     setTimeout(() => {
@@ -90,7 +106,6 @@ function GameEngine() {
     setIsFinished(true);
     const xpEarned = score * 10 + 5;
 
-    // Save to DB
     await supabase.from("game_sessions").insert({
       child_id: childId,
       category: categoryId as any,
@@ -101,24 +116,18 @@ function GameEngine() {
       stars: score === questions.length ? 3 : score >= questions.length / 2 ? 2 : 1,
     });
 
-    // Update progress
-    const { data: prog } = await supabase
-      .from("child_progress")
-      .select("xp")
-      .eq("child_id", childId)
-      .single();
+    const { data: prog } = await supabase.from("child_progress").select("xp").eq("child_id", childId).single();
     if (prog) {
-      await supabase
-        .from("child_progress")
-        .update({ xp: prog.xp + xpEarned })
-        .eq("child_id", childId);
+      await supabase.from("child_progress").update({ xp: prog.xp + xpEarned }).eq("child_id", childId);
     }
   }
 
   if (loading || authLoading)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-accent/30">
-        <div className="text-6xl animate-spin">🐰</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-accent/30 space-y-4">
+        <div className="text-6xl animate-bounce">🤖</div>
+        <div className="text-lg font-bold text-muted-foreground">AI Tutor sedang membuat soal yang seru...</div>
+        <Progress value={undefined} className="w-48 h-2" />
       </div>
     );
 

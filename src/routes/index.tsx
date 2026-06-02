@@ -134,16 +134,16 @@ function ChildSelector() {
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FDFBF7] overflow-hidden">
       <Nav />
       <div className="relative">
-        {/* Vibrant background blobs */}
-        <div className="absolute inset-x-0 top-0 h-[900px] -z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,oklch(0.92_0.12_250/0.55),transparent_45%),radial-gradient(circle_at_85%_10%,oklch(0.9_0.14_90/0.55),transparent_50%),radial-gradient(circle_at_50%_80%,oklch(0.88_0.14_330/0.45),transparent_55%),radial-gradient(circle_at_10%_85%,oklch(0.9_0.13_180/0.4),transparent_50%)]" />
-          <div className="absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-primary/25 blur-3xl" />
-          <div className="absolute top-10 right-0 w-[480px] h-[480px] rounded-full bg-creative/25 blur-3xl" />
-          <div className="absolute top-[420px] left-1/3 w-[380px] h-[380px] rounded-full bg-sunny/40 blur-3xl" />
-          <div className="absolute top-[300px] right-1/4 w-[320px] h-[320px] rounded-full bg-coral/25 blur-3xl" />
+        {/* Very vibrant, playful background blobs */}
+        <div className="absolute inset-x-0 top-0 h-[1000px] -z-10 overflow-hidden opacity-80">
+          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-primary/20 blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute top-[10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-sunny/30 blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
+          <div className="absolute top-[40%] left-[20%] w-[400px] h-[400px] rounded-full bg-creative/20 blur-3xl animate-pulse" style={{ animationDuration: '9s', animationDelay: '1s' }} />
+          <div className="absolute top-[30%] right-[30%] w-[450px] h-[450px] rounded-full bg-coral/20 blur-3xl animate-pulse" style={{ animationDuration: '11s', animationDelay: '3s' }} />
+          <div className="absolute top-[60%] left-[-5%] w-[500px] h-[500px] rounded-full bg-success/20 blur-3xl animate-pulse" style={{ animationDuration: '12s' }} />
         </div>
         <Hero />
         <DashboardPreview />
@@ -162,33 +162,29 @@ function Landing() {
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center text-xl">
+    <header className="sticky top-0 z-50 bg-[#FDFBF7]/90 backdrop-blur-md border-b-4 border-muted/30">
+      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="w-12 h-12 rounded-[1rem] bg-primary text-white flex items-center justify-center text-2xl shadow-[0_4px_0_0_oklch(0.5_0.16_250)] group-hover:-translate-y-1 group-hover:shadow-[0_6px_0_0_oklch(0.5_0.16_250)] transition-all">
             🐰
           </div>
-          <span className="font-display text-xl font-bold">PintarYuk</span>
+          <span className="font-display text-2xl font-black text-foreground tracking-tight">Pintar<span className="text-primary">Yuk!</span></span>
         </Link>
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-          <a href="#fitur" className="hover:text-primary transition">
-            Fitur
-          </a>
-          <a href="#harga" className="hover:text-primary transition">
-            Harga
-          </a>
-          <a href="#faq" className="hover:text-primary transition">
-            FAQ
-          </a>
+        <nav className="hidden md:flex items-center gap-8 text-base font-bold text-muted-foreground">
+          <a href="#fitur" className="hover:text-primary hover:scale-105 transition-all">Fitur Seru</a>
+          <a href="#harga" className="hover:text-primary hover:scale-105 transition-all">Harga</a>
+          <a href="#faq" className="hover:text-primary hover:scale-105 transition-all">Tanya Jawab</a>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Link to="/login">
-            <Button variant="ghost" className="rounded-full">
+            <Button variant="ghost" className="rounded-full font-bold text-base hover:bg-muted/50 hidden sm:inline-flex">
               Masuk
             </Button>
           </Link>
           <Link to="/register">
-            <Button className="rounded-full">Coba Gratis</Button>
+            <Button className="rounded-full font-bold text-base bg-sunny hover:bg-sunny/90 text-sunny-foreground shadow-[0_4px_0_0_oklch(0.7_0.15_80)] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_oklch(0.7_0.15_80)] transition-all border-2 border-transparent">
+              Coba Gratis
+            </Button>
           </Link>
         </div>
       </div>
@@ -201,76 +197,55 @@ function Hero() {
     <section className="relative overflow-hidden">
       {/* Floating decorations */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 text-4xl animate-bounce-soft">⭐</div>
-        <div
-          className="absolute top-40 right-16 text-3xl animate-bounce-soft"
-          style={{ animationDelay: "0.5s" }}
-        >
-          📚
-        </div>
-        <div
-          className="absolute top-60 left-1/4 text-3xl animate-bounce-soft"
-          style={{ animationDelay: "1s" }}
-        >
-          🔢
-        </div>
-        <div
-          className="absolute bottom-20 right-1/4 text-4xl animate-bounce-soft"
-          style={{ animationDelay: "1.5s" }}
-        >
-          🎨
-        </div>
-        <div
-          className="absolute top-32 right-1/3 text-3xl animate-bounce-soft"
-          style={{ animationDelay: "0.8s" }}
-        >
-          🌟
-        </div>
+        <div className="absolute top-10 left-[10%] text-6xl animate-bounce-soft">🎈</div>
+        <div className="absolute top-40 right-[15%] text-5xl animate-bounce-soft" style={{ animationDelay: "0.5s" }}>🦖</div>
+        <div className="absolute top-60 left-[20%] text-5xl animate-bounce-soft" style={{ animationDelay: "1s" }}>🧩</div>
+        <div className="absolute bottom-20 right-[25%] text-6xl animate-bounce-soft" style={{ animationDelay: "1.5s" }}>🚀</div>
+        <div className="absolute top-32 right-[35%] text-4xl animate-bounce-soft" style={{ animationDelay: "0.8s" }}>🌟</div>
+        <div className="absolute bottom-40 left-[10%] text-5xl animate-bounce-soft" style={{ animationDelay: "0.3s" }}>🎨</div>
       </div>
 
-      <div className="container mx-auto px-4 py-20 md:py-28 text-center relative">
-        <Badge className="rounded-full bg-sunny text-sunny-foreground hover:bg-sunny mb-6 px-4 py-1.5 text-sm">
-          🌟 Tanpa iklan · Konten aman · Dipercaya ribuan orang tua
-        </Badge>
-        <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight max-w-4xl mx-auto">
-          Biarkan anak main HP — asal yang dimainkan <span className="text-primary">PintarYuk</span>
-          .
+      <div className="container mx-auto px-4 py-20 md:py-32 text-center relative z-10">
+        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border-2 border-sunny px-5 py-2 rounded-full mb-8 shadow-sm rotate-[-2deg] hover:rotate-0 transition-transform">
+          <span className="text-xl animate-sparkle">✨</span>
+          <span className="font-bold text-foreground">Dipercaya oleh ribuan Bunda!</span>
+        </div>
+        
+        <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-black leading-[1.1] max-w-5xl mx-auto text-foreground drop-shadow-sm">
+          Main HP Gak Masalah, <br/>
+          Asal Main <span className="text-primary inline-block hover:scale-105 transition-transform cursor-pointer">PintarYuk!</span> 🎮
         </h1>
-        <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-          Platform game edukasi untuk anak 2–12 tahun. Belajar angka, huruf, sains, dan Bahasa
-          Inggris lewat game yang seru — tanpa iklan, tanpa konten berbahaya.
+        
+        <p className="mt-8 text-xl md:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed">
+          Tempat seru buat anak 2–12 tahun belajar angka, huruf, sains, dan bahasa! 
+          <strong className="text-foreground"> 100% Aman, Tanpa Iklan!</strong>
         </p>
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+        
+        <div className="mt-12 flex flex-col sm:flex-row gap-5 justify-center items-center">
           <Link to="/register">
-            <Button size="lg" className="rounded-full h-14 px-8 text-base shadow-soft">
-              Coba Gratis Sekarang ✨
+            <Button size="lg" className="rounded-[2rem] h-16 px-10 text-xl font-bold bg-coral hover:bg-coral/90 text-white shadow-[0_8px_0_0_oklch(0.6_0.18_25)] hover:shadow-[0_4px_0_0_oklch(0.6_0.18_25)] hover:translate-y-1 transition-all">
+              Mulai Petualangan 🚀
             </Button>
           </Link>
           <a href="#preview">
-            <Button size="lg" variant="outline" className="rounded-full h-14 px-8 text-base">
-              Lihat demo →
+            <Button size="lg" variant="outline" className="rounded-[2rem] h-16 px-10 text-xl font-bold border-4 border-primary text-primary bg-white hover:bg-primary/5">
+              Lihat Mainannya 👀
             </Button>
           </a>
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Gratis untuk 2 anak · Tanpa kartu kredit · Aman untuk semua usia
-        </p>
-
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <div className="flex -space-x-3">
+        
+        <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-6 bg-white/60 p-4 rounded-full max-w-fit mx-auto border border-white/50 backdrop-blur-md">
+          <div className="flex -space-x-4">
             {["👩", "👨", "👩‍🦱", "👨‍🦰", "👩‍🦳"].map((e, i) => (
-              <div
-                key={i}
-                className="w-10 h-10 rounded-full bg-card border-2 border-background flex items-center justify-center text-lg shadow-sm"
-              >
+              <div key={i} className="w-12 h-12 rounded-full bg-white border-4 border-[#FDFBF7] flex items-center justify-center text-2xl shadow-sm z-10 relative">
                 {e}
               </div>
             ))}
           </div>
-          <div className="text-sm">
-            <div className="font-semibold">Dipercaya 20.000+ orang tua Indonesia</div>
-            <div className="text-muted-foreground flex items-center gap-1 justify-center sm:justify-start">
-              <span className="text-sunny">★★★★★</span> 4.9/5 · 500.000+ sesi belajar
+          <div className="text-left">
+            <div className="font-bold text-lg">20.000+ Orang Tua Happy!</div>
+            <div className="text-muted-foreground flex items-center gap-1 font-medium">
+              <span className="text-sunny text-xl">★★★★★</span> 4.9/5 Rating
             </div>
           </div>
         </div>
@@ -289,66 +264,70 @@ function DashboardPreview() {
   ];
 
   return (
-    <section id="preview" className="py-20 bg-gradient-to-b from-background to-accent/40">
-      <div className="container mx-auto px-4 text-center">
-        <h2 className="font-display text-4xl md:text-5xl font-bold">Lihat PintarYuk beraksi</h2>
-        <p className="mt-3 text-muted-foreground text-lg">
+    <section id="preview" className="py-24 bg-primary relative overflow-hidden">
+      <div className="absolute top-0 inset-x-0 h-10 bg-repeat-x" style={{ backgroundImage: 'radial-gradient(circle at 15px 0, transparent 16px, #FDFBF7 17px)', backgroundSize: '30px 20px', transform: 'rotate(180deg)' }}></div>
+      <div className="container mx-auto px-4 text-center mt-10">
+        <h2 className="font-display text-4xl md:text-5xl font-black text-white drop-shadow-sm">Lihat PintarYuk beraksi</h2>
+        <p className="mt-4 text-white/80 text-xl font-medium">
           Explore langsung — gratis, tanpa daftar
         </p>
 
-        <div className="mt-12 max-w-md mx-auto relative">
-          <Badge className="absolute -top-3 right-4 z-10 bg-sunny text-sunny-foreground hover:bg-sunny rounded-full px-3">
+        <div className="mt-14 max-w-md mx-auto relative">
+          <Badge className="absolute -top-4 right-4 z-10 bg-coral text-white hover:bg-coral border-2 border-white rounded-full px-4 py-1 font-bold text-sm shadow-sm rotate-6">
             🔴 Live Preview
           </Badge>
           {/* Phone frame */}
-          <div className="bg-gradient-to-br from-primary/20 via-creative/20 to-sunny/30 p-3 rounded-[3rem] shadow-playful">
-            <div className="bg-background rounded-[2.5rem] p-5 text-left space-y-4 max-h-[640px] overflow-hidden">
+          <div className="bg-white p-4 rounded-[3.5rem] shadow-[0_16px_0_0_oklch(0.4_0.1_250)] border-4 border-[#E0E7FF] transition-transform hover:-translate-y-2 duration-300">
+            <div className="bg-[#FDFBF7] rounded-[2.5rem] p-5 text-left space-y-5 max-h-[640px] overflow-hidden border-4 border-muted/50">
               {/* Header */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl">
+                <div className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center text-3xl shadow-sm border-2 border-primary-foreground/20">
                   🐰
                 </div>
                 <div className="flex-1">
-                  <div className="font-display font-bold">Halo, Dinda! 🌟</div>
-                  <div className="text-xs text-muted-foreground">⭐ Bintang Bersinar · 450 XP</div>
+                  <div className="font-display font-black text-xl text-foreground">Halo, Dinda! 🌟</div>
+                  <div className="text-sm font-bold text-muted-foreground mt-0.5">⭐ Bintang Bersinar · 450 XP</div>
                 </div>
-                <div className="flex items-center gap-1 bg-coral/10 px-2.5 py-1 rounded-full">
-                  <span className="text-lg animate-flame">🔥</span>
-                  <span className="text-sm font-bold text-coral">5</span>
+                <div className="flex items-center gap-1 bg-[#FEF2F2] border-2 border-coral px-3 py-1.5 rounded-full shadow-sm">
+                  <span className="text-xl animate-flame">🔥</span>
+                  <span className="text-base font-black text-coral">5</span>
                 </div>
               </div>
 
               {/* Challenge card */}
-              <div className="bg-gradient-to-br from-sunny to-challenge rounded-2xl p-4 text-sunny-foreground shadow-soft">
-                <div className="text-xs font-semibold uppercase opacity-80">Tantangan Hari Ini</div>
-                <div className="font-display font-bold text-lg mt-1">Hitung sampai 20! 🔢</div>
-                <div className="mt-2 bg-background/40 rounded-full h-2 overflow-hidden">
-                  <div className="h-full bg-background/80 rounded-full" style={{ width: "40%" }} />
+              <div className="bg-sunny rounded-[2rem] p-5 text-sunny-foreground shadow-[0_6px_0_0_oklch(0.7_0.15_80)] border-4 border-[#FEF08A] relative overflow-hidden group cursor-pointer hover:translate-y-1 hover:shadow-[0_2px_0_0_oklch(0.7_0.15_80)] transition-all">
+                <div className="absolute -right-2 -top-2 text-6xl opacity-30 group-hover:rotate-12 transition-transform">🌟</div>
+                <div className="relative z-10">
+                  <div className="text-sm font-black uppercase opacity-90 mb-1 tracking-wide">Tantangan Hari Ini</div>
+                  <div className="font-display font-black text-2xl">Hitung sampai 20! 🔢</div>
+                  <div className="mt-4 bg-black/10 rounded-full h-3 overflow-hidden border border-black/5">
+                    <div className="h-full bg-white rounded-full" style={{ width: "40%" }} />
+                  </div>
+                  <Link to="/register">
+                    <Button
+                      size="sm"
+                      className="mt-4 rounded-full bg-white text-sunny-foreground font-bold hover:bg-white/90 border-2 border-transparent hover:border-black/10 shadow-sm"
+                    >
+                      Main Sekarang!
+                    </Button>
+                  </Link>
                 </div>
-                <Link to="/register">
-                  <Button
-                    size="sm"
-                    className="mt-3 rounded-full bg-background text-foreground hover:bg-background/90"
-                  >
-                    Main Sekarang!
-                  </Button>
-                </Link>
               </div>
 
               {/* Categories grid */}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 {[
-                  { e: "🔢", n: "Matematika", c: "bg-cat-math/15 text-cat-math", p: 60 },
-                  { e: "📖", n: "Membaca", c: "bg-cat-reading/15 text-cat-reading", p: 40 },
-                  { e: "🌍", n: "Sains", c: "bg-cat-science/15 text-cat-science", p: 25 },
-                  { e: "🎨", n: "Kreatif", c: "bg-cat-creative/15 text-cat-creative", p: 70 },
+                  { e: "🔢", n: "Matematika", c: "bg-[#E0E7FF] border-primary text-primary", p: 60 },
+                  { e: "📖", n: "Membaca", c: "bg-[#DCFCE7] border-success text-success", p: 40 },
+                  { e: "🌍", n: "Sains", c: "bg-[#FEF3C7] border-challenge text-challenge", p: 25 },
+                  { e: "🎨", n: "Kreatif", c: "bg-[#FAE8FF] border-creative text-creative", p: 70 },
                 ].map((cat) => (
-                  <div key={cat.n} className={`${cat.c} p-3 rounded-2xl`}>
-                    <div className="text-2xl">{cat.e}</div>
-                    <div className="text-sm font-bold mt-1">{cat.n}</div>
-                    <div className="mt-2 h-1.5 bg-background/50 rounded-full overflow-hidden">
+                  <div key={cat.n} className={`${cat.c} p-4 rounded-[1.5rem] border-2 shadow-sm cursor-pointer hover:scale-105 transition-transform`}>
+                    <div className="text-3xl drop-shadow-sm">{cat.e}</div>
+                    <div className="text-sm font-black mt-2">{cat.n}</div>
+                    <div className="mt-3 h-2 bg-black/5 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-current"
+                        className="h-full rounded-full bg-current opacity-80"
                         style={{ width: `${cat.p}%` }}
                       />
                     </div>
@@ -359,23 +338,19 @@ function DashboardPreview() {
               {/* Mascot */}
               <div
                 onClick={() => setEncouragement(tips[Math.floor(Math.random() * tips.length)])}
-                className="flex items-center gap-3 bg-accent/60 p-3 rounded-2xl cursor-pointer hover:scale-[1.02] transition"
+                className="flex items-center gap-3 bg-white p-3 rounded-[1.5rem] border-2 border-muted shadow-sm cursor-pointer hover:scale-[1.02] transition"
               >
-                <div className="text-4xl animate-bounce-soft">🐰</div>
-                <div className="bg-card px-3 py-2 rounded-2xl text-sm font-medium shadow-sm flex-1">
+                <div className="text-4xl animate-bounce-soft drop-shadow-sm">🐰</div>
+                <div className="bg-[#F8FAFC] border border-muted px-4 py-3 rounded-[1.25rem] text-sm font-bold text-foreground flex-1 relative">
+                  <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#F8FAFC] border-l border-b border-muted rotate-45"></div>
                   {encouragement}
                 </div>
-              </div>
-
-              {/* Badge */}
-              <div className="flex items-center gap-2 bg-sunny/20 p-3 rounded-2xl">
-                <div className="text-2xl animate-sparkle">🏆</div>
-                <div className="text-sm font-semibold">Badge baru: Semangat 5 Hari!</div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <div className="absolute bottom-0 inset-x-0 h-10 bg-repeat-x" style={{ backgroundImage: 'radial-gradient(circle at 15px 10px, #ffffff 16px, transparent 17px)', backgroundSize: '30px 20px' }}></div>
     </section>
   );
 }
@@ -383,14 +358,14 @@ function DashboardPreview() {
 function LogoBar() {
   const cities = ["Jakarta", "Surabaya", "Bandung", "Medan", "Makassar", "Yogyakarta"];
   return (
-    <section className="py-12 border-y border-border/50">
+    <section className="py-12 bg-white">
       <div className="container mx-auto px-4">
-        <p className="text-center text-sm text-muted-foreground mb-6">
+        <p className="text-center text-base font-bold text-muted-foreground mb-8 uppercase tracking-widest">
           Dipercaya orang tua dari seluruh Indonesia
         </p>
-        <div className="flex flex-wrap gap-8 justify-center items-center text-muted-foreground">
+        <div className="flex flex-wrap gap-8 md:gap-12 justify-center items-center text-muted-foreground/60">
           {cities.map((c) => (
-            <div key={c} className="font-display font-semibold text-lg">
+            <div key={c} className="font-display font-black text-2xl tracking-tight grayscale hover:grayscale-0 hover:text-primary transition-all cursor-default">
               📍 {c}
             </div>
           ))}
@@ -404,41 +379,40 @@ function Problem() {
   const pains = [
     {
       e: "📱",
-      t: "Game yang tidak mengajarkan apa-apa.",
-      d: "Mobile Legends, TikTok — semua dirancang buat bikin anak kecanduan, bukan belajar. Screen time habis tanpa manfaat.",
+      t: "Game tanpa manfaat",
+      d: "Waktu habis untuk scrolling video singkat atau game yang bikin candu, nol edukasi.",
     },
     {
       e: "🎯",
-      t: "Iklan yang tidak sesuai usia.",
-      d: "Banyak app edukasi yang katanya gratis, tapi penuh iklan yang tiba-tiba muncul saat anak sedang main. Kontennya pun tidak semua aman.",
+      t: "Iklan dimana-mana",
+      d: "Aplikasi 'gratis' tapi tiba-tiba muncul iklan judi atau game dewasa di tengah permainan anak.",
     },
     {
       e: "📊",
-      t: "Orang tua tidak tahu anak belajar apa.",
-      d: "Anak bilang 'sudah belajar' tapi tidak ada buktinya. Tidak ada laporan, tidak ada progress yang bisa dipantau.",
+      t: "Gak bisa dipantau",
+      d: "Anak main apa? Sudah belajar apa? Orang tua gelap gulita tanpa ada laporan progress.",
     },
   ];
   return (
-    <section className="py-20">
-      <div className="container mx-auto px-4">
-        <h2 className="font-display text-4xl md:text-5xl font-bold text-center max-w-3xl mx-auto">
-          Anak kamu main HP berjam-jam. Pertanyaannya: <span className="text-coral">main apa?</span>
+    <section className="py-24 bg-[#F8FAFC] relative">
+      <div className="container mx-auto px-4 relative z-10">
+        <h2 className="font-display text-4xl md:text-5xl font-black text-center max-w-4xl mx-auto leading-tight text-foreground">
+          Anak kamu main HP berjam-jam. <br/>Pertanyaannya: <span className="text-coral underline decoration-wavy decoration-coral/40 underline-offset-8">main apa?</span> 🧐
         </h2>
-        <div className="grid md:grid-cols-3 gap-6 mt-14">
+        <div className="grid md:grid-cols-3 gap-8 mt-16 max-w-5xl mx-auto">
           {pains.map((p) => (
-            <Card key={p.t} className="p-6 rounded-3xl border-2">
-              <div className="text-5xl mb-4">{p.e}</div>
-              <h3 className="font-display text-xl font-bold">{p.t}</h3>
-              <p className="text-muted-foreground mt-3 leading-relaxed">{p.d}</p>
+            <Card key={p.t} className="p-8 rounded-[2rem] border-4 border-[#E2E8F0] shadow-sm hover:border-coral/50 transition-colors bg-white">
+              <div className="w-16 h-16 rounded-2xl bg-[#F1F5F9] flex items-center justify-center text-4xl mb-6">{p.e}</div>
+              <h3 className="font-display text-2xl font-black text-foreground">{p.t}</h3>
+              <p className="text-muted-foreground font-medium mt-3 leading-relaxed">{p.d}</p>
             </Card>
           ))}
         </div>
-        <div className="mt-20 text-center">
-          <p className="font-display text-2xl md:text-3xl max-w-2xl mx-auto">
-            Jadikan screen time sebagai{" "}
-            <span className="text-primary">waktu belajar yang menyenangkan.</span>
+        <div className="mt-24 text-center">
+          <p className="font-display text-3xl md:text-4xl font-black max-w-3xl mx-auto text-foreground">
+            Jadikan screen time sebagai <br/>
+            <span className="text-primary bg-primary/10 px-4 py-1 rounded-xl inline-block mt-3 rotate-1">waktu belajar yang super seru! ✨</span>
           </p>
-          <p className="mt-4 text-lg text-muted-foreground">Introducing PintarYuk 🌟</p>
         </div>
       </div>
     </section>
@@ -454,7 +428,8 @@ function Features() {
       desc: "Ratusan game interaktif untuk anak usia 2–12 tahun, didesain sesuai tahap perkembangan.",
       bullets: ["Sesuai usia", "Tanpa iklan", "Konten aman", "Tersedia offline"],
       emoji: "🎮",
-      color: "bg-primary/10 text-primary",
+      color: "bg-[#E0E7FF] border-primary text-primary",
+      blob: "bg-primary/20",
     },
     {
       tag: "Powered by AI",
@@ -468,7 +443,8 @@ function Features() {
         "Adaptive difficulty",
       ],
       emoji: "🐰",
-      color: "bg-creative/10 text-creative",
+      color: "bg-[#FAE8FF] border-creative text-creative",
+      blob: "bg-creative/20",
     },
     {
       tag: "Seperti Duolingo",
@@ -477,7 +453,8 @@ function Features() {
       desc: "Sistem reward yang terbukti efektif — streak harian, XP, badge yang bisa dikumpulkan.",
       bullets: ["Daily streak", "20+ badge collection", "Level system", "Daily challenge"],
       emoji: "🏆",
-      color: "bg-sunny/30 text-sunny-foreground",
+      color: "bg-[#FEF3C7] border-sunny text-sunny-foreground",
+      blob: "bg-sunny/30",
     },
     {
       tag: "Full Visibility",
@@ -491,37 +468,46 @@ function Features() {
         "Notifikasi real-time",
       ],
       emoji: "📊",
-      color: "bg-success/10 text-success",
+      color: "bg-[#DCFCE7] border-success text-success",
+      blob: "bg-success/20",
     },
   ];
   return (
-    <section id="fitur" className="py-20 bg-gradient-to-b from-accent/30 to-background">
-      <div className="container mx-auto px-4">
-        <h2 className="font-display text-4xl md:text-5xl font-bold text-center max-w-3xl mx-auto">
-          Semua yang anak butuhkan untuk <span className="text-primary">tumbuh lebih cerdas</span>
-        </h2>
-        <div className="mt-16 space-y-20">
+    <section id="fitur" className="py-24 bg-white relative overflow-hidden">
+      <div className="absolute top-0 inset-x-0 h-10 bg-repeat-x" style={{ backgroundImage: 'radial-gradient(circle at 15px 0, transparent 16px, #FDFBF7 17px)', backgroundSize: '30px 20px', transform: 'rotate(180deg)' }}></div>
+      <div className="container mx-auto px-4 mt-10">
+        <div className="text-center max-w-3xl mx-auto mb-20">
+          <Badge className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full px-4 py-1.5 text-sm mb-4 font-bold border-2 border-primary/20">Apa yang Bikin Seru? 🤔</Badge>
+          <h2 className="font-display text-4xl md:text-5xl font-black text-foreground">
+            Semua yang anak butuhkan untuk <span className="text-primary inline-block hover:scale-105 transition-transform cursor-pointer">tumbuh lebih cerdas</span>
+          </h2>
+        </div>
+        
+        <div className="space-y-12">
           {feats.map((f, i) => (
             <div
               key={f.title}
-              className={`grid md:grid-cols-2 gap-10 items-center ${i % 2 ? "md:[&>*:first-child]:order-2" : ""}`}
+              className={`grid md:grid-cols-2 gap-8 items-center bg-white border-4 ${f.color.split(' ')[1]} rounded-[3rem] p-8 md:p-12 shadow-[0_12px_0_0_oklch(0.92_0.01_85)] hover:shadow-none hover:translate-y-3 transition-all duration-300 ${i % 2 ? "md:[&>*:first-child]:order-2" : ""}`}
             >
               <div>
-                <Badge className={`${f.color} rounded-full hover:${f.color}`}>{f.tag}</Badge>
-                <h3 className="font-display text-3xl font-bold mt-4">{f.title}</h3>
-                <p className="mt-4 text-lg text-muted-foreground leading-relaxed">{f.desc}</p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
+                <Badge className={`${f.color} rounded-full px-4 py-1 border-2 font-bold text-sm shadow-sm`}>{f.tag}</Badge>
+                <h3 className="font-display text-3xl font-black mt-6 leading-tight text-foreground">{f.title}</h3>
+                <p className="mt-4 text-xl text-muted-foreground font-medium leading-relaxed">{f.desc}</p>
+                <div className="mt-8 grid grid-cols-2 gap-4">
                   {f.bullets.map((b) => (
-                    <div key={b} className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-success flex-shrink-0" /> {b}
+                    <div key={b} className="flex items-center gap-3 text-base font-bold text-foreground">
+                      <div className="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center flex-shrink-0">
+                        <Check className="w-5 h-5 stroke-[3]" />
+                      </div>
+                      {b}
                     </div>
                   ))}
                 </div>
               </div>
               <div
-                className={`${f.color} aspect-square max-w-md mx-auto rounded-[3rem] flex items-center justify-center p-12 shadow-soft`}
+                className={`${f.blob} aspect-square max-w-sm mx-auto rounded-full flex items-center justify-center p-12 shadow-inner`}
               >
-                <div className="text-[12rem] animate-bounce-soft">{f.emoji}</div>
+                <div className="text-[10rem] animate-bounce-soft hover:scale-110 transition-transform cursor-pointer drop-shadow-xl">{f.emoji}</div>
               </div>
             </div>
           ))}

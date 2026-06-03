@@ -86,8 +86,13 @@ export const generateQuestions = createServerFn({ method: 'POST' })
       const response = await result.response;
       const text = response.text();
       
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
+      // Extract only the JSON array part [ ... ]
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error("Format soal AI tidak valid. Coba lagi.");
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]);
 
       // Save to cache asynchronously (don't block response)
       supabaseAdmin.from('ai_content_cache').insert({

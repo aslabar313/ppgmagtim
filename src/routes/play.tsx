@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, redirect } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,32 @@ export const Route = createFileRoute("/play")({
     return {
       childId: search.childId as string | undefined,
     };
+  },
+  beforeLoad: async ({ search }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // 1. Must be logged in
+    if (!session) {
+      throw redirect({ to: "/login" });
+    }
+
+    // 2. childId must be present
+    if (!search.childId) {
+      throw redirect({ to: "/" });
+    }
+
+    // 3. Security: Child must belong to this parent
+    const { data: child } = await supabase
+      .from("children")
+      .select("id")
+      .eq("id", search.childId)
+      .eq("parent_id", session.user.id)
+      .maybeSingle();
+
+    if (!child) {
+      toast.error("Profil anak tidak valid atau akses ditolak.");
+      throw redirect({ to: "/" });
+    }
   },
   component: ChildHome,
 });

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, redirect, Outlet, useMatch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,28 +25,8 @@ export const Route = createFileRoute("/play")({
     };
   },
   beforeLoad: async ({ search }) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // 1. Must be logged in
-    if (!session) {
-      throw redirect({ to: "/login" });
-    }
-
-    // 2. childId must be present
+    // Just ensure childId is in URL. Auth and ownership will be handled in useEffect for better UX/Debugging.
     if (!search.childId) {
-      throw redirect({ to: "/" });
-    }
-
-    // 3. Security: Child must belong to this parent
-    const { data: child } = await supabase
-      .from("children")
-      .select("id")
-      .eq("id", search.childId)
-      .eq("parent_id", session.user.id)
-      .maybeSingle();
-
-    if (!child) {
-      toast.error("Profil anak tidak valid atau akses ditolak.");
       throw redirect({ to: "/" });
     }
   },
@@ -184,6 +164,8 @@ function ChildHome() {
     }
   }
 
+  const isIndex = useMatch({ from: "/play", shouldThrow: false });
+
   if (loading || authLoading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-accent/30">
@@ -192,6 +174,9 @@ function ChildHome() {
     );
 
   if (!child) return <div>Data anak tidak ditemukan</div>;
+
+  // If we are on a sub-route (like /play/math), just render the Outlet
+  if (!isIndex) return <Outlet />;
 
   return (
     <div className={`min-h-screen bg-background pb-20 theme-${child.theme}`}>

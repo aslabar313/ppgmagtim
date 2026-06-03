@@ -3,12 +3,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CATEGORIES, ENCOURAGEMENTS, RETRY_MESSAGES } from "@/lib/pintar";
 import { toast } from "sonner";
-import { X, Check, ArrowRight, Star, Volume2, Sparkles, Trophy, Bot } from "lucide-react";
+import { X, ArrowRight, Star, Volume2, Sparkles, Trophy, Lightbulb, Bot } from "lucide-react";
 import { generateQuestions } from "@/server-functions/gemini";
 
 export const Route = createFileRoute("/play/$categoryId")({
@@ -35,6 +36,11 @@ function GameEngine() {
   const [isFinished, setIsFinished] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [wrongCount, setWrongCount] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  
+  // State for fill-in type
+  const [fillInAnswer, setFillInAnswer] = useState("");
 
   const category = CATEGORIES.find((c) => c.id === categoryId);
 
@@ -66,8 +72,8 @@ function GameEngine() {
       toast.error(error.message || "Gagal memuat soal. Pastikan API Key Gemini sudah disetel di Admin.");
       // Fallback ke soal dummy jika error
       setQuestions([
-        { q: "Berapa 2 + 3?", a: ["4", "5", "6"], c: "5", type: "tap" },
-        { q: "Yang mana gambar Gajah?", a: ["🦒", "🐘", "🦁"], c: "🐘", type: "tap" }
+        { q: "Berapa 2 + 3?", a: ["4", "5", "6"], c: "5", type: "tap", hint: "Gunakan 5 jarimu", explanation: "Dua ditambah tiga sama dengan lima!" },
+        { q: "Yang mana gambar Gajah?", a: ["🦒", "🐘", "🦁"], c: "🐘", type: "tap", hint: "Hewan yang belalainya panjang", explanation: "Gajah punya belalai yang panjang dan telinga yang lebar." }
       ]);
     } finally {
       setLoading(false);
@@ -78,28 +84,45 @@ function GameEngine() {
   const handleAnswer = (ans: string) => {
     if (showFeedback) return;
 
-    const correct = ans === questions[currentIdx].c;
-    if (correct) {
+    // Normalisasi jawaban untuk fill-in
+    const currentQ = questions[currentIdx];
+    const isCorrect = ans.trim().toLowerCase() === currentQ.c.toString().toLowerCase();
+
+    if (isCorrect) {
       setScore((s) => s + 1);
       setShowFeedback("correct");
       setFeedbackMsg(ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]);
-      setWrongCount(0);
-    } else {
-      setShowFeedback("wrong");
-      setFeedbackMsg(RETRY_MESSAGES[Math.floor(Math.random() * RETRY_MESSAGES.length)]);
-      setWrongCount((w) => w + 1);
-    }
-
-    setTimeout(() => {
-      setShowFeedback(null);
-      if (correct) {
+      
+      setTimeout(() => {
+        setShowFeedback(null);
+        setWrongCount(0);
+        setShowHint(false);
+        setShowExplanation(false);
+        setFillInAnswer("");
+        
         if (currentIdx < questions.length - 1) {
           setCurrentIdx((i) => i + 1);
         } else {
           finishGame();
         }
-      }
-    }, 1500);
+      }, 1500);
+
+    } else {
+      setShowFeedback("wrong");
+      setFeedbackMsg(RETRY_MESSAGES[Math.floor(Math.random() * RETRY_MESSAGES.length)]);
+      
+      const newWrongCount = wrongCount + 1;
+      setWrongCount(newWrongCount);
+
+      setTimeout(() => {
+        setShowFeedback(null);
+        if (newWrongCount === 1 && currentQ.hint) {
+           setShowHint(true);
+        } else if (newWrongCount >= 2 && currentQ.explanation) {
+           setShowExplanation(true);
+        }
+      }, 1500);
+    }
   };
 
   async function finishGame() {
@@ -148,7 +171,7 @@ function GameEngine() {
           {[1, 2, 3].map((i) => (
             <Star
               key={i}
-              className={`w-12 h-12 ${i <= (score >= 4 ? 3 : score >= 2 ? 2 : 1) ? "text-sunny fill-sunny" : "text-muted-foreground/30"}`}
+              className={`w-12 h-12 ${i <= (score >= Math.ceil(questions.length * 0.8) ? 3 : score >= Math.ceil(questions.length * 0.5) ? 2 : 1) ? "text-sunny fill-sunny" : "text-muted-foreground/30"}`}
             />
           ))}
         </div>
@@ -170,7 +193,12 @@ function GameEngine() {
           <Button
             size="xl"
             className="rounded-full shadow-playful"
-            onClick={() => navigate({ to: "/play", search: { childId } })}
+            onClick={() => {
+              setScore(0);
+              setCurrentIdx(0);
+              setIsFinished(false);
+              loadQuestions();
+            }}
           >
             Main Lagi Yuk! 🚀
           </Button>
@@ -184,72 +212,119 @@ function GameEngine() {
     );
 
   const currentQ = questions[currentIdx];
+  if (!currentQ) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background overflow-hidden relative">
+    <div className="min-h-screen flex flex-col bg-[#FDFBF7] overflow-hidden relative">
       {/* Header */}
       <header className="p-4 flex items-center gap-4 relative z-10">
         <button
           onClick={() => navigate({ to: "/play", search: { childId } })}
-          className="p-2 bg-accent rounded-full text-muted-foreground"
+          className="p-3 bg-white border-2 rounded-full text-muted-foreground shadow-sm hover:bg-accent transition"
         >
           <X className="w-6 h-6" />
         </button>
         <div className="flex-1 flex items-center gap-2">
-          <Progress value={(currentIdx / questions.length) * 100} className="h-4 rounded-full" />
-          <span className="font-bold text-sm text-muted-foreground">
-            {currentIdx + 1}/{questions.length}
-          </span>
+          <Progress value={((currentIdx) / questions.length) * 100} className="h-5 rounded-full border-2" />
         </div>
-        <div className="flex items-center gap-1 bg-sunny/20 px-3 py-1.5 rounded-full">
-          <Star className="w-4 h-4 text-sunny fill-sunny" />
-          <span className="font-bold text-sunny-foreground">{score}</span>
+        <div className="flex items-center gap-2 bg-white border-2 px-4 py-2 rounded-full shadow-sm">
+          <Star className="w-5 h-5 text-sunny fill-sunny animate-pulse" />
+          <span className="font-black text-lg text-sunny-foreground">{score}</span>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-8 relative z-10">
-        <div className="text-center space-y-4">
-          <div className="text-3xl font-display font-bold leading-tight max-w-lg">{currentQ.q}</div>
-          <button className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto hover:bg-primary/20 transition">
-            <Volume2 className="w-6 h-6" />
+      <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-8 relative z-10 w-full max-w-xl mx-auto">
+        
+        {/* Question Area */}
+        <div className="text-center space-y-6 w-full">
+          <div className="bg-white p-8 rounded-[3rem] border-4 border-primary/20 shadow-[0_8px_0_0_oklch(0.92_0.01_85)]">
+            <h2 className="text-3xl md:text-4xl font-display font-black leading-tight text-foreground">
+              {currentQ.q}
+            </h2>
+          </div>
+          
+          <button className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto hover:bg-primary/20 hover:scale-110 transition-transform cursor-pointer border-2 border-primary/20 shadow-sm">
+            <Volume2 className="w-7 h-7" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
-          {currentQ.a.map((ans: string, i: number) => (
-            <button
-              key={i}
-              onClick={() => handleAnswer(ans)}
-              className={`h-20 rounded-[2rem] border-4 border-accent text-2xl font-bold shadow-soft transition active:scale-95 hover:bg-accent/50 ${showFeedback === "correct" && ans === currentQ.c ? "bg-success/20 border-success text-success" : ""}`}
+        {/* AI Helper Messages */}
+        {(showHint || showExplanation) && (
+          <div className="w-full bg-creative/10 border-2 border-creative/30 p-4 rounded-3xl flex items-start gap-3 animate-in slide-in-from-top-4">
+            <div className="w-12 h-12 bg-white rounded-full flex flex-shrink-0 items-center justify-center text-2xl shadow-sm">
+              🤖
+            </div>
+            <div>
+              <div className="font-bold text-creative flex items-center gap-1">
+                {showExplanation ? <><Bot className="w-4 h-4"/> AI Tutor Menjelaskan</> : <><Lightbulb className="w-4 h-4"/> Petunjuk</>}
+              </div>
+              <p className="font-medium text-foreground mt-1">
+                {showExplanation ? currentQ.explanation : currentQ.hint}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Answer Area based on Type */}
+        <div className="w-full pt-4">
+          
+          {(currentQ.type === 'tap' || currentQ.type === 'visual' || currentQ.type === 'true-false' || !currentQ.type) && (
+            <div className={`grid gap-4 w-full ${currentQ.a?.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {currentQ.a?.map((ans: string, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => handleAnswer(ans)}
+                  className={`min-h-20 p-4 rounded-[2rem] border-4 border-[#E2E8F0] bg-white text-2xl font-black shadow-[0_6px_0_0_oklch(0.92_0.01_85)] transition-all active:scale-95 active:translate-y-2 active:shadow-none hover:border-primary hover:bg-primary/5`}
+                >
+                  {ans}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {currentQ.type === 'fill-in' && (
+            <form 
+              onSubmit={(e) => { e.preventDefault(); handleAnswer(fillInAnswer); }}
+              className="flex flex-col gap-4 w-full"
             >
-              {ans}
-            </button>
-          ))}
+              <Input 
+                autoFocus
+                value={fillInAnswer}
+                onChange={(e) => setFillInAnswer(e.target.value)}
+                placeholder="Ketik jawabanmu di sini..."
+                className="h-20 rounded-[2rem] border-4 border-[#E2E8F0] text-center text-3xl font-black shadow-inner"
+              />
+              <Button type="submit" disabled={!fillInAnswer} className="h-16 rounded-[2rem] text-xl font-bold bg-success hover:bg-success/90 shadow-[0_6px_0_0_oklch(0.6_0.15_140)] hover:shadow-none hover:translate-y-1 transition-all">
+                Cek Jawaban ✔️
+              </Button>
+            </form>
+          )}
+
         </div>
       </main>
 
       {/* Feedback Overlay */}
       {showFeedback && (
         <div
-          className={`fixed inset-0 z-50 flex items-center justify-center p-10 animate-in zoom-in duration-300 ${showFeedback === "correct" ? "bg-success/80" : "bg-coral/80"}`}
+          className={`fixed inset-0 z-50 flex items-center justify-center p-10 animate-in zoom-in duration-300 ${showFeedback === "correct" ? "bg-success/90" : "bg-coral/90"}`}
         >
-          <div className="bg-background rounded-[3rem] p-10 text-center shadow-2xl space-y-4 max-w-sm w-full">
-            <div className="text-8xl animate-bounce">
+          <div className="bg-white rounded-[3rem] p-10 text-center shadow-2xl space-y-4 max-w-sm w-full border-4 border-white/20">
+            <div className="text-9xl animate-bounce">
               {showFeedback === "correct" ? "🐰✨" : "🐰💨"}
             </div>
-            <h2 className="font-display text-3xl font-bold">
+            <h2 className="font-display text-4xl font-black text-foreground">
               {showFeedback === "correct" ? "HEBAT!" : "OOPS!"}
             </h2>
-            <p className="text-lg font-medium">{feedbackMsg}</p>
+            <p className="text-xl font-bold text-muted-foreground">{feedbackMsg}</p>
           </div>
         </div>
       )}
 
       {/* Background shapes */}
-      <div className="absolute inset-0 pointer-events-none opacity-10">
-        <div className="absolute top-1/4 left-10 text-9xl">🎈</div>
-        <div className="absolute bottom-1/4 right-10 text-9xl">🌟</div>
-        <div className="absolute top-1/2 right-1/4 text-8xl">🔢</div>
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute top-1/4 left-5 text-8xl blur-[2px]">🎈</div>
+        <div className="absolute bottom-1/4 right-5 text-8xl blur-[2px]">🌟</div>
+        <div className="absolute top-1/2 right-1/4 text-7xl blur-[1px]">🎨</div>
       </div>
     </div>
   );

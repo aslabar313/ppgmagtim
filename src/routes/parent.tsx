@@ -25,6 +25,9 @@ function ParentDashboard() {
   const [selectedChild, setSelectedChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [childProgress, setChildProgress] = useState<any>(null);
+  const [weeklyStats, setWeeklyStats] = useState<number[]>(new Array(7).fill(0));
+  const [totalWeeklyTime, setTotalWeeklyTime] = useState(0);
+  const [subjectStats, setSubjectStats] = useState<any[]>([]);
 
   // Screen Time State
   const [dailyLimit, setDailyLimit] = useState("60");
@@ -40,8 +43,70 @@ function ParentDashboard() {
   useEffect(() => {
     if (selectedChild) {
       fetchProgress();
+      fetchWeeklyActivity();
+      fetchSubjectStats();
     }
   }, [selectedChild]);
+
+  async function fetchWeeklyActivity() {
+    if (!selectedChild) return;
+    
+    // Get last 7 days including today
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 6);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const { data: logs } = await supabase
+      .from("screen_time_logs")
+      .select("duration_sec, date")
+      .eq("child_id", selectedChild.id)
+      .gte("date", startOfWeek.toISOString().split('T')[0]);
+
+    const stats = new Array(7).fill(0);
+    let totalSec = 0;
+
+    if (logs) {
+      logs.forEach(log => {
+        const logDate = new Date(log.date);
+        const diffDays = Math.floor((logDate.getTime() - startOfWeek.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays < 7) {
+          const mins = Math.floor(log.duration_sec / 60);
+          stats[diffDays] += mins;
+          totalSec += log.duration_sec;
+        }
+      });
+    }
+
+    setWeeklyStats(stats);
+    setTotalWeeklyTime(totalSec);
+  }
+
+  async function fetchSubjectStats() {
+    if (!selectedChild) return;
+    const { data: sessions } = await supabase
+      .from("game_sessions")
+      .select("category")
+      .eq("child_id", selectedChild.id);
+    
+    if (sessions) {
+      const counts: Record<string, number> = {};
+      sessions.forEach(s => {
+        counts[s.category] = (counts[s.category] || 0) + 1;
+      });
+      
+      const stats = [
+        { name: "Matematika", id: "math", count: counts.math || 0, color: "bg-cat-math" },
+        { name: "Membaca", id: "reading", count: counts.reading || 0, color: "bg-cat-reading" },
+        { name: "Sains", id: "science", count: counts.science || 0, color: "bg-cat-science" },
+        { name: "Kreatif", id: "creative", count: counts.creative || 0, color: "bg-cat-creative" },
+        { name: "English", id: "english", count: counts.english || 0, color: "bg-cat-english" },
+        { name: "Musik", id: "music", count: counts.music || 0, color: "bg-cat-music" },
+        { name: "Islami", id: "islamic", count: counts.islamic || 0, color: "bg-cat-islamic" },
+      ].filter(s => s.count > 0).sort((a, b) => b.count - a.count);
+      
+      setSubjectStats(stats);
+    }
+  }
 
   async function checkAdmin() {
     const { data } = await supabase.rpc("has_role", { _user_id: user?.id, _role: "admin" });
@@ -166,8 +231,12 @@ function ParentDashboard() {
             <div className="grid md:grid-cols-3 gap-6">
               <Card className="p-6 rounded-3xl border-2 shadow-sm">
                 <h3 className="font-bold text-muted-foreground text-sm uppercase">Total Belajar (Minggu Ini)</h3>
-                <div className="text-3xl font-display font-bold mt-2">2 Jam 45 Menit</div>
-                <p className="text-xs text-success font-bold mt-1">Sangat konsisten!</p>
+                <div className="text-3xl font-display font-bold mt-2">
+                  {Math.floor(totalWeeklyTime / 3600)} Jam {Math.floor((totalWeeklyTime % 3600) / 60)} Menit
+                </div>
+                <p className="text-xs text-success font-bold mt-1">
+                  {totalWeeklyTime > 0 ? "Sangat konsisten!" : "Ayo mulai belajar!"}
+                </p>
               </Card>
               <Card className="p-6 rounded-3xl border-2 shadow-sm">
                 <h3 className="font-bold text-muted-foreground text-sm uppercase">XP Terkumpul</h3>
@@ -184,24 +253,73 @@ function ParentDashboard() {
             <Card className="p-8 rounded-[2rem] border-2 shadow-sm">
               <h3 className="font-display text-xl font-bold mb-6">Aktivitas Belajar {selectedChild?.name || "Anak"}</h3>
               <div className="h-64 flex items-end justify-between gap-2">
-                {[15, 30, 45, 60, 20, 0, 0].map((h, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full bg-primary/10 rounded-t-xl relative group h-full flex items-end">
-                      <div
-                        className="bg-primary rounded-t-xl transition-all duration-500 w-full"
-                        style={{ height: `${(h / 60) * 100}%` }}
-                      />
-                      <div className="absolute bottom-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 bg-foreground text-background text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition z-10 pointer-events-none whitespace-nowrap">
-                        {h} mnt
+                {weeklyStats.map((h, i) => {
+                  const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+                  const today = new Date();
+                  const d = new Date();
+                  d.setDate(today.getDate() - (6 - i));
+                  const label = days[d.getDay()];
+                  const maxMins = Math.max(...weeklyStats, 60);
+                  
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                      <div className="w-full bg-primary/10 rounded-t-xl relative group h-full flex items-end">
+                        <div
+                          className="bg-primary rounded-t-xl transition-all duration-500 w-full"
+                          style={{ height: `${(h / maxMins) * 100}%` }}
+                        />
+                        <div className="absolute bottom-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 bg-foreground text-background text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition z-10 pointer-events-none whitespace-nowrap">
+                          {h} mnt
+                        </div>
                       </div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase mt-2">
+                        {label}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase mt-2">
-                      {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"][i]}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="p-8 rounded-[2rem] border-2 shadow-sm">
+                <h3 className="font-display text-xl font-bold mb-6">Minat & Bakat</h3>
+                <div className="space-y-4">
+                  {subjectStats.length > 0 ? subjectStats.map((s) => (
+                    <div key={s.id} className="space-y-1.5">
+                      <div className="flex justify-between text-sm font-bold">
+                        <span>{s.name}</span>
+                        <span>{s.count} Sesi</span>
+                      </div>
+                      <div className="w-full h-3 bg-accent rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${s.color} rounded-full transition-all duration-1000`} 
+                          style={{ width: `${(s.count / Math.max(...subjectStats.map(st => st.count))) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-center py-10 text-muted-foreground italic">
+                      Belum ada data aktivitas.
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-8 rounded-[2rem] border-2 shadow-sm bg-primary/5 border-primary/20">
+                <h3 className="font-display text-xl font-bold mb-4">Saran AI Tutor 🤖</h3>
+                <div className="space-y-4">
+                  <div className="p-4 bg-background rounded-2xl border-2 border-primary/10 relative">
+                    <div className="absolute -top-3 -right-3 text-2xl">💡</div>
+                    <p className="text-sm leading-relaxed">
+                      {selectedChild?.name} sangat menyukai <strong>{subjectStats[0]?.name || 'belajar'}</strong>! 
+                      Coba berikan tantangan <strong>{subjectStats[subjectStats.length-1]?.name || 'baru'}</strong> besok untuk menyeimbangkan pengetahuannya.
+                    </p>
+                  </div>
+                  <Button className="w-full rounded-full font-bold h-12">Lihat Rekomendasi Lengkap</Button>
+                </div>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="screentime" className="animate-in fade-in duration-500">

@@ -3,9 +3,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { speak } from "@/lib/speech";
 import { Flame, Trophy, Lock, ArrowLeft, Settings } from "lucide-react";
 
 export const Route = createFileRoute("/play")({
@@ -25,6 +35,11 @@ function ChildHome() {
   const [child, setChild] = useState<any>(null);
   const [progress, setProgress] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [recentGames, setRecentGames] = useState<any[]>([]);
+  const [dailyChallenge, setDailyChallenge] = useState<any>(null);
+  const [isTimeUp, setIsTimeUp] = useState(false);
+  const [timePlayedToday, setTimePlayedToday] = useState(0);
+  const [parentPin, setParentPin] = useState("");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -39,22 +54,99 @@ function ChildHome() {
 
     if (user && childId) {
       fetchChildData();
+      fetchParentData();
     }
   }, [user, authLoading, childId]);
 
+  async function fetchParentData() {
+    if (!user) return;
+    const { data } = await supabase.from("profiles").select("pin_hash").eq("id", user.id).single();
+    if (data) setParentPin(data.pin_hash || "");
+  }
+
   async function fetchChildData() {
     setLoading(true);
+
+    // Child profile
     const { data: childData } = await supabase
       .from("children")
       .select("*")
       .eq("id", childId)
       .single();
 
+    // Screen Time Check
+    const today = new Date().toISOString().split('T')[0];
+    const { data: screenLogs } = await supabase
+      .from("screen_time_logs")
+      .select("duration_sec")
+      .eq("child_id", childId)
+      .eq("date", today);
+
+    const totalSec = screenLogs?.reduce((acc, log) => acc + (log.duration_sec || 0), 0) || 0;
+    setTimePlayedToday(totalSec);
+
+    if (childData && childData.daily_limit_min > 0) {
+      if (totalSec >= childData.daily_limit_min * 60) {
+        setIsTimeUp(true);
+      }
+    }
+
+    // Progress
     const { data: progressData } = await supabase
-      .from("child_progress")
+  ...
+
       .select("*")
       .eq("child_id", childId)
       .single();
+
+    // Recent games
+    const { data: recent } = await supabase
+      .from("game_sessions")
+      .select("category")
+      .eq("child_id", childId)
+      .order("played_at", { ascending: false })
+      .limit(5);
+
+    // Unique categories from recent
+    const uniqueRecent = Array.from(new Set(recent?.map(r => r.category))).slice(0, 3);
+    setRecentGames(uniqueRecent);
+
+    // Daily Challenge
+    const today = new Date().toISOString().split('T')[0];
+    const { data: challenge } = await supabase
+      .from("daily_challenges")
+      .select("*")
+      .eq("child_id", childId)
+      .eq("date", today)
+      .maybeSingle();
+    
+    if (challenge) {
+      // Check if requirement met but not marked completed
+      if (!challenge.completed) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0,0,0,0);
+        const { count } = await supabase.from('game_sessions').select('*', { count: 'exact', head: true }).eq('child_id', childId).gte('played_at', startOfDay.toISOString());
+        
+        if (count && count >= 2) {
+          const { data: updated } = await supabase.from('daily_challenges').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', challenge.id).select().single();
+          setDailyChallenge(updated);
+          toast.success("Tantangan Harian Selesai! 🎉");
+        } else {
+          setDailyChallenge(challenge);
+        }
+      } else {
+        setDailyChallenge(challenge);
+      }
+    } else {
+      // Create a default challenge for today if none exists
+      const { data: newChallenge } = await supabase.from("daily_challenges").insert({
+        child_id: childId,
+        date: today,
+        challenge_key: "play_2_games",
+        category: "math" // dummy
+      }).select().single();
+      setDailyChallenge(newChallenge);
+    }
 
     setChild(childData);
     setProgress(progressData);
@@ -112,25 +204,55 @@ function ChildHome() {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* Screen Time Alert */}
+        {isTimeUp && (
+          <Card className="p-6 bg-coral/10 border-2 border-coral/30 rounded-[2rem] text-center space-y-4">
+             <div className="text-6xl animate-bounce">😴</div>
+             <h2 className="font-display text-2xl font-bold text-coral">Waktunya Istirahat!</h2>
+             <p className="font-medium text-muted-foreground">
+               Ayah & Bunda bilang waktu main hari ini sudah habis. <br/>
+               Kita main lagi besok ya! ✨
+             </p>
+             <Button onClick={() => navigate({ to: "/" })} variant="outline" className="rounded-full border-coral text-coral hover:bg-coral/5">
+               Kembali ke Profil
+             </Button>
+          </Card>
+        )}
+
         {/* Daily Challenge */}
-        <Card className="p-5 bg-gradient-to-br from-sunny to-challenge text-sunny-foreground rounded-[2rem] border-none shadow-playful relative overflow-hidden group cursor-pointer active:scale-95 transition">
-          <div className="absolute -right-4 -top-4 text-7xl opacity-20 group-hover:rotate-12 transition">
-            🌟
-          </div>
-          <div className="relative z-10">
-            <Badge className="bg-background/30 text-background hover:bg-background/30 rounded-full mb-2">
-              Tantangan Hari Ini
-            </Badge>
-            <h2 className="font-display text-2xl font-bold">Ayo kumpulkan 50 XP!</h2>
-            <p className="mt-1 opacity-90 text-sm">Selesaikan 2 game apa saja sekarang</p>
-            <Button className="mt-4 rounded-full bg-background text-foreground hover:bg-background/90 font-bold px-6 shadow-soft">
-              Main Sekarang ✨
-            </Button>
-          </div>
-        </Card>
+        {!isTimeUp && dailyChallenge && (
+          <Card className={`p-5 bg-gradient-to-br ${dailyChallenge.completed ? 'from-success to-green-400' : 'from-sunny to-challenge'} text-white rounded-[2rem] border-none shadow-playful relative overflow-hidden group cursor-pointer active:scale-95 transition`}>
+            <div className="absolute -right-4 -top-4 text-7xl opacity-20 group-hover:rotate-12 transition">
+              {dailyChallenge.completed ? "🏆" : "🌟"}
+            </div>
+            <div className="relative z-10">
+              <Badge className="bg-background/30 text-background hover:bg-background/30 rounded-full mb-2">
+                Tantangan Hari Ini
+              </Badge>
+              <h2 className="font-display text-2xl font-bold">
+                {dailyChallenge.completed ? "Tantangan Selesai! 🎉" : "Ayo kumpulkan 50 XP!"}
+              </h2>
+              <p className="mt-1 opacity-90 text-sm">
+                {dailyChallenge.completed ? "Kamu hebat sudah menyelesaikan tantangan." : "Selesaikan 2 game apa saja sekarang"}
+              </p>
+              {!dailyChallenge.completed && (
+                <Button 
+                  className="mt-4 rounded-full bg-background text-foreground hover:bg-background/90 font-bold px-6 shadow-soft"
+                  onClick={() => {
+                    const available = ["math", "reading", "science", "english", "creative", "music"];
+                    const random = available[Math.floor(Math.random() * available.length)];
+                    navigate({ to: "/play/$categoryId", params: { categoryId: random }, search: { childId } });
+                  }}
+                >
+                  Main Sekarang ✨
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Categories */}
-        <section>
+        <section className={isTimeUp ? "opacity-50 pointer-events-none grayscale" : ""}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold">Pilih Petualanganmu 🎮</h3>
           </div>
@@ -173,6 +295,13 @@ function ChildHome() {
                 l: 1,
                 hidden: !child.islamic_content,
               },
+              {
+                id: "music",
+                n: "Lagu & Musik",
+                e: "🎵",
+                c: "bg-cat-music/15 text-cat-music",
+                l: 1,
+              },
             ]
               .filter((i) => !i.hidden)
               .map((cat) => (
@@ -200,37 +329,108 @@ function ChildHome() {
         <section className="pt-2">
           <h3 className="font-display text-lg font-bold mb-3">Main Lagi Yuk</h3>
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex-shrink-0 w-32 aspect-square rounded-[2rem] bg-accent/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-3xl opacity-50"
-              >
-                ❓
-              </div>
-            ))}
+            {recentGames.length > 0 ? (
+              recentGames.map((catId) => {
+                const cat = [
+                  { id: "math", e: "🔢", c: "bg-cat-math/10" },
+                  { id: "reading", e: "📖", c: "bg-cat-reading/10" },
+                  { id: "science", e: "🌍", c: "bg-cat-science/10" },
+                  { id: "creative", e: "🎨", c: "bg-cat-creative/10" },
+                  { id: "english", e: "🗣️", c: "bg-cat-english/10" },
+                  { id: "islamic", e: "☪️", c: "bg-cat-islamic/10" },
+                  { id: "music", e: "🎵", c: "bg-cat-music/10" },
+                ].find(c => c.id === catId);
+                
+                return (
+                  <Link
+                    key={catId}
+                    to="/play/$categoryId"
+                    params={{ categoryId: catId }}
+                    search={{ childId }}
+                    className={`flex-shrink-0 w-32 aspect-square rounded-[2rem] ${cat?.c || 'bg-accent/50'} border-2 flex items-center justify-center text-4xl shadow-sm hover:scale-105 transition`}
+                  >
+                    {cat?.e || "🎮"}
+                  </Link>
+                );
+              })
+            ) : (
+              [1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex-shrink-0 w-32 aspect-square rounded-[2rem] bg-accent/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-3xl opacity-50"
+                >
+                  ❓
+                </div>
+              ))
+            )}
           </div>
         </section>
 
         {/* Mascot Mascot */}
-        <div className="fixed bottom-6 right-6 z-40">
+        <div 
+          className="fixed bottom-6 right-6 z-40"
+          onClick={() => {
+            const msgs = [
+              `Halo ${child.name}! Kamu hebat hari ini!`,
+              "Ayo main lagi, biar makin pintar!",
+              "Aku suka sekali belajar bersamamu ✨",
+              "Ingat ya, jangan main HP terlalu lama!",
+              "Level kamu sebentar lagi naik lho! 🚀"
+            ];
+            const msg = msgs[Math.floor(Math.random() * msgs.length)];
+            toast(msg, { icon: child.avatar === "rabbit" ? "🐰" : "🐻" });
+            speak(msg);
+          }}
+        >
           <div className="bg-card p-3 rounded-2xl shadow-playful border-2 relative animate-bounce-soft cursor-pointer">
             <div className="absolute -top-12 -right-4 bg-background px-3 py-2 rounded-xl text-xs font-bold shadow-sm border whitespace-nowrap">
               Tap aku dong! ✨
             </div>
-            <div className="text-5xl">🐰</div>
+            <div className="text-5xl">{child.avatar === "rabbit" ? "🐰" : "🐻"}</div>
           </div>
         </div>
       </main>
 
       {/* Nav Placeholder for Child */}
       <nav className="fixed bottom-0 inset-x-0 bg-background/80 backdrop-blur-md border-t h-16 flex items-center justify-around px-6 z-30">
-        <button className="text-primary">
-          <Settings className="w-7 h-7" />
-        </button>
-        <button className="w-14 h-14 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shadow-playful -mt-8 border-4 border-background">
-          <Trophy className="w-7 h-7" />
-        </button>
-        <button className="text-muted-foreground">
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="text-primary">
+              <Settings className="w-7 h-7" />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="rounded-[2.5rem] p-8 max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-center font-display text-2xl font-black">Akses Orang Tua 🔐</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+               <p className="text-center text-muted-foreground text-sm font-medium">Masukkan PIN 4 angka Ayah/Bunda untuk masuk ke Dashboard.</p>
+               <div className="flex justify-center">
+                  <Input 
+                    type="password" 
+                    maxLength={4} 
+                    placeholder="****"
+                    className="h-16 w-32 text-center text-3xl font-black tracking-widest rounded-2xl border-4"
+                    onChange={(e) => {
+                      if (e.target.value === parentPin) {
+                        navigate({ to: "/parent" });
+                      }
+                    }}
+                  />
+               </div>
+               <DialogFooter>
+                  <Button variant="ghost" className="w-full rounded-full font-bold">Lupa PIN?</Button>
+               </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+        
+        <Link to="/play/trophies" search={{ childId }}>
+          <button className="w-14 h-14 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shadow-playful -mt-8 border-4 border-background">
+            <Trophy className="w-7 h-7" />
+          </button>
+        </Link>
+        <button onClick={() => navigate({ to: "/" })} className="text-muted-foreground">
           <ArrowLeft className="w-7 h-7" />
         </button>
       </nav>

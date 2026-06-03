@@ -3,9 +3,24 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '../integrations/supabase/client.server';
 
 export const generateQuestions = createServerFn({ method: 'POST' })
-  .validator((data: { categoryId: string; ageGroup: string; language: string; islamicContent: boolean; difficulty?: string }) => data)
+  .validator((data: { categoryId: string; ageGroup: string; language: string; islamicContent: boolean; difficulty?: string; topic?: string }) => data)
   .handler(async ({ data }) => {
-    const { categoryId, ageGroup, language, islamicContent, difficulty = "normal" } = data;
+    const { categoryId, ageGroup, language, islamicContent, difficulty = "normal", topic = "General" } = data;
+
+    // 1. Check Cache first
+    const { data: cached } = await supabaseAdmin
+      .from('ai_content_cache')
+      .select('payload')
+      .eq('category', categoryId)
+      .eq('age_group', ageGroup)
+      .eq('topic', topic)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cached && Math.random() > 0.3) { // 70% chance to use cache to save API, 30% to refresh
+      return cached.payload;
+    }
 
     const { data: settings } = await supabaseAdmin.from('app_settings').select('gemini_api_key, gemini_model').eq('id', 1).single();
 
@@ -72,7 +87,19 @@ export const generateQuestions = createServerFn({ method: 'POST' })
       const text = response.text();
       
       const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      return JSON.parse(cleanJson);
+      const parsed = JSON.parse(cleanJson);
+
+      // Save to cache asynchronously (don't block response)
+      supabaseAdmin.from('ai_content_cache').insert({
+        category: categoryId as any,
+        age_group: ageGroup as any,
+        topic: topic,
+        payload: parsed
+      }).then(({ error }) => {
+        if (error) console.error("Cache Save Error:", error);
+      });
+
+      return parsed;
     } catch (error: any) {
       console.error("Gemini Error:", error);
       throw new Error("Gagal mengambil soal dari AI Tutor. Cek kuota API atau koneksi.");

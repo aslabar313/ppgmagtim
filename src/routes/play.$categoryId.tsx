@@ -7,10 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { CATEGORIES, ENCOURAGEMENTS, RETRY_MESSAGES } from "@/lib/pintar";
+import { CATEGORIES, ENCOURAGEMENTS, RETRY_MESSAGES, xpToLevel } from "@/lib/pintar";
 import { toast } from "sonner";
 import { X, ArrowRight, Star, Volume2, Sparkles, Trophy, Lightbulb, Bot } from "lucide-react";
+import { speak, stopSpeaking } from "@/lib/speech";
 import { generateQuestions } from "@/server-functions/gemini";
+import { CreativeGame } from "@/components/games/CreativeGame";
+import { MusicGame } from "@/components/games/MusicGame";
+import { updateStreak, checkAndAwardBadges } from "@/lib/game-logic";
 
 export const Route = createFileRoute("/play/$categoryId")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -18,10 +22,35 @@ export const Route = createFileRoute("/play/$categoryId")({
       childId: search.childId as string,
     };
   },
-  component: GameEngine,
+  component: PlayRoute,
 });
 
-function GameEngine() {
+function PlayRoute() {
+  const { categoryId } = Route.useParams();
+  const { childId } = Route.useSearch();
+  const [child, setChild] = useState<any>(null);
+
+  useEffect(() => {
+    fetchChild();
+  }, [childId]);
+
+  async function fetchChild() {
+    const { data } = await supabase.from('children').select('*').eq('id', childId).single();
+    if (data) setChild(data);
+  }
+
+  if (categoryId === 'creative') {
+    return <CreativeGame childId={childId} childName={child?.name || "Anak"} />;
+  }
+
+  if (categoryId === 'music') {
+    return <MusicGame childId={childId} childName={child?.name || "Anak"} />;
+  }
+
+  return <GameEngine child={child} />;
+}
+
+function GameEngine({ child }: { child: any }) {
   const { categoryId } = Route.useParams();
   const { childId } = Route.useSearch();
   const { user, loading: authLoading } = useAuth();
@@ -38,6 +67,7 @@ function GameEngine() {
   const [wrongCount, setWrongCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [startTime] = useState(Date.now());
   
   // State for fill-in type
   const [fillInAnswer, setFillInAnswer] = useState("");
@@ -46,16 +76,14 @@ function GameEngine() {
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login" });
-    if (user && childId) loadQuestions();
-  }, [user, authLoading, childId, categoryId]);
+    if (user && childId && child) loadQuestions();
+  }, [user, authLoading, childId, categoryId, child]);
 
   async function loadQuestions() {
+    if (!child) return;
     setLoading(true);
     setLoadingAi(true);
     try {
-      const { data: child } = await supabase.from('children').select('*').eq('id', childId).single();
-      if (!child) throw new Error("Profil anak tidak ditemukan");
-
       // Panggil AI Tutor (Gemini Server Function)
       const aiQuestions = await generateQuestions({
         data: {
@@ -81,6 +109,13 @@ function GameEngine() {
     }
   }
 
+  useEffect(() => {
+    if (questions[currentIdx] && !loading && !isFinished) {
+      speak(questions[currentIdx].q);
+    }
+    return () => stopSpeaking();
+  }, [currentIdx, loading, questions, isFinished]);
+
   const handleAnswer = (ans: string) => {
     if (showFeedback) return;
 
@@ -91,7 +126,9 @@ function GameEngine() {
     if (isCorrect) {
       setScore((s) => s + 1);
       setShowFeedback("correct");
-      setFeedbackMsg(ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]);
+      const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+      setFeedbackMsg(msg);
+      speak(msg);
       
       setTimeout(() => {
         setShowFeedback(null);
@@ -109,7 +146,9 @@ function GameEngine() {
 
     } else {
       setShowFeedback("wrong");
-      setFeedbackMsg(RETRY_MESSAGES[Math.floor(Math.random() * RETRY_MESSAGES.length)]);
+      const msg = RETRY_MESSAGES[Math.floor(Math.random() * RETRY_MESSAGES.length)];
+      setFeedbackMsg(msg);
+      speak(msg);
       
       const newWrongCount = wrongCount + 1;
       setWrongCount(newWrongCount);
@@ -118,8 +157,10 @@ function GameEngine() {
         setShowFeedback(null);
         if (newWrongCount === 1 && currentQ.hint) {
            setShowHint(true);
+           speak("Ini petunjuknya: " + currentQ.hint);
         } else if (newWrongCount >= 2 && currentQ.explanation) {
            setShowExplanation(true);
+           speak("Dengarkan penjelasan AI Tutor ya: " + currentQ.explanation);
         }
       }, 1500);
     }
@@ -128,20 +169,81 @@ function GameEngine() {
   async function finishGame() {
     setIsFinished(true);
     const xpEarned = score * 10 + 5;
+    const durationSec = Math.floor((Date.now() - startTime) / 1000);
 
     await supabase.from("game_sessions").insert({
       child_id: childId,
       category: categoryId as any,
       topic: "General",
-      score,
+      correct: score,
       total: questions.length,
       xp_earned: xpEarned,
       stars: score === questions.length ? 3 : score >= questions.length / 2 ? 2 : 1,
+      duration_sec: durationSec,
     });
 
-    const { data: prog } = await supabase.from("child_progress").select("xp").eq("child_id", childId).single();
+    // Log to screen_time_logs
+    await supabase.from("screen_time_logs").insert({
+      child_id: childId,
+      duration_sec: durationSec,
+      date: new Date().toISOString().split('T')[0]
+    });
+
+    const { data: prog } = await supabase.from("child_progress").select("xp, level").eq("child_id", childId).single();
     if (prog) {
-      await supabase.from("child_progress").update({ xp: prog.xp + xpEarned }).eq("child_id", childId);
+      const newXp = prog.xp + xpEarned;
+      const { level: newLevel } = xpToLevel(newXp);
+      
+      await supabase.from("child_progress").update({ xp: newXp, level: newLevel }).eq("child_id", childId);
+      
+      if (newLevel > (prog.level || 1)) {
+        toast.success(`HORE! Kamu naik ke Level ${newLevel}! 🚀`, {
+          description: "Kamu makin pintar!",
+          duration: 5000,
+        });
+        speak(`Hore! Selamat ya, kamu sekarang sudah naik ke level ${newLevel}! Kamu luar biasa!`);
+      }
+    }
+
+    // Award badges and update streaks
+    await updateStreak(childId);
+    const newBadges = await checkAndAwardBadges(childId);
+    if (newBadges.length > 0) {
+      toast.success(`Selamat! Kamu mendapatkan ${newBadges.length} lencana baru! 🏅`);
+    }
+
+    // Check Daily Challenge
+    const today = new Date().toISOString().split('T')[0];
+    const { data: challenge } = await supabase
+      .from("daily_challenges")
+      .select("*")
+      .eq("child_id", childId)
+      .eq("date", today)
+      .maybeSingle();
+    
+    if (challenge && !challenge.completed) {
+      // Check if this is the 2nd game today
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const { count } = await supabase
+        .from("game_sessions")
+        .select("*", { count: 'exact', head: true })
+        .eq("child_id", childId)
+        .gte("played_at", startOfDay.toISOString());
+
+      if (count && count >= 2) {
+        await supabase
+          .from("daily_challenges")
+          .update({ completed: true, completed_at: new Date().toISOString() })
+          .eq("id", challenge.id);
+        toast.success("Tantangan Harian Selesai! 🎉 +50 XP Bonus!");
+        // Add bonus XP
+        const { data: currentProg } = await supabase.from("child_progress").select("xp").eq("child_id", childId).single();
+        if (currentProg) {
+          await supabase.from("child_progress").update({ xp: currentProg.xp + 50 }).eq("child_id", childId);
+        }
+      }
     }
   }
 
@@ -243,7 +345,10 @@ function GameEngine() {
             </h2>
           </div>
           
-          <button className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto hover:bg-primary/20 hover:scale-110 transition-transform cursor-pointer border-2 border-primary/20 shadow-sm">
+          <button 
+            onClick={() => speak(currentQ.q)}
+            className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto hover:bg-primary/20 hover:scale-110 transition-transform cursor-pointer border-2 border-primary/20 shadow-sm"
+          >
             <Volume2 className="w-7 h-7" />
           </button>
         </div>

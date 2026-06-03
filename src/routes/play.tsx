@@ -48,7 +48,7 @@ function ChildHome() {
     }
 
     if (user && !childId) {
-      navigate({ to: "/" }); // Should go to child selector
+      navigate({ to: "/" });
       return;
     }
 
@@ -60,97 +60,102 @@ function ChildHome() {
 
   async function fetchParentData() {
     if (!user) return;
-    const { data } = await supabase.from("profiles").select("pin_hash").eq("id", user.id).single();
-    if (data) setParentPin(data.pin_hash || "");
+    try {
+      const { data } = await supabase.from("profiles").select("pin_hash").eq("id", user.id).single();
+      if (data) setParentPin(data.pin_hash || "");
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function fetchChildData() {
+    if (!childId) return;
     setLoading(true);
+    try {
+      // Child profile
+      const { data: childData, error: childError } = await supabase
+        .from("children")
+        .select("*")
+        .eq("id", childId)
+        .single();
 
-    // Child profile
-    const { data: childData } = await supabase
-      .from("children")
-      .select("*")
-      .eq("id", childId)
-      .single();
+      if (childError || !childData) throw new Error("Profil tidak ditemukan.");
 
-    // Screen Time Check
-    const today = new Date().toISOString().split('T')[0];
-    const { data: screenLogs } = await supabase
-      .from("screen_time_logs")
-      .select("duration_sec")
-      .eq("child_id", childId)
-      .eq("date", today);
+      // Screen Time Check
+      const today = new Date().toISOString().split('T')[0];
+      const { data: screenLogs } = await supabase
+        .from("screen_time_logs")
+        .select("duration_sec")
+        .eq("child_id", childId)
+        .eq("date", today);
 
-    const totalSec = screenLogs?.reduce((acc, log) => acc + (log.duration_sec || 0), 0) || 0;
-    setTimePlayedToday(totalSec);
+      const totalSec = screenLogs?.reduce((acc, log) => acc + (log.duration_sec || 0), 0) || 0;
+      setTimePlayedToday(totalSec);
 
-    if (childData && childData.daily_limit_min > 0) {
-      if (totalSec >= childData.daily_limit_min * 60) {
+      if (childData.daily_limit_min > 0 && totalSec >= childData.daily_limit_min * 60) {
         setIsTimeUp(true);
       }
-    }
 
-    // Progress
-    const { data: progressData } = await supabase
-  ...
+      // Progress
+      const { data: progressData } = await supabase
+        .from("child_progress")
+        .select("*")
+        .eq("child_id", childId)
+        .single();
 
-      .select("*")
-      .eq("child_id", childId)
-      .single();
+      // Recent games
+      const { data: recent } = await supabase
+        .from("game_sessions")
+        .select("category")
+        .eq("child_id", childId)
+        .order("played_at", { ascending: false })
+        .limit(5);
 
-    // Recent games
-    const { data: recent } = await supabase
-      .from("game_sessions")
-      .select("category")
-      .eq("child_id", childId)
-      .order("played_at", { ascending: false })
-      .limit(5);
+      const uniqueRecent = Array.from(new Set(recent?.map(r => r.category))).slice(0, 3);
+      setRecentGames(uniqueRecent);
 
-    // Unique categories from recent
-    const uniqueRecent = Array.from(new Set(recent?.map(r => r.category))).slice(0, 3);
-    setRecentGames(uniqueRecent);
-
-    // Daily Challenge
-    const today = new Date().toISOString().split('T')[0];
-    const { data: challenge } = await supabase
-      .from("daily_challenges")
-      .select("*")
-      .eq("child_id", childId)
-      .eq("date", today)
-      .maybeSingle();
-    
-    if (challenge) {
-      // Check if requirement met but not marked completed
-      if (!challenge.completed) {
-        const startOfDay = new Date();
-        startOfDay.setHours(0,0,0,0);
-        const { count } = await supabase.from('game_sessions').select('*', { count: 'exact', head: true }).eq('child_id', childId).gte('played_at', startOfDay.toISOString());
-        
-        if (count && count >= 2) {
-          const { data: updated } = await supabase.from('daily_challenges').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', challenge.id).select().single();
-          setDailyChallenge(updated);
-          toast.success("Tantangan Harian Selesai! 🎉");
+      // Daily Challenge
+      const { data: challenge } = await supabase
+        .from("daily_challenges")
+        .select("*")
+        .eq("child_id", childId)
+        .eq("date", today)
+        .maybeSingle();
+      
+      if (challenge) {
+        if (!challenge.completed) {
+          const startOfDay = new Date();
+          startOfDay.setHours(0,0,0,0);
+          const { count } = await supabase.from('game_sessions').select('*', { count: 'exact', head: true }).eq('child_id', childId).gte('played_at', startOfDay.toISOString());
+          
+          if (count && count >= 2) {
+            const { data: updated } = await supabase.from('daily_challenges').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', challenge.id).select().single();
+            setDailyChallenge(updated);
+            toast.success("Tantangan Harian Selesai! 🎉");
+          } else {
+            setDailyChallenge(challenge);
+          }
         } else {
           setDailyChallenge(challenge);
         }
       } else {
-        setDailyChallenge(challenge);
+        const { data: newChallenge } = await supabase.from("daily_challenges").insert({
+          child_id: childId,
+          date: today,
+          challenge_key: "play_2_games",
+          category: "math"
+        }).select().single();
+        setDailyChallenge(newChallenge);
       }
-    } else {
-      // Create a default challenge for today if none exists
-      const { data: newChallenge } = await supabase.from("daily_challenges").insert({
-        child_id: childId,
-        date: today,
-        challenge_key: "play_2_games",
-        category: "math" // dummy
-      }).select().single();
-      setDailyChallenge(newChallenge);
-    }
 
-    setChild(childData);
-    setProgress(progressData);
-    setLoading(false);
+      setChild(childData);
+      setProgress(progressData);
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal memuat profil.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading || authLoading)

@@ -250,6 +250,16 @@ function ParentDashboard() {
               </Card>
             </div>
 
+            <div className="flex justify-end">
+              <Button 
+                size="lg" 
+                className="rounded-full gap-2 font-bold shadow-playful"
+                onClick={() => navigate({ to: "/play", search: { childId: selectedChild?.id } })}
+              >
+                🎮 Masuk ke Mode Anak ({selectedChild?.name})
+              </Button>
+            </div>
+
             <Card className="p-8 rounded-[2rem] border-2 shadow-sm">
               <h3 className="font-display text-xl font-bold mb-6">Aktivitas Belajar {selectedChild?.name || "Anak"}</h3>
               <div className="h-64 flex items-end justify-between gap-2">

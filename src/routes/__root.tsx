@@ -77,10 +77,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      {
-        "http-equiv": "Content-Security-Policy",
-        content: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*; style-src 'self' 'unsafe-inline' https://*; font-src 'self' data: https://*; img-src 'self' data: blob: https://*; connect-src 'self' https://* wss://*;"
-      },
       { title: "PintarYuk — PPG Magetan Timur Center" },
       {
         name: "description",

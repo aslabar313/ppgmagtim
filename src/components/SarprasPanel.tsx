@@ -87,7 +87,7 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
     }
     if (!activeRecord) return;
 
-    const updated = sarprasRecords.map(r => {
+    const updated = allSarpras.map(r => {
       if (r.id === activeRecord.id) {
         return {
           ...r,
@@ -97,7 +97,7 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
       return r;
     });
 
-    setSarprasRecords(updated);
+    setAllSarpras(updated);
     saveSarpras(updated);
     toast.success("Catatan kondisi sarpras berhasil diperbarui!");
   };

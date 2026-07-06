@@ -16,13 +16,21 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+import { useEffect } from "react";
+
 function Index() {
-  const [adminRole, setAdminRole] = useState<string | null>(() => {
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
     if (typeof window !== "undefined") {
-      return localStorage.getItem("sim_tpq_logged_role");
+      const storedRole = localStorage.getItem("sim_tpq_logged_role");
+      if (storedRole) {
+        setAdminRole(storedRole);
+      }
     }
-    return null;
-  });
+  }, []);
 
   const handleLogin = (role: string) => {
     localStorage.setItem("sim_tpq_logged_role", role);
@@ -35,6 +43,16 @@ function Index() {
     localStorage.removeItem("sim_tpq_admin_num");
     setAdminRole(null);
   };
+
+  // Prevent SSR hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 font-sans">
+        <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <span>Menghubungkan ke Portal PintarYuk...</span>
+      </div>
+    );
+  }
 
   if (adminRole) {
     return <AdminPanel initialRole={adminRole} onLogout={handleLogout} />;

@@ -1,6 +1,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    port: 5173
+  },
   nitro: {
     preset: "vercel",
     output: {

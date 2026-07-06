@@ -1,0 +1,21 @@
+{
+  "short_name": "PintarYuk",
+  "name": "PintarYuk SIM Kelompok",
+  "icons": [
+    {
+      "src": "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/dff9fd9b-8363-4ef8-9ce9-7937c6f317c3/id-preview-9640eff8--33e9aa27-1838-46cd-bc2a-3270a20c20c3.lovable.app-1780244187530.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/dff9fd9b-8363-4ef8-9ce9-7937c6f317c3/id-preview-9640eff8--33e9aa27-1838-46cd-bc2a-3270a20c20c3.lovable.app-1780244187530.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#10b981",
+  "display": "standalone",
+  "orientation": "portrait"
+}

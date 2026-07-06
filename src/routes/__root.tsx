@@ -77,27 +77,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
+      {
+        "http-equiv": "Content-Security-Policy",
+        content: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*; style-src 'self' 'unsafe-inline' https://*; font-src 'self' data: https://*; img-src 'self' data: blob: https://*; connect-src 'self' https://* wss://*;"
+      },
+      { title: "PintarYuk — PPG Magetan Timur Center" },
       {
         name: "description",
         content:
-          "PintarYuk adalah platform game edukasi interaktif untuk anak Indonesia usia 2–12 tahun.",
+          "Sistem Informasi Manajemen Pembinaan Generasi Penerus Wilayah Magetan Timur Center.",
       },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
+      { name: "author", content: "PintarYuk — PPG Magetan Timur Center" },
+      { property: "og:title", content: "PintarYuk — PPG Magetan Timur Center" },
       {
         property: "og:description",
         content:
-          "PintarYuk adalah platform game edukasi interaktif untuk anak Indonesia usia 2–12 tahun.",
+          "Sistem Informasi Manajemen Pembinaan Generasi Penerus Wilayah Magetan Timur Center.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
+      { name: "twitter:site", content: "@ppg_magetan_timur" },
+      { name: "twitter:title", content: "PintarYuk — PPG Magetan Timur Center" },
       {
         name: "twitter:description",
         content:
-          "PintarYuk adalah platform game edukasi interaktif untuk anak Indonesia usia 2–12 tahun.",
+          "Sistem Informasi Manajemen Pembinaan Generasi Penerus Wilayah Magetan Timur Center.",
       },
       {
         property: "og:image",
@@ -128,6 +132,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      {
+        rel: "manifest",
+        href: "/manifest.json",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -154,6 +162,21 @@ import { Toaster } from "sonner";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").then(
+          (registration) => {
+            console.log("PWA ServiceWorker registered scope: ", registration.scope);
+          },
+          (err) => {
+            console.log("PWA ServiceWorker registration failed: ", err);
+          }
+        );
+      });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

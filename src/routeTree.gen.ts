@@ -9,166 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as PlayRouteImport } from './routes/play'
-import { Route as ParentRouteImport } from './routes/parent'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PlayCategoryIdRouteImport } from './routes/play.$categoryId'
-import { Route as ParentAdminRouteImport } from './routes/parent.admin'
 
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlayRoute = PlayRouteImport.update({
-  id: '/play',
-  path: '/play',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ParentRoute = ParentRouteImport.update({
-  id: '/parent',
-  path: '/parent',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlayCategoryIdRoute = PlayCategoryIdRouteImport.update({
-  id: '/$categoryId',
-  path: '/$categoryId',
-  getParentRoute: () => PlayRoute,
-} as any)
-const ParentAdminRoute = ParentAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => ParentRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/parent': typeof ParentRouteWithChildren
-  '/play': typeof PlayRouteWithChildren
-  '/register': typeof RegisterRoute
-  '/parent/admin': typeof ParentAdminRoute
-  '/play/$categoryId': typeof PlayCategoryIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/parent': typeof ParentRouteWithChildren
-  '/play': typeof PlayRouteWithChildren
-  '/register': typeof RegisterRoute
-  '/parent/admin': typeof ParentAdminRoute
-  '/play/$categoryId': typeof PlayCategoryIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/parent': typeof ParentRouteWithChildren
-  '/play': typeof PlayRouteWithChildren
-  '/register': typeof RegisterRoute
-  '/parent/admin': typeof ParentAdminRoute
-  '/play/$categoryId': typeof PlayCategoryIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/login'
-    | '/onboarding'
-    | '/parent'
-    | '/play'
-    | '/register'
-    | '/parent/admin'
-    | '/play/$categoryId'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/login'
-    | '/onboarding'
-    | '/parent'
-    | '/play'
-    | '/register'
-    | '/parent/admin'
-    | '/play/$categoryId'
-  id:
-    | '__root__'
-    | '/'
-    | '/login'
-    | '/onboarding'
-    | '/parent'
-    | '/play'
-    | '/register'
-    | '/parent/admin'
-    | '/play/$categoryId'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  LoginRoute: typeof LoginRoute
-  OnboardingRoute: typeof OnboardingRoute
-  ParentRoute: typeof ParentRouteWithChildren
-  PlayRoute: typeof PlayRouteWithChildren
-  RegisterRoute: typeof RegisterRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/play': {
-      id: '/play'
-      path: '/play'
-      fullPath: '/play'
-      preLoaderRoute: typeof PlayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/parent': {
-      id: '/parent'
-      path: '/parent'
-      fullPath: '/parent'
-      preLoaderRoute: typeof ParentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -176,51 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/play/$categoryId': {
-      id: '/play/$categoryId'
-      path: '/$categoryId'
-      fullPath: '/play/$categoryId'
-      preLoaderRoute: typeof PlayCategoryIdRouteImport
-      parentRoute: typeof PlayRoute
-    }
-    '/parent/admin': {
-      id: '/parent/admin'
-      path: '/admin'
-      fullPath: '/parent/admin'
-      preLoaderRoute: typeof ParentAdminRouteImport
-      parentRoute: typeof ParentRoute
-    }
   }
 }
 
-interface ParentRouteChildren {
-  ParentAdminRoute: typeof ParentAdminRoute
-}
-
-const ParentRouteChildren: ParentRouteChildren = {
-  ParentAdminRoute: ParentAdminRoute,
-}
-
-const ParentRouteWithChildren =
-  ParentRoute._addFileChildren(ParentRouteChildren)
-
-interface PlayRouteChildren {
-  PlayCategoryIdRoute: typeof PlayCategoryIdRoute
-}
-
-const PlayRouteChildren: PlayRouteChildren = {
-  PlayCategoryIdRoute: PlayCategoryIdRoute,
-}
-
-const PlayRouteWithChildren = PlayRoute._addFileChildren(PlayRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  LoginRoute: LoginRoute,
-  OnboardingRoute: OnboardingRoute,
-  ParentRoute: ParentRouteWithChildren,
-  PlayRoute: PlayRouteWithChildren,
-  RegisterRoute: RegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

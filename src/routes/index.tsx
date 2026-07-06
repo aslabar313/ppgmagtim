@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PortalPublic } from "@/components/PortalPublic";
 import { AdminPanel } from "@/components/AdminPanel";
 
@@ -15,8 +15,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
-
-import { useEffect } from "react";
 
 function Index() {
   const [adminRole, setAdminRole] = useState<string | null>(null);

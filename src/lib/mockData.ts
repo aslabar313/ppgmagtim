@@ -258,8 +258,8 @@ export interface AuthResult {
 }
 
 export const verifyCredentials = (user: string, pass: string): AuthResult | null => {
-  const u = user.toLowerCase().trim();
-  const p = pass.trim();
+  const u = user.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+  const p = pass.trim().toLowerCase();
 
   if (p !== "admin123") return null;
 
@@ -288,12 +288,23 @@ export const verifyCredentials = (user: string, pass: string): AuthResult | null
   }
 
   // 4. Admin Kelompok (adminkaras1, adminkaras2, etc.)
-  const kelompoks = INITIAL_KELOMPOK;
+  const kelompoks = getKelompok();
   for (const k of kelompoks) {
     const kNameOnly = k.namaKelompok.replace("Kelompok ", "");
     const normalizedKName = kNameOnly.toLowerCase().replace(/[^a-z0-9]/g, "");
     
-    if (u === `admin${normalizedKName}1` || u === `admin${normalizedKName}2`) {
+    const matchStandard = (u === `admin${normalizedKName}1` || u === `admin${normalizedKName}2`);
+    
+    // Fuzzy mapping for typos
+    let matchTypo = false;
+    if (normalizedKName === "karasan" && (u === "adminkanasan1" || u === "adminkanasan2")) {
+      matchTypo = true;
+    }
+    if (normalizedKName === "panggangung" && (u === "adminpanggung1" || u === "adminpanggung2")) {
+      matchTypo = true;
+    }
+
+    if (matchStandard || matchTypo) {
       return { success: true, role: "Admin Kelompok", level: "kelompok", scope: k.namaKelompok, adminNum: u.endsWith("2") ? 2 : 1 };
     }
   }

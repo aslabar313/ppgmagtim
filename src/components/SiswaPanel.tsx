@@ -51,6 +51,22 @@ interface SiswaPanelProps {
 export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [generusList, setGenerusList] = useState<Generus[]>(getGenerus());
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
   
   // AI OCR Scanner state
   const [scanning, setScanning] = useState(false);
@@ -75,7 +91,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [formAlamat, setFormAlamat] = useState("");
   const [formOrangTua, setFormOrangTua] = useState("");
   const [formWaOrangTua, setFormWaOrangTua] = useState("");
-  const [formKelompok, setFormKelompok] = useState(kelompokList[0]?.namaKelompok || "");
+  const [formKelompok, setFormKelompok] = useState(allowedKelompoks[0] || "");
   const [formStatus, setFormStatus] = useState(true);
   const [formCatatan, setFormCatatan] = useState("");
 
@@ -125,7 +141,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     setFormAlamat("");
     setFormOrangTua("");
     setFormWaOrangTua("");
-    setFormKelompok(kelompokList[0]?.namaKelompok || "");
+    setFormKelompok(allowedKelompoks[0] || "");
     setFormStatus(true);
     setFormCatatan("");
     setIsOpen(true);
@@ -260,6 +276,9 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   };
 
   const filteredGenerus = generusList.filter(g => {
+    // Scope check: must belong to allowed kelompoks
+    if (!allowedKelompoks.includes(g.namaKelompok)) return false;
+
     const matchesSearch = g.namaLengkap.toLowerCase().includes(search.toLowerCase()) ||
                           g.nisInternal.toLowerCase().includes(search.toLowerCase()) ||
                           g.namaOrangTua.toLowerCase().includes(search.toLowerCase());
@@ -316,10 +335,10 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
             <select 
               value={kelompokFilter} 
               onChange={(e) => setKelompokFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none max-w-[180px]"
+              className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none max-w-[180px] font-semibold"
             >
-              <option value="Semua">Semua TPQ (32)</option>
-              {kelompokList.slice(0, 10).map(k => (
+              <option value="Semua">Semua Kelompok ({allowedKelompoks.length})</option>
+              {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                 <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
               ))}
             </select>
@@ -615,13 +634,14 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
               </div>
 
               <div className="col-span-2 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Kelompok TPQ *</label>
+                <label className="text-xs font-bold text-slate-700">Kelompok Binaan *</label>
                 <select
                   value={formKelompok}
                   onChange={(e) => setFormKelompok(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
+                  disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10 disabled:bg-slate-50 disabled:text-slate-500 font-bold"
                 >
-                  {kelompokList.map(k => (
+                  {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                     <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                   ))}
                 </select>

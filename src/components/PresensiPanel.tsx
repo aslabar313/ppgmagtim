@@ -19,7 +19,23 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [generusList] = useState<Generus[]>(getGenerus());
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
 
-  const [selectedKelompok, setSelectedKelompok] = useState(kelompokList[0]?.namaKelompok || "");
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
+  const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
   const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("log");
 
@@ -31,9 +47,10 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const isReadOnly = userRole === "Viewer";
 
-  // Calculate quick stats
-  const totalLogs = presensiList.length;
-  const totalHadir = presensiList.filter(p => p.statusKehadiran === "Hadir").length;
+  // Calculate quick stats (filtered by allowed scope)
+  const filteredLogsList = presensiList.filter(p => allowedKelompoks.includes(p.namaKelompok));
+  const totalLogs = filteredLogsList.length;
+  const totalHadir = filteredLogsList.filter(p => p.statusKehadiran === "Hadir").length;
   const attendanceRate = totalLogs > 0 ? Math.round((totalHadir / totalLogs) * 100) : 0;
 
   // Handle single attendance click
@@ -193,7 +210,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                       onChange={(e) => setSimName(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
                     >
-                      {generusList.map(g => (
+                      {generusList.filter(g => allowedKelompoks.includes(g.namaKelompok)).map(g => (
                         <option key={g.id} value={g.namaLengkap}>{g.namaLengkap} ({g.namaKelompok})</option>
                       ))}
                     </select>
@@ -263,9 +280,10 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               <select
                 value={selectedKelompok}
                 onChange={(e) => setSelectedKelompok(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none h-10 font-bold"
+                disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+                className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none h-10 font-bold disabled:bg-slate-50 disabled:text-slate-500"
               >
-                {kelompokList.map(k => (
+                {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                   <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                 ))}
               </select>
@@ -357,8 +375,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {presensiList.length > 0 ? (
-                  presensiList.map((p) => (
+                {filteredLogsList.length > 0 ? (
+                  filteredLogsList.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50">
                       <td className="px-6 py-4 font-bold text-slate-900">{p.namaLengkap}</td>
                       <td className="px-6 py-4 text-xs font-semibold text-slate-500">{p.namaKelompok}</td>

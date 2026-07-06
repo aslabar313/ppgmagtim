@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getRaport, saveRaport, getGenerus, Raport, Generus } from "@/lib/mockData";
+import { getRaport, saveRaport, getGenerus, Raport, Generus, getKelompok, Kelompok } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,27 @@ interface RaportPanelProps {
 export function RaportPanel({ userRole }: RaportPanelProps) {
   const [raports, setRaports] = useState<Raport[]>(getRaport());
   const [generusList] = useState<Generus[]>(getGenerus());
+  const [kelompokList] = useState<Kelompok[]>(getKelompok());
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
+  const filteredGenerusList = generusList.filter(g => allowedKelompoks.includes(g.namaKelompok));
   
-  const [selectedGenId, setSelectedGenId] = useState(generusList[0]?.id || "");
+  const [selectedGenId, setSelectedGenId] = useState(filteredGenerusList[0]?.id || "");
   const [semester, setSemester] = useState<1 | 2>(1);
   const [tahunAjaran, setTahunAjaran] = useState("2025/2026");
 
@@ -39,7 +58,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
   const isReadOnly = userRole === "Viewer";
 
-  const selectedGenerus = generusList.find(g => g.id === selectedGenId);
+  const selectedGenerus = filteredGenerusList.find(g => g.id === selectedGenId);
   const activeRaport = raports.find(
     r => r.generusId === selectedGenId && r.semester === semester && r.tahunAjaran === tahunAjaran
   );
@@ -170,7 +189,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
             <CardTitle className="font-display text-sm font-bold text-slate-800">Daftar Generus</CardTitle>
           </CardHeader>
           <CardContent className="p-0 max-h-[500px] overflow-y-auto divide-y divide-slate-100">
-            {generusList.map((g) => (
+            {filteredGenerusList.map((g) => (
               <button
                 key={g.id}
                 onClick={() => setSelectedGenId(g.id)}

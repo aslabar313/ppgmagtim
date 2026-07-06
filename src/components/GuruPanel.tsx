@@ -20,6 +20,22 @@ interface GuruPanelProps {
 export function GuruPanel({ userRole }: GuruPanelProps) {
   const [subTab, setSubTab] = useState<"setempat" | "tugasan" | "pengurus_harian" | "pengurus_ppg">("setempat");
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
   
   // Data lists
   const [mSetempat, setMSetempat] = useState<MubalighSetempat[]>(getMubalighSetempat());
@@ -36,7 +52,7 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
   
   // Dynamic Form inputs based on active tab
   const [formNama, setFormNama] = useState("");
-  const [formKelompok, setFormKelompok] = useState(kelompokList[0]?.namaKelompok || "");
+  const [formKelompok, setFormKelompok] = useState(allowedKelompoks[0] || "");
   const [formGender, setFormGender] = useState<"Laki-laki" | "Perempuan">("Laki-laki");
   const [formUsia, setFormUsia] = useState(25);
   const [formOrangTua, setFormOrangTua] = useState("");
@@ -59,7 +75,7 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
     setIsEdit(false);
     setCurrentId("");
     setFormNama("");
-    setFormKelompok(kelompokList[0]?.namaKelompok || "");
+    setFormKelompok(allowedKelompoks[0] || "");
     setFormGender("Laki-laki");
     setFormUsia(25);
     setFormOrangTua("");
@@ -171,13 +187,31 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
   const getFilteredData = () => {
     const query = search.toLowerCase();
     if (subTab === "setempat") {
-      return mSetempat.filter(x => x.nama.toLowerCase().includes(query) || x.kelompok.toLowerCase().includes(query));
+      return mSetempat.filter(x => 
+        allowedKelompoks.includes(x.kelompok) && 
+        (x.nama.toLowerCase().includes(query) || x.kelompok.toLowerCase().includes(query))
+      );
     } else if (subTab === "tugasan") {
-      return mTugasan.filter(x => x.nama.toLowerCase().includes(query) || x.kelompok.toLowerCase().includes(query) || x.asalDaerah.toLowerCase().includes(query));
+      return mTugasan.filter(x => 
+        allowedKelompoks.includes(x.kelompok) && 
+        (x.nama.toLowerCase().includes(query) || x.kelompok.toLowerCase().includes(query) || x.asalDaerah.toLowerCase().includes(query))
+      );
     } else if (subTab === "pengurus_harian") {
-      return pengurus.filter(x => x.kategori === "Harian" && (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query)));
+      return pengurus.filter(x => 
+        x.kategori === "Harian" && 
+        (x.tingkat === "Daerah" || 
+         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || userScope === x.asalKelompok)) ||
+         (x.tingkat === "Kelompok" && allowedKelompoks.includes(x.asalKelompok))) &&
+        (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query))
+      );
     } else {
-      return pengurus.filter(x => x.kategori === "PPG" && (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query)));
+      return pengurus.filter(x => 
+        x.kategori === "PPG" && 
+        (x.tingkat === "Daerah" || 
+         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || userScope === x.asalKelompok)) ||
+         (x.tingkat === "Kelompok" && allowedKelompoks.includes(x.asalKelompok))) &&
+        (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query))
+      );
     }
   };
 
@@ -344,9 +378,10 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
               <select
                 value={formKelompok}
                 onChange={(e) => setFormKelompok(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
+                disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10 disabled:bg-slate-50 disabled:text-slate-500 font-bold"
               >
-                {kelompokList.map(k => (
+                {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                   <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                 ))}
               </select>

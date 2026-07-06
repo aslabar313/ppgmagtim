@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getSarpras, saveSarpras, Sarpras } from "@/lib/mockData";
+import { getSarpras, saveSarpras, Sarpras, getKelompok, Kelompok } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,26 @@ interface SarprasPanelProps {
 }
 
 export function SarprasPanel({ userRole }: SarprasPanelProps) {
-  const [sarprasRecords, setSarprasRecords] = useState<Sarpras[]>(getSarpras());
+  const [allSarpras, setAllSarpras] = useState<Sarpras[]>(getSarpras());
+  const [kelompokList] = useState<Kelompok[]>(getKelompok());
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
+  const sarprasRecords = allSarpras.filter(s => allowedKelompoks.includes(s.namaKelompok));
   const [selectedRecordId, setSelectedRecordId] = useState(sarprasRecords[0]?.id || "");
 
   const activeRecord = sarprasRecords.find(s => s.id === selectedRecordId);
@@ -45,7 +64,7 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
     const calculatedScore = Math.round((trueCount / 15) * 100);
     const calculatedLayak = calculatedScore >= 60; // Auto layak if score >= 60%
 
-    const updated = sarprasRecords.map(r => {
+    const updated = allSarpras.map(r => {
       if (r.id === activeRecord.id) {
         return {
           ...r,
@@ -57,7 +76,7 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
       return r;
     });
 
-    setSarprasRecords(updated);
+    setAllSarpras(updated);
     saveSarpras(updated);
   };
 

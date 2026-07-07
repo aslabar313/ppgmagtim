@@ -26,7 +26,7 @@ export function BIPanel() {
     { subject: "Ust/Ustd Pengajar", A: 85, fullMark: 100 },
     { subject: "Gedung / Ruang Kelas", A: 70, fullMark: 100 },
     { subject: "Kitab Al-Qur'an", A: 90, fullMark: 100 },
-    { subject: "Toilet Bersih", A: 65, fullMark: 100 },
+    { subject: "Kamar Mandi Bersih", A: 65, fullMark: 100 },
     { subject: "Sarana IT / Sound", A: 75, fullMark: 100 }
   ];
 
@@ -76,7 +76,7 @@ export function BIPanel() {
           <div className="space-y-2">
             <span className="text-xs text-slate-400 font-bold block uppercase">Kebutuhan Anggaran Wilayah</span>
             <span className="font-display text-2xl font-black text-emerald-600">+15% Alokasi Kas</span>
-            <p className="text-[10px] text-slate-400 font-medium">Diperlukan untuk menunjang pengadaan toilet layak di 6 kelompok binaan.</p>
+            <p className="text-[10px] text-slate-400 font-medium">Diperlukan untuk menunjang pengadaan Kamar Mandi layak di 6 kelompok binaan.</p>
           </div>
         </Card>
 

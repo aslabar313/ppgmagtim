@@ -70,8 +70,8 @@ export function MapPanel({ userRole = "Viewer" }: { userRole?: string }) {
   return (
     <div className="space-y-6 text-left">
       <div>
-        <h2 className="font-display text-2xl font-bold text-slate-800">Peta Sebaran TPQ</h2>
-        <p className="text-slate-500 text-sm">Visualisasi geografis sebaran 32 unit TPQ binaan di Magetan Timur beserta indikator status kelayakan sarana.</p>
+        <h2 className="font-display text-2xl font-bold text-slate-800">Peta Sebaran Kelompok</h2>
+        <p className="text-slate-500 text-sm">Visualisasi geografis sebaran 32 unit kelompok binaan di Magetan Timur beserta indikator status kelayakan sarana.</p>
       </div>
 
       {/* Filter and search */}
@@ -174,7 +174,7 @@ export function MapPanel({ userRole = "Viewer" }: { userRole?: string }) {
           </div>
           
           <div className="bg-slate-950/80 border-t border-slate-900 p-4 text-[10px] text-slate-500 font-bold text-center">
-            Peta Vektor Wilayah Magetan Timur Center. Arahkan kursor ke marker untuk melihat profil cepat unit TPQ.
+            Peta Vektor Wilayah Magetan Timur Center. Arahkan kursor ke marker untuk melihat profil cepat unit kelompok.
           </div>
         </Card>
 
@@ -188,7 +188,7 @@ export function MapPanel({ userRole = "Viewer" }: { userRole?: string }) {
                   <School className="h-16 w-16" />
                   <div className="absolute bottom-3 left-3">
                     <Badge className="bg-emerald-600 text-white font-bold text-[10px] rounded-full">
-                      TPQ Aktif
+                      Kelompok Aktif
                     </Badge>
                   </div>
                 </div>

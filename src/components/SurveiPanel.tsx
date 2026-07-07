@@ -8,7 +8,7 @@ export function SurveiPanel() {
   // Mock Survey metrics
   const metrics = [
     { kategori: "Tenaga Pengajar", skor: 88, desc: "Keramahan, kedisiplinan & cara mendidik guru" },
-    { kategori: "Sarana Fisik", skor: 81, desc: "Kebersihan kelas, toilet & sarana belajar" },
+    { kategori: "Sarana Fisik", skor: 81, desc: "Kebersihan kelas, Kamar Mandi & sarana belajar" },
     { kategori: "Materi Kurikulum", skor: 85, desc: "Kesesuaian modul ngaji & hafalan juz" },
     { kategori: "Komunikasi Orang Tua", skor: 90, desc: "Kecepatan update via WhatsApp Center" },
     { kategori: "Pelayanan TPQ", skor: 86, desc: "Administrasi raport & presensi digital" }
@@ -18,11 +18,11 @@ export function SurveiPanel() {
   const feedbacks = [
     { id: "fb-1", tanggal: "2026-07-06", pengirim: "Wali dari Ahmad Bagus", skor: 5, komentar: "Sangat terbantu dengan sistem presensi QR, saya tahu anak saya sudah sampai masjid tepat waktu." },
     { id: "fb-2", tanggal: "2026-07-05", pengirim: "Wali dari Siti Rahmawati", skor: 4, komentar: "Guru sangat ramah. Namun mohon di musim kemarau ini ventilasi/kipas angin di kelas caberawit bisa diperbanyak." },
-    { id: "fb-3", tanggal: "2026-07-04", pengirim: "Wali dari Muhammad Zaki", skor: 3, komentar: "Kurikulum hafalan sangat baik. Mohon perbaikan toilet santri agar lebih bersih." }
+    { id: "fb-3", tanggal: "2026-07-04", pengirim: "Wali dari Muhammad Zaki", skor: 3, komentar: "Kurikulum hafalan sangat baik. Mohon perbaikan Kamar Mandi santri agar lebih bersih." }
   ];
 
   // AI Recommendation engine text
-  const aiInsight = "Berdasarkan analisis sentimen dari 120 koresponden survei: Umpan balik terkait Tenaga Pengajar dan WhatsApp Center sangat positif (>88%). Namun, tingkat kepuasan Sarana Fisik (81%) mengalami penurunan karena keterbatasan sirkulasi udara di ruang kelas (12 aduan kipas angin) dan kebersihan toilet (8 aduan). Rekomendasi tindakan prioritas: Alokasikan anggaran kas daerah untuk pemeliharaan kipas kelas TPQ Kelompok 4 & Kelompok 12.";
+  const aiInsight = "Berdasarkan analisis sentimen dari 120 koresponden survei: Umpan balik terkait Tenaga Pengajar dan WhatsApp Center sangat positif (>88%). Namun, tingkat kepuasan Sarana Fisik (81%) mengalami penurunan karena keterbatasan sirkulasi udara di ruang kelas (12 aduan kipas angin) dan kebersihan Kamar Mandi (8 aduan). Rekomendasi tindakan prioritas: Alokasikan anggaran kas daerah untuk pemeliharaan kipas kelas TPQ Kelompok 4 & Kelompok 12.";
 
   return (
     <div className="space-y-6 text-left">

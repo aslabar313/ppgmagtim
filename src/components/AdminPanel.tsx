@@ -436,7 +436,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             )}
             {hasAccessTo("map") && (
               <button onClick={() => setActiveTab("map")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "map" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <MapPin className="h-4.5 w-4.5" /> Peta Sebaran TPQ
+                <MapPin className="h-4.5 w-4.5" /> Peta Sebaran Kelompok
               </button>
             )}
             {hasAccessTo("sarpras") && (

@@ -197,7 +197,7 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
                     { label: "Sound System / Speaker", field: "soundSystem" },
                     { label: "Kipas Angin / AC", field: "kipas" },
                     { label: "Proyektor / Layar LCD", field: "lcd" },
-                    { label: "Ketersediaan Toilet", field: "toilet" },
+                    { label: "Ketersediaan Kamar Mandi", field: "toilet" },
                     { label: "Tempat Wudhu Air Mengalir", field: "tempatWudhu" },
                     { label: "Penerangan / Lampu", field: "lampu" },
                     { label: "Akses Internet / WiFi", field: "internet" },

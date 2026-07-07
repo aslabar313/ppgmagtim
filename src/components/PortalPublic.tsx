@@ -21,6 +21,13 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+  const [bgCustomizeOpen, setBgCustomizeOpen] = useState(false);
+  const [bgImage, setBgImage] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_public_bg") || "/mosque_bg.png";
+    }
+    return "/mosque_bg.png";
+  });
 
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
@@ -67,7 +74,15 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500/30 antialiased overflow-x-hidden">
+    <div 
+      style={bgImage !== "none" ? { backgroundImage: `url(${bgImage})`, backgroundAttachment: "fixed" } : undefined}
+      className={`min-h-screen text-slate-100 font-sans selection:bg-emerald-500/30 antialiased overflow-x-hidden relative ${bgImage !== "none" ? "bg-cover bg-center" : "bg-slate-950"}`}
+    >
+      
+      {/* Background Dark Overlay for glassmorphism and readability */}
+      {bgImage !== "none" && (
+        <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-[1.5px] z-0 pointer-events-none" />
+      )}
       
       {/* Dynamic Aurora Glow Effects (Futuristic) */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none animate-pulse" />
@@ -91,6 +106,108 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Background Customizer */}
+            <Dialog open={bgCustomizeOpen} onOpenChange={setBgCustomizeOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-slate-800 hover:bg-slate-900 hover:text-white text-slate-400 rounded-xl font-bold p-2.5 h-10 w-10 flex items-center justify-center shrink-0 bg-transparent">
+                  <Eye className="h-4.5 w-4.5" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[420px] rounded-3xl bg-slate-900 border-slate-800 text-slate-100 p-6 text-left">
+                <DialogHeader className="space-y-2">
+                  <DialogTitle className="font-display text-lg font-black text-white flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-emerald-500" /> Kustomisasi Tampilan Portal
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-400">
+                    Ganti gambar latar belakang portal dengan gambar masjid atau ikon daerah Anda.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400">Pilih Latar Belakang</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBgImage("/mosque_bg.png");
+                          localStorage.setItem("sim_tpq_public_bg", "/mosque_bg.png");
+                          toast.success("Mengaktifkan gambar Masjid daerah default.");
+                        }}
+                        className={`p-2 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                          bgImage === "/mosque_bg.png" ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 bg-slate-950 text-slate-450"
+                        }`}
+                      >
+                        Masjid Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBgImage("none");
+                          localStorage.setItem("sim_tpq_public_bg", "none");
+                          toast.success("Mengaktifkan tema Neon Glow bawaan.");
+                        }}
+                        className={`p-2 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                          bgImage === "none" ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 bg-slate-950 text-slate-450"
+                        }`}
+                      >
+                        Neon Glow
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const custom = localStorage.getItem("sim_tpq_custom_bg_data");
+                          if (custom) {
+                            setBgImage(custom);
+                            localStorage.setItem("sim_tpq_public_bg", custom);
+                            toast.success("Mengaktifkan gambar kustom Anda.");
+                          } else {
+                            toast.error("Belum ada berkas gambar kustom yang diunggah.");
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                          bgImage !== "/mosque_bg.png" && bgImage !== "none" ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 bg-slate-950 text-slate-450"
+                        }`}
+                      >
+                        Gambar Kustom
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 border-t border-slate-800/80 pt-4">
+                    <label className="text-xs font-bold text-slate-400">Unggah Gambar Masjid Anda (.jpg, .png)</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error("Ukuran berkas gambar maksimal 2 MB.");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const dataUrl = event.target?.result as string;
+                          try {
+                            localStorage.setItem("sim_tpq_custom_bg_data", dataUrl);
+                            localStorage.setItem("sim_tpq_public_bg", dataUrl);
+                            setBgImage(dataUrl);
+                            toast.success("Gambar masjid berhasil diunggah dan diterapkan!");
+                          } catch (err) {
+                            toast.error("Gagal menyimpan gambar (melebihi batas memori lokal).");
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                      className="rounded-xl border-slate-800 bg-slate-950 text-slate-400 text-[10px] cursor-pointer"
+                    />
+                    <span className="text-[9px] text-slate-450 block">Maksimal 2 MB. Gambar disimpan secara lokal di browser.</span>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold gap-1.5 shadow-md shadow-emerald-600/10 text-xs px-4 py-2">
@@ -203,7 +320,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       </section>
 
       {/* Tri Sukses Target Cards */}
-      <section className="py-24 max-w-7xl mx-auto px-6 text-center">
+      <section className="py-24 max-w-7xl mx-auto px-6 text-center relative z-10">
         <div className="max-w-2xl mx-auto mb-16 space-y-3">
           <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full font-bold text-[9px] uppercase tracking-wider">Target Karakter Dasar</Badge>
           <h2 className="font-display text-3xl font-black text-white sm:text-4xl">
@@ -254,7 +371,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       </section>
 
       {/* Directory 32 Groups Roster */}
-      <section id="direktori" className="py-24 bg-slate-950 border-t border-b border-slate-900">
+      <section id="direktori" className={`py-24 border-t border-b border-slate-900/60 relative z-10 ${bgImage !== "none" ? "bg-slate-950/45 backdrop-blur-[1px]" : "bg-slate-950"}`}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-12 gap-6 text-left">
             <div className="space-y-3">
@@ -302,7 +419,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       </section>
 
       {/* Academics Calender & Agenda */}
-      <section className="py-24 max-w-7xl mx-auto px-6 text-left">
+      <section className="py-24 max-w-7xl mx-auto px-6 text-left relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           <div className="lg:col-span-5 space-y-6">
             <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full font-bold text-[9px] uppercase tracking-wider">Kalender Akademik</Badge>
@@ -342,7 +459,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-950 border-t border-slate-900 py-8 text-center text-xs text-slate-500 font-semibold uppercase tracking-wider">
+      <footer className={`border-t border-slate-900/60 py-8 text-center text-xs text-slate-500 font-semibold uppercase tracking-wider relative z-10 ${bgImage !== "none" ? "bg-slate-950/70" : "bg-slate-950"}`}>
         © 2026 PintarYuk SIM Kelompok. Hak Cipta Dilindungi Undang-Undang.
       </footer>
     </div>

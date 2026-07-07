@@ -44,6 +44,73 @@ const studentSchema = z.object({
     .transform(val => val.replace(/<[^>]*>/g, ""))
 });
 
+function parseCSV(text: string): string[][] {
+  const lines: string[][] = [];
+  let row: string[] = [""];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push('');
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      lines.push(row);
+      row = [''];
+    } else {
+      row[row.length - 1] += char;
+    }
+  }
+  if (row.length > 1 || row[0] !== '') {
+    lines.push(row);
+  }
+  return lines;
+}
+
+function mapHeaders(headers: string[]): { [key: string]: number } {
+  const mapping: { [key: string]: number } = {};
+  headers.forEach((h, index) => {
+    const clean = h.trim().toLowerCase();
+    if (clean.includes("nama") && (clean.includes("lengkap") || clean.includes("siswa") || clean.includes("santri") || (!clean.includes("orang") && !clean.includes("tua") && !clean.includes("wali") && !clean.includes("ortu")))) {
+      mapping.namaLengkap = index;
+    } else if (clean.includes("nis")) {
+      mapping.nisInternal = index;
+    } else if (clean.includes("kelamin") || clean.includes("gender") || clean === "jk") {
+      mapping.jenisKelamin = index;
+    } else if (clean.includes("usia") || clean.includes("umur")) {
+      mapping.usia = index;
+    } else if (clean.includes("lahir") || clean.includes("tgl")) {
+      mapping.tanggalLahir = index;
+    } else if (clean.includes("alamat")) {
+      mapping.alamat = index;
+    } else if (clean.includes("orang") || clean.includes("tua") || clean.includes("wali") || clean.includes("ortu")) {
+      if (clean.includes("wa") || clean.includes("whatsapp") || clean.includes("telepon") || clean.includes("hp") || clean.includes("no")) {
+        mapping.whatsappOrangTua = index;
+      } else {
+        mapping.namaOrangTua = index;
+      }
+    } else if (clean.includes("wa") || clean.includes("whatsapp") || clean.includes("telepon") || clean.includes("hp") || clean.includes("no")) {
+      mapping.whatsappOrangTua = index;
+    } else if (clean.includes("kelompok")) {
+      mapping.namaKelompok = index;
+    } else if (clean.includes("catatan") || clean.includes("keterangan") || clean.includes("note")) {
+      mapping.catatan = index;
+    }
+  });
+  return mapping;
+}
+
 interface SiswaPanelProps {
   userRole: string;
 }
@@ -111,8 +178,179 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [studentDocs, setStudentDocs] = useState<DocumentRecord[]>(getDocuments());
   const [docCategory, setDocCategory] = useState<"KK" | "Akta Kelahiran" | "KTP">("KK");
 
+  // Import CSV states
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<any[]>([]);
+  const [importValidation, setImportValidation] = useState<{ [key: number]: string[] }>({});
+  const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'ready' | 'importing'>('idle');
+  const [updateExisting, setUpdateExisting] = useState(true);
+
   // Check RBAC Permissions
   const isReadOnly = userRole === "Viewer";
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('parsing');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const csvData = parseCSV(text);
+        if (csvData.length < 2) {
+          toast.error("File CSV kosong atau tidak memiliki baris data.");
+          setImportStatus('idle');
+          return;
+        }
+
+        const headers = csvData[0];
+        const rows = csvData.slice(1).filter(r => r.length > 0 && r.some(cell => cell.trim() !== ''));
+
+        const mapping = mapHeaders(headers);
+        
+        if (mapping.namaLengkap === undefined && mapping.nisInternal === undefined) {
+          toast.error("Kolom 'Nama Lengkap' atau 'NIS' tidak ditemukan dalam file CSV.");
+          setImportStatus('idle');
+          return;
+        }
+
+        const parsedRows: any[] = [];
+        const validationMap: { [key: number]: string[] } = {};
+
+        rows.forEach((row, index) => {
+          const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
+          const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
+          const rawGender = mapping.jenisKelamin !== undefined ? row[mapping.jenisKelamin]?.trim() : "";
+          const rawUsia = mapping.usia !== undefined ? row[mapping.usia]?.trim() : "";
+          const rawTglLahir = mapping.tanggalLahir !== undefined ? row[mapping.tanggalLahir]?.trim() : "";
+          const rawAlamat = mapping.alamat !== undefined ? row[mapping.alamat]?.trim() : "";
+          const rawOrangTua = mapping.namaOrangTua !== undefined ? row[mapping.namaOrangTua]?.trim() : "";
+          const rawWaOrangTua = mapping.whatsappOrangTua !== undefined ? row[mapping.whatsappOrangTua]?.trim() : "";
+          const rawKelompok = mapping.namaKelompok !== undefined ? row[mapping.namaKelompok]?.trim() : "";
+          const rawCatatan = mapping.catatan !== undefined ? row[mapping.catatan]?.trim() : "";
+
+          const namaLengkap = rawNama || "Santri Tanpa Nama";
+          const nisInternal = rawNis || `NIS-TEMP-${Date.now()}-${Math.floor(Math.random() * 1005)}`;
+          
+          let jenisKelamin: "Laki-laki" | "Perempuan" = "Laki-laki";
+          const gLower = rawGender.toLowerCase();
+          if (gLower === "perempuan" || gLower === "p" || gLower === "female") {
+            jenisKelamin = "Perempuan";
+          }
+
+          const usia = Number(rawUsia) || 10;
+          const tanggalLahir = /^\d{4}-\d{2}-\d{2}$/.test(rawTglLahir) ? rawTglLahir : "2016-01-01";
+          const alamat = rawAlamat || "-";
+          const namaOrangTua = rawOrangTua || "-";
+          const whatsappOrangTua = rawWaOrangTua.replace(/[^0-9]/g, "") || "081200000000";
+          const namaKelompok = rawKelompok || (allowedKelompoks[0] || "");
+          const catatan = rawCatatan || "";
+
+          const errors: string[] = [];
+
+          if (!rawNama) {
+            errors.push("Nama Lengkap tidak boleh kosong");
+          }
+          if (!rawNis) {
+            errors.push("NIS tidak boleh kosong (menggunakan NIS otomatis sementara)");
+          }
+          if (rawKelompok && !allowedKelompoks.includes(namaKelompok)) {
+            errors.push(`Kelompok '${namaKelompok}' tidak sesuai dengan hak akses Anda (${userScope})`);
+          }
+          
+          const isExisting = generusList.some(g => g.nisInternal === nisInternal);
+          if (isExisting) {
+            errors.push(`NIS '${nisInternal}' sudah terdaftar (akan diperbarui jika dicentang)`);
+          }
+
+          parsedRows.push({
+            id: isExisting ? (generusList.find(g => g.nisInternal === nisInternal)?.id || "g-" + Date.now() + index) : "g-" + Date.now() + index,
+            namaLengkap,
+            nisInternal,
+            jenisKelamin,
+            usia,
+            tanggalLahir,
+            alamat,
+            namaOrangTua,
+            whatsappOrangTua,
+            namaKelompok,
+            statusAktif: true,
+            catatan,
+            isExisting
+          });
+
+          if (errors.length > 0) {
+            validationMap[index] = errors;
+          }
+        });
+
+        setImportRows(parsedRows);
+        setImportValidation(validationMap);
+        setImportStatus('ready');
+      } catch (err) {
+        console.error(err);
+        toast.error("Gagal membaca file CSV. Pastikan format file benar.");
+        setImportStatus('idle');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const executeImport = () => {
+    let countNew = 0;
+    let countUpdated = 0;
+    const updatedList = [...generusList];
+
+    importRows.forEach((row, idx) => {
+      const errors = importValidation[idx] || [];
+      const hasFatalError = errors.some(err => !err.includes("sudah terdaftar") && !err.includes("menggunakan NIS otomatis"));
+      if (hasFatalError) return;
+
+      const generusData: Generus = {
+        id: row.id,
+        foto: "",
+        namaLengkap: row.namaLengkap,
+        nisInternal: row.nisInternal,
+        jenisKelamin: row.jenisKelamin,
+        usia: row.usia,
+        tanggalLahir: row.tanggalLahir,
+        alamat: row.alamat,
+        namaOrangTua: row.namaOrangTua,
+        whatsappOrangTua: row.whatsappOrangTua,
+        namaKelompok: row.namaKelompok,
+        statusAktif: row.statusAktif,
+        catatan: row.catatan,
+        qrCode: `QR-${row.namaLengkap.replace(/\s+/g, "-")}`
+      };
+
+      const existingIndex = updatedList.findIndex(g => g.id === row.id);
+      if (existingIndex > -1) {
+        if (updateExisting) {
+          updatedList[existingIndex] = generusData;
+          countUpdated++;
+        }
+      } else {
+        updatedList.push(generusData);
+        countNew++;
+      }
+    });
+
+    if (countNew === 0 && countUpdated === 0) {
+      toast.info("Tidak ada data baru yang diimpor.");
+      setImportOpen(false);
+      return;
+    }
+
+    setGenerusList(updatedList);
+    saveGenerus(updatedList);
+    toast.success(`Impor data berhasil! ${countNew} santri baru ditambahkan dan ${countUpdated} data santri diperbarui.`);
+    setImportOpen(false);
+    
+    setImportStatus('idle');
+    setImportRows([]);
+    setImportValidation({});
+  };
 
   const handleAiOcrScan = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -280,9 +518,9 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     window.print();
   };
 
-  const handleImportExcel = () => {
-    toast.success("Simulator Impor Excel Aktif! Membaca data siswa...");
-  };
+  const csvTemplateHeaders = "NIS,Nama Lengkap,Jenis Kelamin,Usia,Tanggal Lahir,Kelompok Binaan,Nama Orang Tua,WhatsApp Orang Tua,Alamat,Catatan";
+  const csvTemplateRow = "NIS-010,Muhammad Rizky,Laki-laki,12,2014-08-15,Kelompok 1,Ahmad Yani,081234567890,Ds. Karas RT 02 RW 01 Magetan,Santri teladan";
+  const csvTemplateUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvTemplateHeaders + "\n" + csvTemplateRow + "\n")}`;
 
   const filteredGenerus = generusList.filter(g => {
     // Scope check: must belong to allowed kelompoks
@@ -308,8 +546,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleImportExcel} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
-            <Upload className="h-4 w-4 text-emerald-600" /> Impor Excel
+          <Button onClick={() => setImportOpen(true)} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
+            <Upload className="h-4 w-4 text-emerald-600" /> Impor Excel/CSV
           </Button>
           <Button onClick={handleExportExcel} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
             <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel
@@ -715,6 +953,155 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
               {isEdit ? "Simpan Perubahan" : "Daftarkan Generus"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[700px] rounded-2xl p-6 text-left flex flex-col space-y-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-bold text-slate-900 flex items-center gap-1.5">
+              <Upload className="h-5 w-5 text-emerald-600" /> Impor Data Generus
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Unggah file CSV untuk mengimpor data santri secara massal ke dalam sistem.
+            </DialogDescription>
+          </DialogHeader>
+
+          {importStatus === 'idle' && (
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer relative">
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleImportFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <Upload className="h-10 w-10 text-slate-400 mb-3" />
+                <span className="text-xs font-bold text-slate-700">Pilih File CSV</span>
+                <span className="text-[10px] text-slate-400 mt-1">atau seret file ke sini</span>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                <span className="text-[10px] font-bold text-slate-600 uppercase block">Petunjuk Penggunaan:</span>
+                <ol className="text-[10px] text-slate-500 space-y-1 list-decimal pl-4 font-medium">
+                  <li>Kolom minimal yang harus ada: <strong>Nama Lengkap</strong> dan <strong>NIS</strong>.</li>
+                  <li>Kolom opsional lainnya: Jenis Kelamin, Usia, Tanggal Lahir, Kelompok, Orang Tua, No WhatsApp, Alamat, Catatan.</li>
+                  <li>Gunakan format tanggal <strong>YYYY-MM-DD</strong> (contoh: 2016-05-12).</li>
+                  <li>Untuk kelancaran, Anda dapat mengunduh templat di bawah ini.</li>
+                </ol>
+                <div className="pt-2">
+                  <a
+                    href={csvTemplateUri}
+                    download="templat_import_generus.csv"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-500"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Unduh Templat CSV
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {importStatus === 'parsing' && (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+              <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis file CSV...</span>
+            </div>
+          )}
+
+          {importStatus === 'ready' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Preview Data ({importRows.length} Baris)</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={updateExisting}
+                      onChange={(e) => setUpdateExisting(e.target.checked)}
+                      className="rounded border-slate-350 text-emerald-600 mr-1.5"
+                    />
+                    Perbarui data jika NIS sudah ada
+                  </label>
+                </div>
+              </div>
+
+              {/* Preview table */}
+              <div className="border border-slate-150 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto">
+                <table className="w-full border-collapse text-left text-[10px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-150 text-slate-600 font-bold">
+                      <th className="p-2">NIS</th>
+                      <th className="p-2">Nama Lengkap</th>
+                      <th className="p-2">Kelompok</th>
+                      <th className="p-2">Gender</th>
+                      <th className="p-2">Wali</th>
+                      <th className="p-2">Status / Peringatan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importRows.map((row, idx) => {
+                      const errors = importValidation[idx] || [];
+                      const hasErrors = errors.length > 0;
+                      
+                      return (
+                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 font-semibold text-slate-800">
+                          <td className="p-2 font-mono">{row.nisInternal}</td>
+                          <td className="p-2">{row.namaLengkap}</td>
+                          <td className="p-2">{row.namaKelompok}</td>
+                          <td className="p-2">{row.jenisKelamin}</td>
+                          <td className="p-2">{row.namaOrangTua}</td>
+                          <td className="p-2">
+                            {hasErrors ? (
+                              <div className="space-y-0.5">
+                                {errors.map((err, eIdx) => {
+                                  const isWarning = err.includes("sudah terdaftar") || err.includes("menggunakan NIS otomatis");
+                                  return (
+                                    <span key={eIdx} className={`block text-[9px] ${isWarning ? "text-amber-600 font-semibold" : "text-rose-600 font-bold"}`}>
+                                      • {err}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-emerald-600 font-bold">✓ Valid</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setImportStatus('idle');
+                    setImportRows([]);
+                    setImportValidation({});
+                  }}
+                  className="rounded-xl text-xs py-2 px-3 border-slate-200 hover:bg-slate-100 font-semibold text-slate-700 bg-white"
+                >
+                  Pilih File Lain
+                </Button>
+                <Button
+                  onClick={executeImport}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold py-2 px-4 text-xs"
+                >
+                  Konfirmasi Impor ({importRows.filter((row, idx) => {
+                    const errors = importValidation[idx] || [];
+                    const hasFatalError = errors.some(err => !err.includes("sudah terdaftar") && !err.includes("menggunakan NIS otomatis"));
+                    if (hasFatalError) return false;
+                    if (row.isExisting && !updateExisting) return false;
+                    return true;
+                  }).length} Data)
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

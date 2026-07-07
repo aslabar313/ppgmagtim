@@ -11,6 +11,57 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+function parseCSV(text: string): string[][] {
+  const lines: string[][] = [];
+  let row: string[] = [""];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push('');
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      lines.push(row);
+      row = [''];
+    } else {
+      row[row.length - 1] += char;
+    }
+  }
+  if (row.length > 1 || row[0] !== '') {
+    lines.push(row);
+  }
+  return lines;
+}
+
+function mapPresensiHeaders(headers: string[]): { [key: string]: number } {
+  const mapping: { [key: string]: number } = {};
+  headers.forEach((h, index) => {
+    const clean = h.trim().toLowerCase();
+    if (clean.includes("nis")) {
+      mapping.nisInternal = index;
+    } else if (clean.includes("nama") || clean.includes("santri") || clean.includes("siswa")) {
+      mapping.namaLengkap = index;
+    } else if (clean.includes("tanggal") || clean.includes("tgl") || clean === "date") {
+      mapping.tanggal = index;
+    } else if (clean.includes("status") || clean.includes("hadir") || clean.includes("absen") || clean.includes("kehadiran")) {
+      mapping.statusKehadiran = index;
+    }
+  });
+  return mapping;
+}
+
 interface PresensiPanelProps {
   userRole: string;
 }
@@ -55,7 +106,145 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   // AI OCR Presensi Scanner
   const [ocrScanning, setOcrScanning] = useState(false);
 
+  // CSV Import States for Presensi
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<any[]>([]);
+  const [importValidation, setImportValidation] = useState<{ [key: number]: string[] }>({});
+  const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'ready' | 'importing'>('idle');
+
   const isReadOnly = userRole === "Viewer";
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('parsing');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const csvData = parseCSV(text);
+        if (csvData.length < 2) {
+          toast.error("File CSV kosong atau tidak memiliki baris data.");
+          setImportStatus('idle');
+          return;
+        }
+
+        const headers = csvData[0];
+        const rows = csvData.slice(1).filter(r => r.length > 0 && r.some(cell => cell.trim() !== ''));
+
+        const mapping = mapPresensiHeaders(headers);
+        
+        if (mapping.nisInternal === undefined && mapping.namaLengkap === undefined) {
+          toast.error("Kolom 'NIS' atau 'Nama Lengkap' tidak ditemukan dalam file CSV.");
+          setImportStatus('idle');
+          return;
+        }
+
+        const parsedRows: any[] = [];
+        const validationMap: { [key: number]: string[] } = {};
+
+        rows.forEach((row, index) => {
+          const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
+          const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
+          const rawTanggal = mapping.tanggal !== undefined ? row[mapping.tanggal]?.trim() : "";
+          const rawStatus = mapping.statusKehadiran !== undefined ? row[mapping.statusKehadiran]?.trim() : "";
+
+          const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(rawTanggal) ? rawTanggal : activeDate;
+          
+          let statusKehadiran: "Hadir" | "Izin" | "Sakit" | "Alfa" = "Hadir";
+          const statusLower = rawStatus.toLowerCase();
+          if (statusLower.includes("izin") || statusLower === "i") statusKehadiran = "Izin";
+          else if (statusLower.includes("sakit") || statusLower === "s") statusKehadiran = "Sakit";
+          else if (statusLower.includes("alfa") || statusLower === "a" || statusLower.includes("tanpa keterangan")) statusKehadiran = "Alfa";
+
+          const errors: string[] = [];
+
+          let student = generusList.find(g => g.nisInternal === rawNis);
+          if (!student && rawNama) {
+            student = generusList.find(g => g.namaLengkap.toLowerCase() === rawNama.toLowerCase());
+          }
+
+          if (!student) {
+            errors.push(`Santri dengan NIS '${rawNis}' atau Nama '${rawNama}' tidak ditemukan di database.`);
+          } else {
+            if (!allowedKelompoks.includes(student.namaKelompok)) {
+              errors.push(`Santri '${student.namaLengkap}' berada di kelompok '${student.namaKelompok}' di luar hak akses Anda.`);
+            }
+          }
+
+          parsedRows.push({
+            generusId: student ? student.id : "",
+            namaLengkap: student ? student.namaLengkap : (rawNama || "Tidak Diketahui"),
+            namaKelompok: student ? student.namaKelompok : "Tidak Diketahui",
+            tanggal,
+            statusKehadiran,
+            isValid: !!student && allowedKelompoks.includes(student.namaKelompok),
+            nisInternal: rawNis || (student ? student.nisInternal : "")
+          });
+
+          if (errors.length > 0) {
+            validationMap[index] = errors;
+          }
+        });
+
+        setImportRows(parsedRows);
+        setImportValidation(validationMap);
+        setImportStatus('ready');
+      } catch (err) {
+        console.error(err);
+        toast.error("Gagal membaca file CSV. Pastikan format file benar.");
+        setImportStatus('idle');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const executeImport = () => {
+    let countNew = 0;
+    let countUpdated = 0;
+    const updatedList = [...presensiList];
+
+    importRows.forEach((row) => {
+      if (!row.isValid) return;
+
+      const existingIndex = updatedList.findIndex(
+        p => p.generusId === row.generusId && p.tanggal === row.tanggal
+      );
+
+      const presensiData: Presensi = {
+        id: existingIndex > -1 ? updatedList[existingIndex].id : "pr-csv-" + Date.now() + Math.random().toString(36).substr(2, 5),
+        generusId: row.generusId,
+        namaLengkap: row.namaLengkap,
+        namaKelompok: row.namaKelompok,
+        tanggal: row.tanggal,
+        statusKehadiran: row.statusKehadiran
+      };
+
+      if (existingIndex > -1) {
+        updatedList[existingIndex] = presensiData;
+        countUpdated++;
+      } else {
+        updatedList.push(presensiData);
+        countNew++;
+      }
+    });
+
+    if (countNew === 0 && countUpdated === 0) {
+      toast.info("Tidak ada data presensi yang diimpor.");
+      setImportOpen(false);
+      return;
+    }
+
+    setPresensiList(updatedList);
+    savePresensi(updatedList);
+    toast.success(`Impor presensi berhasil! ${countNew} data baru dicatat dan ${countUpdated} data diperbarui.`);
+    setImportOpen(false);
+
+    setImportStatus('idle');
+    setImportRows([]);
+    setImportValidation({});
+  };
 
   // Search & Filters for Log
   const [searchLogQuery, setSearchLogQuery] = useState("");
@@ -149,9 +338,9 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     setQrSimOpen(false);
   };
 
-  const handleImportExcel = () => {
-    toast.success("Excel diimpor! Berhasil memasukkan 15 data absensi.");
-  };
+  const csvTemplateHeaders = "NIS,Nama Lengkap,Tanggal,Status Kehadiran";
+  const csvTemplateRow = "NIS-2026001,Muhammad Rizky,2026-07-07,Hadir";
+  const csvTemplateUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvTemplateHeaders + "\n" + csvTemplateRow + "\n")}`;
 
   const handlePresensiOcr = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -215,8 +404,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         </div>
         
         <div className="flex gap-2">
-          <Button onClick={handleImportExcel} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
-            <Upload className="h-4 w-4 text-emerald-600" /> Impor Excel Absensi
+          <Button onClick={() => setImportOpen(true)} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
+            <Upload className="h-4 w-4 text-emerald-600" /> Impor Excel/CSV Absensi
           </Button>
           {!isReadOnly && (
             <Dialog open={qrSimOpen} onOpenChange={setQrSimOpen}>
@@ -535,6 +724,148 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           </Card>
         </div>
       )}
+
+      {/* CSV Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[700px] rounded-2xl p-6 text-left flex flex-col space-y-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-bold text-slate-900 flex items-center gap-1.5">
+              <Upload className="h-5 w-5 text-emerald-600" /> Impor Presensi Santri
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Unggah file CSV untuk mengimpor data kehadiran santri secara massal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {importStatus === 'idle' && (
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer relative">
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleImportFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <Upload className="h-10 w-10 text-slate-400 mb-3" />
+                <span className="text-xs font-bold text-slate-700">Pilih File CSV</span>
+                <span className="text-[10px] text-slate-400 mt-1">atau seret file ke sini</span>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                <span className="text-[10px] font-bold text-slate-600 uppercase block">Petunjuk Penggunaan:</span>
+                <ol className="text-[10px] text-slate-500 space-y-1 list-decimal pl-4 font-medium">
+                  <li>Kolom minimal yang harus ada: <strong>NIS</strong> atau <strong>Nama Lengkap</strong>.</li>
+                  <li>Kolom opsional lainnya: Tanggal (YYYY-MM-DD), Status Kehadiran (Hadir, Izin, Sakit, Alfa).</li>
+                  <li>Jika kolom Tanggal kosong, sistem otomatis menggunakan tanggal aktif saat ini (<strong>{activeDate}</strong>).</li>
+                  <li>Status kehadiran default adalah <strong>Hadir</strong> jika tidak ditentukan.</li>
+                </ol>
+                <div className="pt-2">
+                  <a
+                    href={csvTemplateUri}
+                    download="templat_import_presensi.csv"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-500"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Unduh Templat CSV
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {importStatus === 'parsing' && (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+              <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis file CSV...</span>
+            </div>
+          )}
+
+          {importStatus === 'ready' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Preview Absensi ({importRows.length} Baris)</span>
+              </div>
+
+              {/* Preview table */}
+              <div className="border border-slate-150 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto">
+                <table className="w-full border-collapse text-left text-[10px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-150 text-slate-600 font-bold">
+                      <th className="p-2">NIS</th>
+                      <th className="p-2">Nama Lengkap</th>
+                      <th className="p-2">Kelompok</th>
+                      <th className="p-2">Tanggal</th>
+                      <th className="p-2">Status</th>
+                      <th className="p-2">Keterangan / Validasi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importRows.map((row, idx) => {
+                      const errors = importValidation[idx] || [];
+                      const hasErrors = errors.length > 0;
+                      
+                      return (
+                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 font-semibold text-slate-800">
+                          <td className="p-2 font-mono">{row.nisInternal || "-"}</td>
+                          <td className="p-2">{row.namaLengkap}</td>
+                          <td className="p-2">{row.namaKelompok}</td>
+                          <td className="p-2 font-mono">{row.tanggal}</td>
+                          <td className="p-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              row.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700" :
+                              row.statusKehadiran === "Izin" ? "bg-amber-50 text-amber-700" :
+                              row.statusKehadiran === "Sakit" ? "bg-indigo-50 text-indigo-750" :
+                              "bg-rose-50 text-rose-700"
+                            }`}>
+                              {row.statusKehadiran}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            {hasErrors ? (
+                              <div className="space-y-0.5">
+                                {errors.map((err, eIdx) => (
+                                  <span key={eIdx} className="block text-[9px] text-rose-600 font-bold">
+                                    • {err}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-emerald-600 font-bold">✓ Valid</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setImportStatus('idle');
+                    setImportRows([]);
+                    setImportValidation({});
+                  }}
+                  className="rounded-xl text-xs py-2 px-3 border-slate-200 hover:bg-slate-100 font-semibold text-slate-700 bg-white"
+                >
+                  Pilih File Lain
+                </Button>
+                <Button
+                  onClick={executeImport}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold py-2 px-4 text-xs"
+                >
+                  Konfirmasi Impor ({importRows.filter((row, idx) => {
+                    const errors = importValidation[idx] || [];
+                    const hasFatalError = errors.length > 0;
+                    return !hasFatalError;
+                  }).length} Data)
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

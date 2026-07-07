@@ -19,6 +19,7 @@ import { PengumumanPanel } from "./PengumumanPanel";
 import { RankingPanel } from "./RankingPanel";
 import { EnterpriseModuleLoader } from "./EnterpriseModuleLoader";
 import { APIDocsPanel } from "./APIDocsPanel";
+import { LaporanPerubahanPanel } from "./LaporanPerubahanPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ import {
 import { 
   LayoutDashboard, Users, UserCheck, Calendar, MapPin, LogOut, 
   TrendingUp, BookOpen, MessageSquare, Wrench, FileText, ChevronRight,
-  Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell
+  Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +42,15 @@ interface AdminPanelProps {
 export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
   const [role, setRole] = useState(initialRole);
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [loggedUser, setLoggedUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setLoggedUser(localStorage.getItem("sim_tpq_logged_user"));
+    }
+  }, []);
+
+  const isAldi = loggedUser === "superadminaldi" || (role === "Super Admin" && typeof window !== "undefined" && localStorage.getItem("sim_tpq_admin_num") === "2");
 
   // PWA Install prompt listener
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -144,6 +154,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <AnalitikPanel />;
       case "safety":
         return <SafetyView role={role} />;
+      case "laporan_perubahan":
+        return <LaporanPerubahanPanel />;
       default:
         if (["keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(activeTab)) {
           return <EnterpriseModuleLoader activeTab={activeTab} role={role} />;
@@ -441,6 +453,11 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             {hasAccessTo("safety") && (
               <button onClick={() => setActiveTab("safety")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "safety" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Shield className="h-4.5 w-4.5" /> System & Safety
+              </button>
+            )}
+            {isAldi && (
+              <button onClick={() => setActiveTab("laporan_perubahan")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "laporan_perubahan" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "hover:bg-slate-900 text-indigo-400 hover:text-indigo-200"}`}>
+                <History className="h-4.5 w-4.5 animate-pulse" /> Laporan Perubahan
               </button>
             )}
           </nav>

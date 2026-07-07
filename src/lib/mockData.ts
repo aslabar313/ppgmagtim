@@ -264,8 +264,17 @@ export const verifyCredentials = (user: string, pass: string): AuthResult | null
   if (p !== "admin123") return null;
 
   // 1. Super Admin
-  if (u === "superadmin" || u === "superadmin1" || u === "superadmin2") {
-    return { success: true, role: "Super Admin", level: "global", scope: "Semua", adminNum: u.endsWith("2") ? 2 : 1 };
+  const superAdmins = [
+    "superadminharjito", "superadminaldi", "superadminwanda", "superadmindeni", "superadminoga",
+    "superadmin", "superadmin1", "superadmin2", "superadmin3", "superadmin4"
+  ];
+  if (superAdmins.includes(u)) {
+    let adminNum = 1;
+    if (u === "superadminaldi" || u === "superadmin2") adminNum = 2;
+    else if (u === "superadminwanda" || u === "superadmin3") adminNum = 3;
+    else if (u === "superadmindeni" || u === "superadmin4") adminNum = 4;
+    else if (u === "superadminoga") adminNum = 5;
+    return { success: true, role: "Super Admin", level: "global", scope: "Semua", adminNum };
   }
 
   // 2. Admin Daerah Magetan Timur (daerah1, daerah2)

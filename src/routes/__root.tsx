@@ -161,15 +161,23 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").then(
-          (registration) => {
-            console.log("PWA ServiceWorker registered scope: ", registration.scope);
-          },
-          (err) => {
-            console.log("PWA ServiceWorker registration failed: ", err);
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        if (registrations.length > 0) {
+          for (const registration of registrations) {
+            registration.unregister();
           }
-        );
+          if (window.caches) {
+            caches.keys().then((names) => {
+              for (const name of names) {
+                caches.delete(name);
+              }
+            });
+          }
+          console.log("Unregistered Service Workers and cleared caches to bypass client-side cache.");
+          setTimeout(() => {
+            window.location.reload();
+          }, 300);
+        }
       });
     }
   }, []);

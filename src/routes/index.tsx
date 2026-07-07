@@ -39,6 +39,7 @@ function Index() {
     localStorage.removeItem("sim_tpq_logged_role");
     localStorage.removeItem("sim_tpq_active_scope");
     localStorage.removeItem("sim_tpq_admin_num");
+    localStorage.removeItem("sim_tpq_logged_user");
     setAdminRole(null);
   };
 

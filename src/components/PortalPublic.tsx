@@ -42,6 +42,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       setLockoutUntil(null);
       toast.success(`Login sukses sebagai ${result.role} (Admin ${result.adminNum})!`);
       setLoginOpen(false);
+      localStorage.setItem("sim_tpq_logged_user", username.toLowerCase().trim().replace(/[^a-z0-9]/g, ""));
       localStorage.setItem("sim_tpq_active_scope", result.scope);
       localStorage.setItem("sim_tpq_admin_num", String(result.adminNum));
       onEnterAdmin(result.role);
@@ -133,7 +134,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
                   <div className="bg-slate-950/60 border border-slate-800/80 p-3.5 rounded-2xl text-[10px] text-slate-400 space-y-1.5 font-sans leading-relaxed">
                     <div className="font-bold text-slate-300 flex items-center gap-1"><Info className="h-3.5 w-3.5 text-indigo-400" /> Kredensial Simulator Peran (Password: <code>admin123</code>)</div>
                     <div className="grid grid-cols-2 gap-1 font-mono text-[9px]">
-                      <div>Super Admin: <code>superadmin</code></div>
+                      <div>Super Admin: <code>superadminharjito/aldi/wanda/deni/oga</code></div>
                       <div>Daerah: <code>daerah1</code></div>
                       <div>Desa: <code>desaselatan1</code></div>
                       <div>Kelompok: <code>adminkaras1</code></div>

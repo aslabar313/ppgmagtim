@@ -152,6 +152,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [kelompokFilter, setKelompokFilter] = useState("Semua");
   const [genderFilter, setGenderFilter] = useState("Semua");
   const [statusFilter, setStatusFilter] = useState("Semua");
+  const [subDbTab, setSubDbTab] = useState<"Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Caberawit");
 
   // Form Dialog States
   const [isOpen, setIsOpen] = useState(false);
@@ -170,6 +171,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [formKelompok, setFormKelompok] = useState(allowedKelompoks[0] || "");
   const [formStatus, setFormStatus] = useState(true);
   const [formCatatan, setFormCatatan] = useState("");
+  const [formKategori, setFormKategori] = useState<"Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Caberawit");
 
   // QR & Document Viewer State
   const [qrOpen, setQrOpen] = useState(false);
@@ -391,6 +393,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     setFormKelompok(allowedKelompoks[0] || "");
     setFormStatus(true);
     setFormCatatan("");
+    setFormKategori("Caberawit");
     setIsOpen(true);
   };
 
@@ -412,6 +415,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     setFormKelompok(g.namaKelompok);
     setFormStatus(g.statusAktif);
     setFormCatatan(g.catatan);
+    setFormKategori(g.kategori || (g.usia < 13 ? "Caberawit" : g.usia <= 22 ? "Muda-Mudi" : "Jama'ah Dewasa"));
     setIsOpen(true);
   };
 
@@ -472,7 +476,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
             whatsappOrangTua: validated.whatsappOrangTua,
             namaKelompok: formKelompok,
             statusAktif: formStatus,
-            catatan: validated.catatan
+            catatan: validated.catatan,
+            kategori: formKategori
           };
         }
         return g;
@@ -495,7 +500,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
         namaKelompok: formKelompok,
         statusAktif: formStatus,
         catatan: validated.catatan,
-        qrCode: `QR-${validated.namaLengkap.replace(/\s+/g, "-")}`
+        qrCode: `QR-${validated.namaLengkap.replace(/\s+/g, "-")}`,
+        kategori: formKategori
       };
       const updated = [...generusList, newGenerus];
       setGenerusList(updated);
@@ -526,6 +532,10 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     // Scope check: must belong to allowed kelompoks
     if (!allowedKelompoks.includes(g.namaKelompok)) return false;
 
+    // Sub-Database filter
+    const computedCategory = g.kategori || (g.usia < 13 ? "Caberawit" : g.usia <= 22 ? "Muda-Mudi" : "Jama'ah Dewasa");
+    if (computedCategory !== subDbTab) return false;
+
     const matchesSearch = g.namaLengkap.toLowerCase().includes(search.toLowerCase()) ||
                           g.nisInternal.toLowerCase().includes(search.toLowerCase()) ||
                           g.namaOrangTua.toLowerCase().includes(search.toLowerCase());
@@ -541,8 +551,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     <div className="space-y-6 text-left">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-bold text-slate-800">Data Master Generus</h2>
-          <p className="text-slate-500 text-sm">Lihat, cari, dan kelola database santri generus sewilayah.</p>
+          <h2 className="font-display text-2xl font-bold text-slate-800">Database Jama'ah & Generus</h2>
+          <p className="text-slate-500 text-sm">Lihat, cari, dan kelola database Caberawit, Muda-Mudi, dan Jama'ah Dewasa sewilayah.</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -560,10 +570,41 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
           </Button>
           {!isReadOnly && (
             <Button onClick={handleOpenAdd} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold gap-2 py-2 px-4 shadow-sm text-xs">
-              <UserPlus className="h-4 w-4" /> Tambah Generus
+              <UserPlus className="h-4 w-4" /> Tambah Data
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Sub Database Selector Tabs */}
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex border border-slate-200/60 max-w-2xl w-full">
+        {(["Caberawit", "Muda-Mudi", "Jama'ah Dewasa"] as const).map((tab) => {
+          const count = generusList.filter(g => {
+            if (!allowedKelompoks.includes(g.namaKelompok)) return false;
+            const category = g.kategori || (g.usia < 13 ? "Caberawit" : g.usia <= 22 ? "Muda-Mudi" : "Jama'ah Dewasa");
+            return category === tab;
+          }).length;
+          
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setSubDbTab(tab)}
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 md:gap-2 ${
+                subDbTab === tab
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/40"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+              }`}
+            >
+              {tab === "Caberawit" && "👦 Caberawit"}
+              {tab === "Muda-Mudi" && "🧑 Muda-Mudi"}
+              {tab === "Jama'ah Dewasa" && "🧔 Dewasa"}
+              <Badge className="bg-slate-200 text-slate-700 font-bold border-none px-2 py-0.5 rounded-full hover:bg-slate-200 text-[10px]">
+                {count}
+              </Badge>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter Card */}
@@ -864,7 +905,13 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
                   type="number"
                   required
                   value={formUsia}
-                  onChange={(e) => setFormUsia(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setFormUsia(val);
+                    if (val < 13) setFormKategori("Caberawit");
+                    else if (val <= 22) setFormKategori("Muda-Mudi");
+                    else setFormKategori("Jama'ah Dewasa");
+                  }}
                   className="rounded-xl border-slate-200 text-slate-900 text-sm"
                 />
               </div>
@@ -891,6 +938,19 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
                   {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                     <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Sub Database / Kategori *</label>
+                <select
+                  value={formKategori}
+                  onChange={(e) => setFormKategori(e.target.value as any)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10 font-bold"
+                >
+                  <option value="Caberawit">👦 Caberawit (Anak-Anak)</option>
+                  <option value="Muda-Mudi">🧑 Muda-Mudi (Remaja/Youth)</option>
+                  <option value="Jama'ah Dewasa">🧔 Jama'ah Dewasa (Adult)</option>
                 </select>
               </div>
 

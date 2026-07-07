@@ -29,6 +29,7 @@ export interface Generus {
   statusAktif: boolean;
   catatan: string;
   qrCode: string;
+  kategori?: "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa";
 }
 
 export interface Alumni {
@@ -444,11 +445,13 @@ export const verifyCredentials = (user: string, pass: string): AuthResult | null
 
 
 const INITIAL_GENERUS: Generus[] = [
-  { id: "g-1", foto: "", namaLengkap: "Ahmad Bagus Pratama", nisInternal: "NIS-2026001", jenisKelamin: "Laki-laki", usia: 12, tanggalLahir: "2014-05-12", alamat: "Jl. Diponegoro No. 3, Takeran", namaOrangTua: "H. Joko Susilo", whatsappOrangTua: "081234567890", namaKelompok: INITIAL_KELOMPOK[0].namaKelompok, statusAktif: true, catatan: "Sangat antusias belajar Tahfidz", qrCode: "QR-Ahmad-Bagus-NIS-2026001" },
-  { id: "g-2", foto: "", namaLengkap: "Siti Rahmawati", nisInternal: "NIS-2026002", jenisKelamin: "Perempuan", usia: 9, tanggalLahir: "2017-08-22", alamat: "Ds. Gamping, Kawedanan", namaOrangTua: "Budi Utomo", whatsappOrangTua: "081398765432", namaKelompok: INITIAL_KELOMPOK[1].namaKelompok, statusAktif: true, catatan: "Perlu bimbingan ekstra pada makhraj", qrCode: "QR-Siti-Rahma-NIS-2026002" },
-  { id: "g-3", foto: "", namaLengkap: "Muhammad Zaki", nisInternal: "NIS-2026003", jenisKelamin: "Laki-laki", usia: 15, tanggalLahir: "2011-02-14", alamat: "Perum Maospati Blok A", namaOrangTua: "Harianto", whatsappOrangTua: "085712345678", namaKelompok: INITIAL_KELOMPOK[2].namaKelompok, statusAktif: true, catatan: "Hafal juz 30 & 29", qrCode: "QR-Muhammad-Zaki-NIS-2026003" },
-  { id: "g-4", foto: "", namaLengkap: "Aisyah Humaira", nisInternal: "NIS-2026004", jenisKelamin: "Perempuan", usia: 7, tanggalLahir: "2019-11-30", alamat: "Dsn. Kentangan, Sukomoro", namaOrangTua: "Dwi Cahyono", whatsappOrangTua: "082155443322", namaKelompok: INITIAL_KELOMPOK[3].namaKelompok, statusAktif: true, catatan: "Caberawit berprestasi mewarnai", qrCode: "QR-Aisyah-Humaira-NIS-2026004" },
-  { id: "g-5", foto: "", namaLengkap: "Rizky Ramadhan", nisInternal: "NIS-2026005", jenisKelamin: "Laki-laki", usia: 16, tanggalLahir: "2010-09-10", alamat: "Jl. Samudra No. 15, Bendo", namaOrangTua: "Agus Suprianto", whatsappOrangTua: "089988776655", namaKelompok: INITIAL_KELOMPOK[4].namaKelompok, statusAktif: true, catatan: "Muda-mudi teraktif kegiatan sosial", qrCode: "QR-Rizky-Rama-NIS-2026005" }
+  { id: "g-1", foto: "", namaLengkap: "Ahmad Bagus Pratama", nisInternal: "NIS-2026001", jenisKelamin: "Laki-laki", usia: 12, tanggalLahir: "2014-05-12", alamat: "Jl. Diponegoro No. 3, Takeran", namaOrangTua: "H. Joko Susilo", whatsappOrangTua: "081234567890", namaKelompok: INITIAL_KELOMPOK[0].namaKelompok, statusAktif: true, catatan: "Sangat antusias belajar Tahfidz", qrCode: "QR-Ahmad-Bagus-NIS-2026001", kategori: "Caberawit" },
+  { id: "g-2", foto: "", namaLengkap: "Siti Rahmawati", nisInternal: "NIS-2026002", jenisKelamin: "Perempuan", usia: 9, tanggalLahir: "2017-08-22", alamat: "Ds. Gamping, Kawedanan", namaOrangTua: "Budi Utomo", whatsappOrangTua: "081398765432", namaKelompok: INITIAL_KELOMPOK[1].namaKelompok, statusAktif: true, catatan: "Perlu bimbingan ekstra pada makhraj", qrCode: "QR-Siti-Rama-NIS-2026002", kategori: "Caberawit" },
+  { id: "g-3", foto: "", namaLengkap: "Muhammad Zaki", nisInternal: "NIS-2026003", jenisKelamin: "Laki-laki", usia: 15, tanggalLahir: "2011-02-14", alamat: "Perum Maospati Blok A", namaOrangTua: "Harianto", whatsappOrangTua: "085712345678", namaKelompok: INITIAL_KELOMPOK[2].namaKelompok, statusAktif: true, catatan: "Hafal juz 30 & 29", qrCode: "QR-Muhammad-Zaki-NIS-2026003", kategori: "Muda-Mudi" },
+  { id: "g-4", foto: "", namaLengkap: "Aisyah Humaira", nisInternal: "NIS-2026004", jenisKelamin: "Perempuan", usia: 7, tanggalLahir: "2019-11-30", alamat: "Dsn. Kentangan, Sukomoro", namaOrangTua: "Dwi Cahyono", whatsappOrangTua: "082155443322", namaKelompok: INITIAL_KELOMPOK[3].namaKelompok, statusAktif: true, catatan: "Caberawit berprestasi mewarnai", qrCode: "QR-Aisyah-Humaira-NIS-2026004", kategori: "Caberawit" },
+  { id: "g-5", foto: "", namaLengkap: "Rizky Ramadhan", nisInternal: "NIS-2026005", jenisKelamin: "Laki-laki", usia: 16, tanggalLahir: "2010-09-10", alamat: "Jl. Samudra No. 15, Bendo", namaOrangTua: "Agus Suprianto", whatsappOrangTua: "089988776655", namaKelompok: INITIAL_KELOMPOK[4].namaKelompok, statusAktif: true, catatan: "Muda-mudi teraktif kegiatan sosial", qrCode: "QR-Rizky-Rama-NIS-2026005", kategori: "Muda-Mudi" },
+  { id: "g-6", foto: "", namaLengkap: "H. Joko Susilo", nisInternal: "NIS-2026006", jenisKelamin: "Laki-laki", usia: 45, tanggalLahir: "1981-03-20", alamat: "Jl. Diponegoro No. 3, Takeran", namaOrangTua: "Wali Internal", whatsappOrangTua: "081234567890", namaKelompok: INITIAL_KELOMPOK[0].namaKelompok, statusAktif: true, catatan: "Pemberi fasilitas tempat wudhu baru", qrCode: "QR-Joko-Susilo-NIS-2026006", kategori: "Jama'ah Dewasa" },
+  { id: "g-7", foto: "", namaLengkap: "Budi Utomo", nisInternal: "NIS-2026007", jenisKelamin: "Laki-laki", usia: 39, tanggalLahir: "1987-05-15", alamat: "Ds. Gamping, Kawedanan", namaOrangTua: "Wali Internal", whatsappOrangTua: "081398765432", namaKelompok: INITIAL_KELOMPOK[1].namaKelompok, statusAktif: true, catatan: "Aktif pengajian kelompok dewasa", qrCode: "QR-Budi-Utomo-NIS-2026007", kategori: "Jama'ah Dewasa" }
 ];
 
 const INITIAL_ALUMNI: Alumni[] = [

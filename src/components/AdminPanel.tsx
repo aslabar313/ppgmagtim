@@ -411,7 +411,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             )}
             {hasAccessTo("siswa") && (
               <button onClick={() => setActiveTab("siswa")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "siswa" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <Users className="h-4.5 w-4.5" /> Data Generus
+                <Users className="h-4.5 w-4.5" /> Database Jama'ah & Generus
               </button>
             )}
             {hasAccessTo("guru") && (

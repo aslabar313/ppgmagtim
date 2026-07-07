@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  BookOpen, Calendar, Video, FileText, Check, Plus, Upload, Play, Award, ShieldAlert 
+  BookOpen, Calendar, Video, FileText, Check, Plus, Upload, Play, Award, ShieldAlert, Trash2, Sparkles 
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,6 +15,37 @@ interface KurikulumPanelProps {
 }
 
 export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
+  const isReadOnly = userRole === "Viewer";
+  const isSuperAdmin = userRole === "Super Admin";
+
+  // Dynamic calendar events state
+  const [calendarEvents, setCalendarEvents] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sim_tpq_calendar");
+      if (stored) return JSON.parse(stored);
+    }
+    return [
+      { id: "cal-1", type: "Ujian", title: "Ujian Lisan Hadits Dasar Semester Ganjil", date: "2026-07-15", scope: "Daerah Magetan" },
+      { id: "cal-2", type: "Wisuda", title: "Wisuda Tahfidz Quran Juz 30 & Hadits", date: "2026-08-02", scope: "Kecamatan Takeran" },
+      { id: "cal-3", type: "Libur", title: "Libur Semester Ganjil Pengajian", date: "2026-07-20 s/d 2026-07-25", scope: "Semua TPQ" },
+      { id: "cal-4", type: "Kegiatan Daerah", title: "Raker Pengurus Daerah SIM TPQ", date: "2026-07-10", scope: "Magetan Center" }
+    ];
+  });
+
+  // AI Import states
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importType, setImportType] = useState<"kurikulum" | "kalender">("kurikulum");
+  const [importing, setImporting] = useState(false);
+  const [importStep, setImportStep] = useState(0);
+  const [importedItems, setImportedItems] = useState<any[]>([]);
+
+  // Calendar form states
+  const [isCalOpen, setIsCalOpen] = useState(false);
+  const [formCalTitle, setFormCalTitle] = useState("");
+  const [formCalType, setFormCalType] = useState("Ujian");
+  const [formCalDate, setFormCalDate] = useState("");
+  const [formCalScope, setFormCalScope] = useState("Semua TPQ");
+
   const [activeSubTab, setActiveSubTab] = useState<"kurikulum" | "kalender_akademik" | "kalender_karakter">("kurikulum");
   const [materiList, setMateriList] = useState<Kurikulum[]>(getKurikulum());
 
@@ -26,11 +57,9 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
   const [formTarget, setFormTarget] = useState("");
   const [formSubMateri, setFormSubMateri] = useState("");
 
-  const isReadOnly = userRole === "Viewer";
-
   const handleToggleChecklist = (id: string) => {
-    if (isReadOnly) {
-      toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
+    if (!isSuperAdmin) {
+      toast.error("Hanya akun Super Admin yang diizinkan memutakhirkan progres checklist kurikulum!");
       return;
     }
     const updated = materiList.map(m => {
@@ -51,6 +80,10 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
 
   const handleAddMateri = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      toast.error("Akses Ditolak! Hanya Super Admin yang bisa menambah materi.");
+      return;
+    }
     if (!formMateri || !formTarget) {
       toast.error("Harap lengkapi isian form!");
       return;
@@ -74,13 +107,134 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
     setIsOpen(false);
   };
 
-  // Mock Academic calendar data
-  const calendarEvents = [
-    { type: "Ujian", title: "Ujian Lisan Hadits Dasar Semester Ganjil", date: "2026-07-15", scope: "Daerah Magetan" },
-    { type: "Wisuda", title: "Wisuda Tahfidz Quran Juz 30 & Hadits", date: "2026-08-02", scope: "Kecamatan Takeran" },
-    { type: "Libur", title: "Libur Semester Ganjil Pengajian", date: "2026-07-20 s/d 2026-07-25", scope: "Semua TPQ" },
-    { type: "Kegiatan Daerah", title: "Raker Pengurus Daerah SIM TPQ", date: "2026-07-10", scope: "Magetan Center" }
-  ];
+  // Calendar Event operations
+  const handleAddCalendarEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSuperAdmin) {
+      toast.error("Akses Ditolak! Hanya Super Admin yang bisa menambah agenda kalender.");
+      return;
+    }
+    if (!formCalTitle || !formCalDate) {
+      toast.error("Harap isi semua kolom wajib!");
+      return;
+    }
+    const newEvent = {
+      id: "cal-" + Date.now(),
+      type: formCalType,
+      title: formCalTitle,
+      date: formCalDate,
+      scope: formCalScope
+    };
+    const updated = [...calendarEvents, newEvent];
+    setCalendarEvents(updated);
+    localStorage.setItem("sim_tpq_calendar", JSON.stringify(updated));
+    toast.success("Agenda kegiatan akademik berhasil ditambahkan!");
+    setIsCalOpen(false);
+    setFormCalTitle("");
+    setFormCalDate("");
+  };
+
+  const handleDeleteCalendarEvent = (id: string) => {
+    if (!isSuperAdmin) {
+      toast.error("Hanya Super Admin yang dapat menghapus agenda kalender!");
+      return;
+    }
+    const updated = calendarEvents.filter((item) => item.id !== id);
+    setCalendarEvents(updated);
+    localStorage.setItem("sim_tpq_calendar", JSON.stringify(updated));
+    toast.success("Agenda kegiatan akademik berhasil dihapus!");
+  };
+
+  // AI Import simulation logic
+  const handleRunAiAnalysis = () => {
+    setImporting(true);
+    setImportStep(1); // Reading file
+    toast.info("AI sedang membaca metadata berkas...");
+
+    setTimeout(() => {
+      setImportStep(2); // AI analyzing structure
+      toast.info("AI sedang menganalisis materi dan memetakan jadwal...");
+      
+      setTimeout(() => {
+        setImportStep(3); // Mapping competencies
+        
+        setTimeout(() => {
+          if (importType === "kurikulum") {
+            const extracted: Kurikulum[] = [
+              {
+                id: "cur-ai-" + Date.now() + 1,
+                materi: "Hafalan Juz 30 (Al-Mulk s/d An-Nas)",
+                kategori: "Al-Qur'an",
+                semester: 1,
+                target: "Hafal lancar tartil dengan tajwid benar",
+                subMateri: "Surat Al-Mulk, Al-Qalam, Al-Haqqah, Al-Ma'arij",
+                checklistPenyelesaian: false,
+                progress: 0
+              },
+              {
+                id: "cur-ai-" + Date.now() + 2,
+                materi: "Hadits Kebersihan & Kerukunan",
+                kategori: "Hadits",
+                semester: 1,
+                target: "Lancar membaca lafadz hadits dan terjemahannya",
+                subMateri: "Hadits riwayat At-Thabrani dan Muslim",
+                checklistPenyelesaian: false,
+                progress: 0
+              },
+              {
+                id: "cur-ai-" + Date.now() + 3,
+                materi: "Kemuliaan Orang Tua (Birrul Walidain)",
+                kategori: "Karakter",
+                semester: 2,
+                target: "Penerapan praktis bakti sosial keluarga",
+                subMateri: "Adab berbicara lembut, membantu pekerjaan rumah",
+                checklistPenyelesaian: false,
+                progress: 0
+              }
+            ];
+            setImportedItems(extracted);
+          } else {
+            const extracted = [
+              {
+                id: "cal-ai-" + Date.now() + 1,
+                type: "Ujian",
+                title: "Ujian Tulis Hadits Arbain Semester Ganjil",
+                date: "2026-07-28",
+                scope: "Daerah Magetan"
+              },
+              {
+                id: "cal-ai-" + Date.now() + 2,
+                type: "Pelatihan",
+                title: "Bimbingan Teknis Guru TPQ Magetan Timur",
+                date: "2026-08-15",
+                scope: "Magetan Center"
+              }
+            ];
+            setImportedItems(extracted);
+          }
+          setImporting(false);
+          setImportStep(4); // Display result
+          toast.success("AI berhasil membaca dan menganalisis berkas!");
+        }, 1500);
+      }, 1500);
+    }, 1500);
+  };
+
+  const handleConfirmImport = () => {
+    if (importType === "kurikulum") {
+      const updated = [...materiList, ...importedItems];
+      setMateriList(updated);
+      saveKurikulum(updated);
+    } else {
+      const updated = [...calendarEvents, ...importedItems];
+      setCalendarEvents(updated);
+      localStorage.setItem("sim_tpq_calendar", JSON.stringify(updated));
+    }
+    setIsImportOpen(false);
+    setImportedItems([]);
+    setImportStep(0);
+    toast.success(`Berhasil mengimpor ${importedItems.length} data valid baru melalui AI!`);
+  };
 
   // Mock Character Targets
   const characterTargets = [
@@ -97,10 +251,22 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
           <h2 className="font-display text-2xl font-bold text-slate-800">Kurikulum & Kalender Akademik</h2>
           <p className="text-slate-500 text-sm">Kelola materi target pengajaran santri dan jadwal kegiatan akademik daerah.</p>
         </div>
-        {activeSubTab === "kurikulum" && !isReadOnly && (
-          <Button onClick={() => setIsOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold gap-2 py-3 text-xs shadow-sm">
-            <Plus className="h-4.5 w-4.5" /> Tambah Target Kurikulum
-          </Button>
+        {isSuperAdmin && (
+          <div className="flex gap-2">
+            <Button onClick={() => setIsImportOpen(true)} variant="outline" className="border-slate-200 hover:bg-slate-50 rounded-xl font-semibold gap-2 py-3 text-xs shadow-sm h-10">
+              <Sparkles className="h-4 w-4 text-purple-600 animate-pulse" /> Impor Berkas (AI)
+            </Button>
+            {activeSubTab === "kurikulum" && (
+              <Button onClick={() => setIsOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold gap-2 py-3 text-xs shadow-sm h-10">
+                <Plus className="h-4.5 w-4.5" /> Tambah Target Kurikulum
+              </Button>
+            )}
+            {activeSubTab === "kalender_akademik" && (
+              <Button onClick={() => setIsCalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold gap-2 py-3 text-xs shadow-sm h-10">
+                <Plus className="h-4.5 w-4.5" /> Tambah Agenda
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -187,12 +353,12 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
         <Card className="bg-white border-slate-200 shadow-sm rounded-3xl overflow-hidden">
           <div className="divide-y divide-slate-100">
             {calendarEvents.map((item, idx) => (
-              <div key={idx} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div key={item.id || idx} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
                     <Calendar className="h-5 w-5" />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 text-left">
                     <h4 className="font-bold text-slate-900 text-sm leading-snug">{item.title}</h4>
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold">
                       <Badge variant="outline" className="text-[9px] font-bold rounded-full">{item.type}</Badge>
@@ -200,8 +366,20 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
                     </div>
                   </div>
                 </div>
-                <div className="text-right font-mono text-xs font-bold text-indigo-600">
-                  {item.date}
+                <div className="flex items-center gap-4 justify-between sm:justify-end w-full sm:w-auto">
+                  <div className="font-mono text-xs font-bold text-indigo-600">
+                    {item.date}
+                  </div>
+                  {isSuperAdmin && (
+                    <Button 
+                      onClick={() => handleDeleteCalendarEvent(item.id)} 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-rose-500 hover:bg-rose-50 rounded-xl shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -306,6 +484,173 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
               Tambahkan Materi Kurikulum
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Calendar Event Dialog */}
+      <Dialog open={isCalOpen} onOpenChange={setIsCalOpen}>
+        <DialogContent className="sm:max-w-[450px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl font-bold text-slate-900">Tambah Agenda Kalender Akademik</DialogTitle>
+            <DialogDescription>Tambahkan agenda kegiatan pengujian, wisuda, atau rapat koordinasi wilayah Magetan.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddCalendarEvent} className="space-y-4 pt-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Nama Agenda Kegiatan *</label>
+              <Input
+                required
+                placeholder="Contoh: Ujian Lisan Semester Genap..."
+                value={formCalTitle}
+                onChange={(e) => setFormCalTitle(e.target.value)}
+                className="rounded-xl border-slate-200 text-slate-900 text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Tipe Kegiatan</label>
+                <select
+                  value={formCalType}
+                  onChange={(e) => setFormCalType(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
+                >
+                  <option value="Ujian">Ujian</option>
+                  <option value="Wisuda">Wisuda</option>
+                  <option value="Libur">Libur</option>
+                  <option value="Kegiatan Daerah">Kegiatan Daerah</option>
+                  <option value="Pelatihan">Pelatihan</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Ruang Lingkup</label>
+                <select
+                  value={formCalScope}
+                  onChange={(e) => setFormCalScope(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
+                >
+                  <option value="Semua TPQ">Semua TPQ</option>
+                  <option value="Daerah Magetan">Daerah Magetan</option>
+                  <option value="Kecamatan Takeran">Kecamatan Takeran</option>
+                  <option value="Kecamatan Karas">Kecamatan Karas</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Tanggal Pelaksanaan *</label>
+              <Input
+                required
+                type="text"
+                placeholder="Contoh: 2026-07-15 atau 2026-07-20 s/d 2026-07-25"
+                value={formCalDate}
+                onChange={(e) => setFormCalDate(e.target.value)}
+                className="rounded-xl border-slate-200 text-slate-900 text-sm"
+              />
+            </div>
+
+            <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-semibold mt-4">
+              Tambahkan Agenda Kegiatan
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Excel / PDF Import Dialog */}
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl font-bold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="h-5 w-5 text-purple-650 animate-pulse" /> Asisten AI Impor Kurikulum & Jadwal
+            </DialogTitle>
+            <DialogDescription>
+              Unggah berkas PDF rencana pembelajaran atau Excel jadwal akademik, AI akan menganalisis dan memasukkannya ke database.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4 text-left">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Jenis Data yang Diimpor</label>
+              <select
+                value={importType}
+                onChange={(e) => setImportType(e.target.value as any)}
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10 font-bold"
+              >
+                <option value="kurikulum">Target Pengajaran Kurikulum</option>
+                <option value="kalender">Agenda Kalender Akademik</option>
+              </select>
+            </div>
+
+            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50 flex flex-col items-center justify-center min-h-[140px] text-center relative group">
+              {importStep === 0 && (
+                <>
+                  <Upload className="h-8 w-8 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-bold text-slate-700">Pilih berkas PDF atau Excel</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Ukuran berkas maksimum 5MB (.pdf, .xlsx, .xls)</span>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.xlsx,.xls" 
+                    onChange={handleRunAiAnalysis} 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </>
+              )}
+
+              {importing && (
+                <div className="space-y-3 flex flex-col items-center">
+                  <div className="h-8 w-8 rounded-full border-4 border-t-purple-600 border-purple-100 animate-spin" />
+                  <span className="text-xs font-bold text-purple-700 animate-pulse">
+                    {importStep === 1 ? "Membaca berkas PDF/Excel..." :
+                     importStep === 2 ? "AI menganalisis struktur tabel..." :
+                     "Memetakan data ke format valid..."}
+                  </span>
+                </div>
+              )}
+
+              {importStep === 4 && (
+                <div className="space-y-2 text-center w-full">
+                  <Award className="h-8 w-8 text-emerald-600 mx-auto" />
+                  <span className="text-xs font-bold text-slate-900 block">AI Berhasil Menganalisis Berkas!</span>
+                  <div className="max-h-[120px] overflow-y-auto border border-slate-100 rounded-xl bg-white p-3 text-[10px] space-y-1.5 text-left text-slate-500 font-medium">
+                    {importType === "kurikulum" ? (
+                      importedItems.map((item: any, idx: number) => (
+                        <div key={idx} className="border-b border-slate-50 pb-1 last:border-0 last:pb-0">
+                          <strong>[{item.kategori}]</strong> {item.materi} - Sem. {item.semester}
+                        </div>
+                      ))
+                    ) : (
+                      importedItems.map((item: any, idx: number) => (
+                        <div key={idx} className="border-b border-slate-50 pb-1 last:border-0 last:pb-0">
+                          <strong>[{item.type}]</strong> {item.title} ({item.date})
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {importStep === 4 && (
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  onClick={() => {
+                    setImportStep(0);
+                    setImportedItems([]);
+                  }} 
+                  variant="outline" 
+                  className="flex-1 rounded-xl text-xs font-semibold"
+                >
+                  Ulangi
+                </Button>
+                <Button 
+                  onClick={handleConfirmImport} 
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                >
+                  Konfirmasi & Simpan
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

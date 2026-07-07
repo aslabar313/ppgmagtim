@@ -558,7 +558,32 @@ const INITIAL_WA_TEMPLATES: WaTemplate[] = [
 export const getKelompok = (): Kelompok[] => loadData("sim_tpq_kelompok", INITIAL_KELOMPOK);
 export const saveKelompok = (data: Kelompok[]): void => saveData("sim_tpq_kelompok", data);
 
-export const getGenerus = (): Generus[] => loadData("sim_tpq_generus", INITIAL_GENERUS);
+export const getGenerus = (): Generus[] => {
+  let loaded = loadData<Generus[]>("sim_tpq_generus", INITIAL_GENERUS);
+  let updated = false;
+
+  // 1. Ensure all loaded records have the kategori field populated
+  loaded = loaded.map(g => {
+    if (!g.kategori) {
+      g.kategori = g.usia < 13 ? "Caberawit" : g.usia <= 22 ? "Muda-Mudi" : "Jama'ah Dewasa";
+      updated = true;
+    }
+    return g;
+  });
+
+  // 2. Add any records from INITIAL_GENERUS that are missing (e.g. g-6 and g-7 for Jama'ah Dewasa)
+  const missingRecords = INITIAL_GENERUS.filter(initial => !loaded.some(item => item.id === initial.id));
+  if (missingRecords.length > 0) {
+    loaded = [...loaded, ...missingRecords];
+    updated = true;
+  }
+
+  if (updated) {
+    saveData("sim_tpq_generus", loaded);
+  }
+
+  return loaded;
+};
 export const saveGenerus = (data: Generus[]): void => saveData("sim_tpq_generus", data);
 
 export const getAlumni = (): Alumni[] => loadData("sim_tpq_alumni", INITIAL_ALUMNI);

@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  BookOpen, FileText, Printer, Save, Award, Star, PenTool, Check, Sparkles 
+  BookOpen, FileText, Printer, Save, Award, Star, PenTool, Check, Sparkles, Settings 
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,6 +40,52 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
   const [selectedGenId, setSelectedGenId] = useState(filteredGenerusList[0]?.id || "");
   const [semester, setSemester] = useState<1 | 2>(1);
   const [tahunAjaran, setTahunAjaran] = useState("2025/2026");
+
+  // Subject labels state
+  const [lblTahsin, setLblTahsin] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_tahsin") || "Tahsin Al-Qur'an (Makhraj)";
+    }
+    return "Tahsin Al-Qur'an (Makhraj)";
+  });
+  const [lblTahfidz, setLblTahfidz] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_tahfidz") || "Tahfidz (Hafalan Surat)";
+    }
+    return "Tahfidz (Hafalan Surat)";
+  });
+  const [lblDoa, setLblDoa] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_doaHarian") || "Hafalan Doa Harian";
+    }
+    return "Hafalan Doa Harian";
+  });
+  const [lblIbadah, setLblIbadah] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_ibadah") || "Praktik Ibadah";
+    }
+    return "Praktik Ibadah";
+  });
+  const [lblAkhlak, setLblAkhlak] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_akhlak") || "Akhlakul Karimah";
+    }
+    return "Akhlakul Karimah";
+  });
+  const [lblKeaktifan, setLblKeaktifan] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_keaktifan") || "Keaktifan Kelas";
+    }
+    return "Keaktifan Kelas";
+  });
+  const [lblKedisiplinan, setLblKedisiplinan] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_subject_kedisiplinan") || "Kedisiplinan Absensi";
+    }
+    return "Kedisiplinan Absensi";
+  });
+
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Form states
   const [valTahsin, setValTahsin] = useState(80);
@@ -95,10 +142,11 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
   );
 
   const getPredicate = (score: number) => {
-    if (score >= 86) return "Mumtaz (A)";
-    if (score >= 76) return "Jayyid Jiddan (B)";
-    if (score >= 65) return "Jayyid (C)";
-    return "Maqbul (D)";
+    if (score >= 86) return "Istimewa (A)";
+    if (score >= 76) return "Sangat Baik (B)";
+    if (score >= 65) return "Baik (C)";
+    if (score >= 50) return "Cukup (D)";
+    return "Perlu Bimbingan (E)";
   };
 
   const handleSaveRaport = () => {
@@ -248,6 +296,15 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                 </div>
+                {userRole === "Super Admin" && (
+                  <Button
+                    onClick={() => setIsConfigOpen(true)}
+                    variant="outline"
+                    className="rounded-xl border-slate-200 hover:bg-slate-100 font-semibold text-xs h-9 gap-1.5"
+                  >
+                    <Settings className="h-3.5 w-3.5 text-slate-500" /> Konfigurasi Mapel
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -260,7 +317,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
                   
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Tahsin Al-Qur'an (Makhraj)</span>
+                      <span>{lblTahsin}</span>
                       <span className="font-bold text-emerald-600">{valTahsin}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valTahsin} onChange={(e) => setValTahsin(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -268,7 +325,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Tahfidz (Hafalan Surat)</span>
+                      <span>{lblTahfidz}</span>
                       <span className="font-bold text-emerald-600">{valTahfidz}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valTahfidz} onChange={(e) => setValTahfidz(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -276,7 +333,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Hafalan Doa Harian</span>
+                      <span>{lblDoa}</span>
                       <span className="font-bold text-emerald-600">{valDoa}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valDoa} onChange={(e) => setValDoa(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -284,7 +341,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Praktik Ibadah</span>
+                      <span>{lblIbadah}</span>
                       <span className="font-bold text-emerald-600">{valIbadah}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valIbadah} onChange={(e) => setValIbadah(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -297,7 +354,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Akhlakul Karimah</span>
+                      <span>{lblAkhlak}</span>
                       <span className="font-bold text-emerald-600">{valAkhlak}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valAkhlak} onChange={(e) => setValAkhlak(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -305,7 +362,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Keaktifan Kelas</span>
+                      <span>{lblKeaktifan}</span>
                       <span className="font-bold text-emerald-600">{valKeaktifan}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valKeaktifan} onChange={(e) => setValKeaktifan(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -313,7 +370,7 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-slate-700">
-                      <span>Kedisiplinan Absensi</span>
+                      <span>{lblKedisiplinan}</span>
                       <span className="font-bold text-emerald-600">{valKedisiplinan}</span>
                     </div>
                     <input type="range" min="0" max="100" value={valKedisiplinan} onChange={(e) => setValKedisiplinan(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
@@ -397,6 +454,78 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
           </div>
         )}
       </div>
+
+      {/* Subject Configuration Dialog (Super Admin only) */}
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="sm:max-w-[450px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl font-bold text-slate-900 text-left">
+              Konfigurasi Mata Pelajaran Raport
+            </DialogTitle>
+            <DialogDescription className="text-left text-xs">
+              Sesuaikan nama mata pelajaran yang dijadikan indikator nilai kompetensi, karakter, dan kedisiplinan santri.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-3 text-left">
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Indikator Nilai Kompetensi</span>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kompetensi 1 (e.g. Tahsin)</label>
+                  <Input value={lblTahsin} onChange={(e) => setLblTahsin(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kompetensi 2 (e.g. Tahfidz)</label>
+                  <Input value={lblTahfidz} onChange={(e) => setLblTahfidz(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kompetensi 3 (e.g. Doa Harian)</label>
+                  <Input value={lblDoa} onChange={(e) => setLblDoa(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kompetensi 4 (e.g. Ibadah)</label>
+                  <Input value={lblIbadah} onChange={(e) => setLblIbadah(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Indikator Karakter & Kedisiplinan</span>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Karakter (e.g. Akhlak)</label>
+                  <Input value={lblAkhlak} onChange={(e) => setLblAkhlak(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kedisiplinan 1 (e.g. Keaktifan)</label>
+                  <Input value={lblKeaktifan} onChange={(e) => setLblKeaktifan(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-650">Kedisiplinan 2 (e.g. Absensi)</label>
+                  <Input value={lblKedisiplinan} onChange={(e) => setLblKedisiplinan(e.target.value)} className="rounded-xl border-slate-200 text-xs h-9" />
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => {
+                localStorage.setItem("sim_tpq_subject_tahsin", lblTahsin);
+                localStorage.setItem("sim_tpq_subject_tahfidz", lblTahfidz);
+                localStorage.setItem("sim_tpq_subject_doaHarian", lblDoa);
+                localStorage.setItem("sim_tpq_subject_ibadah", lblIbadah);
+                localStorage.setItem("sim_tpq_subject_akhlak", lblAkhlak);
+                localStorage.setItem("sim_tpq_subject_keaktifan", lblKeaktifan);
+                localStorage.setItem("sim_tpq_subject_kedisiplinan", lblKedisiplinan);
+                setIsConfigOpen(false);
+                toast.success("Mata pelajaran raport berhasil diperbarui secara global!");
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-xs font-bold shadow-sm"
+            >
+              Simpan Konfigurasi Mapel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getSarpras, saveSarpras, Sarpras, getKelompok, Kelompok } from "@/lib/mockData";
+import { getSarpras, saveSarpras, Sarpras, getKelompok, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,15 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
       return localStorage.getItem("sim_tpq_active_scope") || "Semua";
     }
     return "Semua";
@@ -37,7 +46,13 @@ export function SarprasPanel({ userRole }: SarprasPanelProps) {
   const sarprasRecords = allSarpras.filter(s => allowedKelompoks.includes(s.namaKelompok));
   const [selectedRecordId, setSelectedRecordId] = useState(sarprasRecords[0]?.id || "");
 
-  const activeRecord = sarprasRecords.find(s => s.id === selectedRecordId);
+  React.useEffect(() => {
+    if (sarprasRecords.length > 0 && !sarprasRecords.some(r => r.id === selectedRecordId)) {
+      setSelectedRecordId(sarprasRecords[0].id);
+    }
+  }, [sarprasRecords, selectedRecordId]);
+
+  const activeRecord = sarprasRecords.find(s => s.id === selectedRecordId) || sarprasRecords[0];
 
   const isReadOnly = userRole === "Viewer";
 

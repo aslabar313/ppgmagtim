@@ -3,7 +3,7 @@ import {
   getMubalighSetempat, saveMubalighSetempat,
   getMubalighTugasan, saveMubalighTugasan,
   getPengurus, savePengurus,
-  getKelompok, MubalighSetempat, MubalighTugasan, Pengurus, Kelompok 
+  getKelompok, MubalighSetempat, MubalighTugasan, Pengurus, Kelompok, getUserDetails 
 } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,15 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
       return localStorage.getItem("sim_tpq_active_scope") || "Semua";
     }
     return "Semua";
@@ -200,7 +209,7 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
       return pengurus.filter(x => 
         x.kategori === "Harian" && 
         (x.tingkat === "Daerah" || 
-         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || userScope === x.asalKelompok)) ||
+         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || allowedKelompoks.includes(x.asalKelompok))) ||
          (x.tingkat === "Kelompok" && allowedKelompoks.includes(x.asalKelompok))) &&
         (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query))
       );
@@ -208,7 +217,7 @@ export function GuruPanel({ userRole }: GuruPanelProps) {
       return pengurus.filter(x => 
         x.kategori === "PPG" && 
         (x.tingkat === "Daerah" || 
-         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || userScope === x.asalKelompok)) ||
+         (x.tingkat === "Desa" && (userRole === "Super Admin" || userRole === "Admin Daerah" || allowedKelompoks.includes(x.asalKelompok))) ||
          (x.tingkat === "Kelompok" && allowedKelompoks.includes(x.asalKelompok))) &&
         (x.nama.toLowerCase().includes(query) || x.dapukan.toLowerCase().includes(query))
       );

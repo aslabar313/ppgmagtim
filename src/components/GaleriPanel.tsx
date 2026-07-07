@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getGallery, saveGallery, getKelompok, GalleryItem, Kelompok } from "@/lib/mockData";
+import { getGallery, saveGallery, getKelompok, GalleryItem, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,31 @@ interface GaleriPanelProps {
 export function GaleriPanel({ userRole }: GaleriPanelProps) {
   const [gallery, setGallery] = useState<GalleryItem[]>(getGallery());
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
   
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("Semua");
@@ -28,7 +53,14 @@ export function GaleriPanel({ userRole }: GaleriPanelProps) {
 
   // Upload Photo Simulator State
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [formKelompok, setFormKelompok] = useState(kelompokList[0]?.namaKelompok || "");
+  const [formKelompok, setFormKelompok] = useState(allowedKelompoks[0] || "");
+
+  React.useEffect(() => {
+    if (allowedKelompoks.length > 0 && !allowedKelompoks.includes(formKelompok)) {
+      setFormKelompok(allowedKelompoks[0]);
+    }
+  }, [allowedKelompoks, formKelompok]);
+
   const [formCategory, setFormCategory] = useState<any>("Belajar");
   const [formCaption, setFormCaption] = useState("");
   const [formUrl, setFormUrl] = useState("");
@@ -113,6 +145,7 @@ export function GaleriPanel({ userRole }: GaleriPanelProps) {
   };
 
   const filteredGallery = gallery.filter(item => {
+    if (!allowedKelompoks.includes(item.kelompok)) return false;
     const matchesSearch = item.caption.toLowerCase().includes(search.toLowerCase()) || 
                           item.kelompok.toLowerCase().includes(search.toLowerCase());
     const matchesCat = catFilter === "Semua" || item.kategori === catFilter;
@@ -280,7 +313,7 @@ export function GaleriPanel({ userRole }: GaleriPanelProps) {
                 onChange={(e) => setFormKelompok(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
               >
-                {kelompokList.map(k => (
+                {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                   <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                 ))}
               </select>

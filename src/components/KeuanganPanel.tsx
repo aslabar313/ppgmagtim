@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getKelompok, getGenerus, Kelompok, Generus } from "@/lib/mockData";
+import { getKelompok, getGenerus, Kelompok, Generus, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,21 +23,46 @@ export function KeuanganPanel({ userRole }: KeuanganPanelProps) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("Semua");
 
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
   const isReadOnly = userRole === "Viewer";
 
   // Mock Transactions Database
   const [transactions, setTransactions] = useState<any[]>([
-    { id: "tx-1", tanggal: "2026-07-06", nama: "Ahmad Bagus Pratama", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_ahmad.png" },
-    { id: "tx-2", tanggal: "2026-07-06", nama: "H. Joko Susilo", kategori: "Donasi", tipe: "Pemasukan", jumlah: 1000000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_joko.png" },
-    { id: "tx-3", tanggal: "2026-07-05", nama: "Usth. Fatmawati", kategori: "Kas Desa", tipe: "Pengeluaran", jumlah: 350000, metode: "Manual", status: "Lunas", bukti: "" },
-    { id: "tx-4", tanggal: "2026-07-04", nama: "Siti Rahmawati", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Digital", status: "Menunggu Verifikasi", bukti: "bukti_siti.jpg" }
+    { id: "tx-1", tanggal: "2026-07-06", nama: "Ahmad Bagus Pratama", namaKelompok: "Kelompok Karas", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_ahmad.png" },
+    { id: "tx-2", tanggal: "2026-07-06", nama: "H. Joko Susilo", namaKelompok: "Kelompok Karas", kategori: "Donasi", tipe: "Pemasukan", jumlah: 1000000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_joko.png" },
+    { id: "tx-3", tanggal: "2026-07-05", nama: "Usth. Fatmawati", namaKelompok: "Kelompok Patihan", kategori: "Kas Desa", tipe: "Pengeluaran", jumlah: 350000, metode: "Manual", status: "Lunas", bukti: "" },
+    { id: "tx-4", tanggal: "2026-07-04", nama: "Siti Rahmawati", namaKelompok: "Kelompok Patihan", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Digital", status: "Menunggu Verifikasi", bukti: "bukti_siti.jpg" }
   ]);
 
   // SPP Arrears Mock database
   const sppList = [
-    { id: "spp-1", nama: "Muhammad Zaki", kelompok: kelompokList[2]?.namaKelompok, nominal: 150000, tunggakan: 1, kontak: "085712345678" },
-    { id: "spp-2", nama: "Rizky Ramadhan", kelompok: kelompokList[4]?.namaKelompok, nominal: 150000, tunggakan: 2, kontak: "089988776655" }
-  ];
+    { id: "spp-1", nama: "Muhammad Zaki", kelompok: kelompokList[2]?.namaKelompok || "Kelompok Malang", nominal: 150000, tunggakan: 1, kontak: "085712345678" },
+    { id: "spp-2", nama: "Rizky Ramadhan", kelompok: kelompokList[4]?.namaKelompok || "Kelompok Pandeyan", nominal: 150000, tunggakan: 2, kontak: "089988776655" }
+  ].filter(s => allowedKelompoks.includes(s.kelompok));
 
   const topDonatur = [
     { nama: "H. Joko Susilo", total: "Rp 5.500.000", status: "Donatur Tetap" },
@@ -55,8 +80,10 @@ export function KeuanganPanel({ userRole }: KeuanganPanelProps) {
   ];
 
   // Calculated widgets totals
-  const totalIn = transactions.filter(t => t.tipe === "Pemasukan").reduce((acc, t) => acc + t.jumlah, 0);
-  const totalOut = transactions.filter(t => t.tipe === "Pengeluaran").reduce((acc, t) => acc + t.jumlah, 0);
+  // Calculated widgets totals
+  const allowedTrans = transactions.filter(t => allowedKelompoks.includes(t.namaKelompok));
+  const totalIn = allowedTrans.filter(t => t.tipe === "Pemasukan").reduce((acc, t) => acc + t.jumlah, 0);
+  const totalOut = allowedTrans.filter(t => t.tipe === "Pengeluaran").reduce((acc, t) => acc + t.jumlah, 0);
   const saldo = totalIn - totalOut;
 
   const handleVerify = (id: string) => {
@@ -73,6 +100,7 @@ export function KeuanganPanel({ userRole }: KeuanganPanelProps) {
   };
 
   const filteredTrans = transactions.filter(t => {
+    if (!allowedKelompoks.includes(t.namaKelompok)) return false;
     const matchesSearch = t.nama.toLowerCase().includes(search.toLowerCase());
     const matchesCat = catFilter === "Semua" || t.kategori === catFilter;
     return matchesSearch && matchesCat;

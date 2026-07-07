@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getKelompok, getSarpras, Kelompok, Sarpras } from "@/lib/mockData";
+import { getKelompok, getSarpras, Kelompok, Sarpras, getUserDetails } from "@/lib/mockData";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,18 +7,52 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Search, School, Users, Navigation, Wrench, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-export function MapPanel() {
+export function MapPanel({ userRole = "Viewer" }: { userRole?: string }) {
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
   const [sarprasRecords] = useState<Sarpras[]>(getSarpras());
-  
+
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
+  const allowedKelompoksList = kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok));
+
   const [search, setSearch] = useState("");
   const [desaFilter, setDesaFilter] = useState("Semua");
-  const [selectedKlpId, setSelectedKlpId] = useState(kelompokList[0]?.id || "");
+  const [selectedKlpId, setSelectedKlpId] = useState(allowedKelompoksList[0]?.id || "");
+
+  React.useEffect(() => {
+    if (allowedKelompoksList.length > 0 && !allowedKelompoksList.some(k => k.id === selectedKlpId)) {
+      setSelectedKlpId(allowedKelompoksList[0].id);
+    }
+  }, [allowedKelompoksList, selectedKlpId]);
 
   const selectedKelompok = kelompokList.find(k => k.id === selectedKlpId);
   const selectedSarpras = sarprasRecords.find(s => s.kelompokId === selectedKlpId);
 
   const filteredKelompok = kelompokList.filter(k => {
+    if (!allowedKelompoks.includes(k.namaKelompok)) return false;
     const matchesSearch = k.namaKelompok.toLowerCase().includes(search.toLowerCase()) || 
                           k.alamat.toLowerCase().includes(search.toLowerCase());
     const matchesDesa = desaFilter === "Semua" || k.desa === desaFilter;
@@ -31,7 +65,7 @@ export function MapPanel() {
   };
 
   // Get distinct list of desas for filter
-  const desas = Array.from(new Set(kelompokList.map(k => k.desa)));
+  const desas = Array.from(new Set(kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => k.desa)));
 
   return (
     <div className="space-y-6 text-left">

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getPresensi, savePresensi, getGenerus, getKelompok, Presensi, Generus, Kelompok } from "@/lib/mockData";
+import { getPresensi, savePresensi, getGenerus, getKelompok, Presensi, Generus, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,15 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
       return localStorage.getItem("sim_tpq_active_scope") || "Semua";
     }
     return "Semua";

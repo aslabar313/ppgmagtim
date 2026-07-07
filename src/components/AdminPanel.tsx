@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
-  getGenerus, getMubalighSetempat, getMubalighTugasan, getKelompok, getPresensi, getRaport, getSarpras
+  getGenerus, getMubalighSetempat, getMubalighTugasan, getKelompok, getPresensi, getRaport, getSarpras,
+  getUserDetails, getRoleFromUsername, ROLE_HIERARCHY
 } from "@/lib/mockData";
 import { SiswaPanel } from "./SiswaPanel";
 import { GuruPanel } from "./GuruPanel";
@@ -40,15 +41,53 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
-  const [role, setRole] = useState(initialRole);
+  const [loggedUser] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sim_tpq_logged_user");
+    }
+    return null;
+  });
+
+  const actualMaxRole = loggedUser ? getRoleFromUsername(loggedUser) : "Viewer";
+
+  const [role, setRole] = useState(() => {
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem("sim_tpq_logged_role") || initialRole;
+      if (actualMaxRole !== "Super Admin") {
+        return actualMaxRole;
+      }
+      const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
+      if (allowedRoles.includes(storedRole)) {
+        return storedRole;
+      }
+      return actualMaxRole;
+    }
+    return initialRole;
+  });
+
   const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const [loggedUser, setLoggedUser] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setLoggedUser(localStorage.getItem("sim_tpq_logged_user"));
+    if (loggedUser) {
+      const details = getUserDetails(loggedUser);
+      if (details) {
+        if (details.role !== "Super Admin" && role !== details.role) {
+          setRole(details.role);
+          localStorage.setItem("sim_tpq_logged_role", details.role);
+          localStorage.setItem("sim_tpq_active_scope", details.scope);
+          toast.error("Akses ditolak: Peran Anda dikunci pada tingkat " + details.role);
+        } else {
+          const allowedRoles = ROLE_HIERARCHY[details.role] || ["Viewer"];
+          if (!allowedRoles.includes(role)) {
+            setRole(details.role);
+            localStorage.setItem("sim_tpq_logged_role", details.role);
+            localStorage.setItem("sim_tpq_active_scope", details.scope);
+            toast.error("Deteksi akses tidak sah: Peran disesuaikan kembali sesuai kredensial Anda.");
+          }
+        }
+      }
     }
-  }, []);
+  }, [loggedUser, role]);
 
   const isAldi = loggedUser === "superadminaldi" || (role === "Super Admin" && typeof window !== "undefined" && localStorage.getItem("sim_tpq_admin_num") === "2");
 
@@ -105,6 +144,15 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
   const level = getHierarchyLevel();
 
   const handleRoleChange = (newRole: string) => {
+    if (actualMaxRole !== "Super Admin") {
+      toast.error("Akses Ditolak: Hanya Super Admin yang diizinkan beralih peran!");
+      return;
+    }
+    const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
+    if (!allowedRoles.includes(newRole)) {
+      toast.error("Akses Ditolak: Anda tidak memiliki otoritas untuk peran ini!");
+      return;
+    }
     setRole(newRole);
     localStorage.setItem("sim_tpq_logged_role", newRole);
     setActiveTab("dashboard");
@@ -112,16 +160,22 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
   };
 
   const hasAccessTo = (tabName: string) => {
-    if (role === "Viewer") {
+    const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
+    const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
+
+    if (currentRole === "Viewer") {
       return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "bi_platform"].includes(tabName);
     }
-    if (role === "Pengajar") {
+    if (currentRole === "Pengajar") {
       return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat"].includes(tabName);
     }
-    if (role === "Admin Kelompok") {
-      return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback"].includes(tabName);
+    if (currentRole === "Admin Kelompok") {
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(tabName);
     }
-    return true; // Super Admin & Admin Daerah & Admin Desa see everything
+    if (currentRole === "Admin Desa") {
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(tabName);
+    }
+    return true; // Super Admin & Admin Daerah see everything
   };
 
   const renderContent = () => {
@@ -137,7 +191,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "kurikulum":
         return <KurikulumPanel userRole={role} />;
       case "map":
-        return <MapPanel />;
+        return <MapPanel userRole={role} />;
       case "sarpras":
         return <SarprasPanel userRole={role} />;
       case "galeri":
@@ -492,21 +546,25 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
 
           <div className="flex items-center gap-4">
             {/* RBAC Active Role Selector Switcher */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-              <Shield className="h-4 w-4 text-emerald-600 animate-pulse" />
-              <select
-                value={role}
-                onChange={(e) => handleRoleChange(e.target.value)}
-                className="bg-transparent text-slate-700 border-none focus:outline-none text-xs font-bold cursor-pointer"
-              >
-                <option value="Super Admin">Super Admin</option>
-                <option value="Admin Daerah">Admin Daerah</option>
-                <option value="Admin Desa">Admin Desa</option>
-                <option value="Admin Kelompok">Admin Kelompok</option>
-                <option value="Pengajar">Pengajar</option>
-                <option value="Viewer">Viewer</option>
-              </select>
-            </div>
+            {actualMaxRole === "Super Admin" ? (
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <Shield className="h-4 w-4 text-emerald-600 animate-pulse" />
+                <select
+                  value={role}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  className="bg-transparent text-slate-700 border-none focus:outline-none text-xs font-bold cursor-pointer"
+                >
+                  {(ROLE_HIERARCHY[actualMaxRole] || ["Viewer"]).map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <Shield className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-700 text-xs font-bold">{role}</span>
+              </div>
+            )}
 
             <Button onClick={onLogout} variant="ghost" size="sm" className="md:hidden gap-1 text-slate-400 hover:text-slate-900 rounded-xl text-xs font-semibold px-2 py-1">
               <LogOut className="h-4 w-4" />

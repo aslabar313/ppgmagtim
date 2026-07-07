@@ -257,6 +257,117 @@ export interface AuthResult {
   adminNum: number;
 }
 
+export const ROLE_HIERARCHY: Record<string, string[]> = {
+  "Super Admin": ["Super Admin", "Admin Daerah", "Admin Desa", "Admin Kelompok", "Pengajar", "Viewer"],
+  "Admin Daerah": ["Admin Daerah", "Admin Desa", "Admin Kelompok", "Pengajar", "Viewer"],
+  "Admin Desa": ["Admin Desa", "Admin Kelompok", "Pengajar", "Viewer"],
+  "Admin Kelompok": ["Admin Kelompok", "Pengajar", "Viewer"],
+  "Pengajar": ["Pengajar", "Viewer"],
+  "Viewer": ["Viewer"]
+};
+
+export interface UserDetails {
+  username: string;
+  role: string;
+  level: "daerah" | "desa" | "kelompok" | "global";
+  scope: string;
+  adminNum: number;
+}
+
+export const getRoleFromUsername = (u: string): string => {
+  const normalized = u.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+  const superAdmins = [
+    "superadminharjito", "superadminaldi", "superadminwanda", "superadmindeni", "superadminoga",
+    "superadmin", "superadmin1", "superadmin2", "superadmin3", "superadmin4"
+  ];
+  if (superAdmins.includes(normalized)) return "Super Admin";
+  if (normalized === "daerah1" || normalized === "daerah2") return "Admin Daerah";
+  
+  const desas = ["selatan", "tengah", "utara", "timur"];
+  for (const d of desas) {
+    if (normalized === `desa${d}1` || normalized === `desa${d}2`) {
+      return "Admin Desa";
+    }
+  }
+  
+  if (normalized.startsWith("admin")) return "Admin Kelompok";
+  if (normalized.startsWith("pengajar")) return "Pengajar";
+  if (normalized.startsWith("viewer")) return "Viewer";
+  return "Viewer";
+};
+
+export const getUserDetails = (user: string): UserDetails | null => {
+  const u = user.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+  if (!u) return null;
+
+  // 1. Super Admin
+  const superAdmins = [
+    "superadminharjito", "superadminaldi", "superadminwanda", "superadmindeni", "superadminoga",
+    "superadmin", "superadmin1", "superadmin2", "superadmin3", "superadmin4"
+  ];
+  if (superAdmins.includes(u)) {
+    let adminNum = 1;
+    if (u === "superadminaldi" || u === "superadmin2") adminNum = 2;
+    else if (u === "superadminwanda" || u === "superadmin3") adminNum = 3;
+    else if (u === "superadmindeni" || u === "superadmin4") adminNum = 4;
+    else if (u === "superadminoga") adminNum = 5;
+    return { username: u, role: "Super Admin", level: "global", scope: "Semua", adminNum };
+  }
+
+  // 2. Admin Daerah Magetan Timur (daerah1, daerah2)
+  if (u === "daerah1" || u === "daerah2") {
+    return { username: u, role: "Admin Daerah", level: "daerah", scope: "Daerah Magetan Timur", adminNum: u === "daerah2" ? 2 : 1 };
+  }
+
+  // 3. Admin Desa (desaselatan1, desaselatan2, etc.)
+  const desas = [
+    { key: "selatan", name: "Desa Selatan" },
+    { key: "tengah", name: "Desa Tengah" },
+    { key: "utara", name: "Desa Utara" },
+    { key: "timur", name: "Desa Timur" }
+  ];
+
+  for (const d of desas) {
+    if (u === `desa${d.key}1` || u === `desa${d.key}2`) {
+      return { username: u, role: "Admin Desa", level: "desa", scope: d.name, adminNum: u.endsWith("2") ? 2 : 1 };
+    }
+  }
+
+  // 4. Admin Kelompok (adminkaras1, adminkaras2, etc.)
+  const kelompoks = getKelompok();
+  for (const k of kelompoks) {
+    const kNameOnly = k.namaKelompok.replace("Kelompok ", "");
+    const normalizedKName = kNameOnly.toLowerCase().replace(/[^a-z0-9]/g, "");
+    
+    const matchStandard = (u === `admin${normalizedKName}1` || u === `admin${normalizedKName}2`);
+    
+    // Fuzzy mapping for typos
+    let matchTypo = false;
+    if (normalizedKName === "karasan" && (u === "adminkanasan1" || u === "adminkanasan2")) {
+      matchTypo = true;
+    }
+    if (normalizedKName === "panggangung" && (u === "adminpanggung1" || u === "adminpanggung2")) {
+      matchTypo = true;
+    }
+
+    if (matchStandard || matchTypo) {
+      return { username: u, role: "Admin Kelompok", level: "kelompok", scope: k.namaKelompok, adminNum: u.endsWith("2") ? 2 : 1 };
+    }
+  }
+
+  // 5. Pengajar (pengajar1, pengajar2)
+  if (u === "pengajar1" || u === "pengajar2") {
+    return { username: u, role: "Pengajar", level: "kelompok", scope: "Kelompok Karas", adminNum: u === "pengajar2" ? 2 : 1 };
+  }
+
+  // 6. Viewer (viewer1, viewer2)
+  if (u === "viewer1" || u === "viewer2") {
+    return { username: u, role: "Viewer", level: "global", scope: "Semua", adminNum: u === "viewer2" ? 2 : 1 };
+  }
+
+  return null;
+};
+
 export const verifyCredentials = (user: string, pass: string): AuthResult | null => {
   const u = user.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
   const p = pass.trim().toLowerCase();

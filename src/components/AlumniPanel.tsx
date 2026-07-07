@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getAlumni, saveAlumni, Alumni } from "@/lib/mockData";
+import { getAlumni, saveAlumni, Alumni, getKelompok, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,32 @@ interface AlumniPanelProps {
 }
 
 export function AlumniPanel({ userRole }: AlumniPanelProps) {
+  const [kelompokList] = useState<Kelompok[]>(getKelompok());
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
   const [alumniList, setAlumniList] = useState<Alumni[]>(getAlumni());
   const [search, setSearch] = useState("");
   const [tahunFilter, setTahunFilter] = useState("Semua");
@@ -38,6 +64,7 @@ export function AlumniPanel({ userRole }: AlumniPanelProps) {
   };
 
   const filteredAlumni = alumniList.filter(a => {
+    if (!allowedKelompoks.includes(a.tpqAsal)) return false;
     const matchesSearch = a.namaLengkap.toLowerCase().includes(search.toLowerCase()) || 
                           a.nisInternal.toLowerCase().includes(search.toLowerCase());
     const matchesTahun = tahunFilter === "Semua" || String(a.tahunLulus) === tahunFilter;

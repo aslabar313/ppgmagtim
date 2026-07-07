@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getWaTemplates, saveWaTemplates, getKelompok, getGenerus, WaTemplate, Kelompok, Generus } from "@/lib/mockData";
+import { getWaTemplates, saveWaTemplates, getKelompok, getGenerus, WaTemplate, Kelompok, Generus, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,41 @@ export function WhatsAppPanel({ userRole }: WhatsAppPanelProps) {
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
   const [generusList] = useState<Generus[]>(getGenerus());
 
+  const [userScope] = useState(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
+      return localStorage.getItem("sim_tpq_active_scope") || "Semua";
+    }
+    return "Semua";
+  });
+
+  const allowedKelompoks = kelompokList
+    .filter(k => {
+      if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+      if (userRole === "Admin Desa") return k.desa === userScope;
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      return true;
+    })
+    .map(k => k.namaKelompok);
+
   const [activeSubTab, setActiveSubTab] = useState<"broadcast" | "templates" | "logs">("broadcast");
   const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || "");
-  const [selectedKelompok, setSelectedKelompok] = useState(kelompokList[0]?.namaKelompok || "");
+  const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
+
+  React.useEffect(() => {
+    if (allowedKelompoks.length > 0 && !allowedKelompoks.includes(selectedKelompok)) {
+      setSelectedKelompok(allowedKelompoks[0]);
+    }
+  }, [allowedKelompoks, selectedKelompok]);
+
   const [targetRole, setTargetRole] = useState<"Orang Tua" | "Pengajar" | "Pengurus">("Orang Tua");
 
   // Template editor states
@@ -149,7 +181,7 @@ export function WhatsAppPanel({ userRole }: WhatsAppPanelProps) {
                   onChange={(e) => setSelectedKelompok(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10 font-bold"
                 >
-                  {kelompokList.slice(0, 10).map(k => (
+                  {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
                     <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
                   ))}
                 </select>

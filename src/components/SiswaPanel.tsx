@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getGenerus, saveGenerus, getKelompok, getDocuments, saveDocuments, Generus, Kelompok, DocumentRecord } from "@/lib/mockData";
+import { getGenerus, saveGenerus, getKelompok, getDocuments, saveDocuments, Generus, Kelompok, DocumentRecord, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,15 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details) {
+          if (details.level === "kelompok" || details.level === "desa") {
+            return details.scope;
+          }
+        }
+      }
       return localStorage.getItem("sim_tpq_active_scope") || "Semua";
     }
     return "Semua";

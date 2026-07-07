@@ -2,9 +2,9 @@ import { createServerFn } from '@tanstack/react-start';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '../integrations/supabase/client.server';
 
-export const generateQuestions = createServerFn({ method: 'POST' })
+export const generateQuestions = (createServerFn as any)({ method: 'POST' })
   .validator((data: { categoryId: string; ageGroup: string; language: string; islamicContent: boolean; difficulty?: string; topic?: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }: any) => {
     const { categoryId, ageGroup, language, islamicContent, difficulty = "normal", topic = "General" } = data;
 
     // 1. Check Cache first

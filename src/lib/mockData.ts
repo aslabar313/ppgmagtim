@@ -479,3 +479,22 @@ export const saveSarpras = (data: Sarpras[]): void => saveData("sim_tpq_sarpras"
 
 export const getWaTemplates = (): WaTemplate[] => loadData("sim_tpq_wa_templates", INITIAL_WA_TEMPLATES);
 export const saveWaTemplates = (data: WaTemplate[]): void => saveData("sim_tpq_wa_templates", data);
+
+export interface Kegiatan {
+  id: string;
+  nama: string;
+  tanggal: string;
+  waktu: string;
+  lokasi: string;
+  kategoriSasaran: string[];
+  deskripsi: string;
+  status: "Terjadwal" | "Berjalan" | "Selesai" | "Batal";
+}
+
+const INITIAL_KEGIATAN: Kegiatan[] = [
+  { id: "keg-1", nama: "Pengajian Akbar Semesta Ganjil", tanggal: "2026-07-15", waktu: "08:00", lokasi: "Masjid Baitul Makmur, Desa Selatan", kategoriSasaran: ["Remaja", "Muda-Mudi", "Orang Tua"], deskripsi: "Pengajian akbar pembinaan karakter luhur generus.", status: "Terjadwal" },
+  { id: "keg-2", nama: "Festival Anak Sholih (FAS) Magetan", tanggal: "2026-08-20", waktu: "07:30", lokasi: "AULA DPD Magetan", kategoriSasaran: ["Caberawit", "Pra-Remaja"], deskripsi: "Lomba mewarnai, adzan, cerdas cermat, dan hafalan doa.", status: "Terjadwal" }
+];
+
+export const getKegiatan = (): Kegiatan[] => loadData("sim_tpq_kegiatan", INITIAL_KEGIATAN);
+export const saveKegiatan = (data: Kegiatan[]): void => saveData("sim_tpq_kegiatan", data);

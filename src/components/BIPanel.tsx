@@ -118,7 +118,7 @@ export function BIPanel() {
           </CardHeader>
           <div className="h-[210px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" radius="70%" data={dataRadarKebutuhan}>
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={dataRadarKebutuhan}>
                 <PolarGrid stroke="#e2e8f0" />
                 <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={8} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} fontSize={8} />

@@ -1,5 +1,6 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// @ts-ignore
 export default defineConfig({
   server: {
     host: "0.0.0.0",

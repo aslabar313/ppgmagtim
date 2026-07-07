@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { getGenerus, getPresensi, getRaport, getKelompok, Generus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Send, Bot, User, HelpCircle, ArrowRight, CornerDownRight } from "lucide-react";

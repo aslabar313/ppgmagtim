@@ -189,7 +189,7 @@ export function KegiatanPanel() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 pt-2">
-                  {k.kategoriSasaran.map((sasaran, idx) => (
+                  {k.kategoriSasaran.map((sasaran: string, idx: number) => (
                     <Badge key={idx} variant="secondary" className="text-[10px] font-bold px-2 py-0.5 rounded-full">
                       {sasaran}
                     </Badge>

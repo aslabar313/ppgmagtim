@@ -21,6 +21,7 @@ import { RankingPanel } from "./RankingPanel";
 import { EnterpriseModuleLoader } from "./EnterpriseModuleLoader";
 import { APIDocsPanel } from "./APIDocsPanel";
 import { LaporanPerubahanPanel } from "./LaporanPerubahanPanel";
+import { MonitoringMubalighPanel } from "./MonitoringMubalighPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ import {
 import { 
   LayoutDashboard, Users, UserCheck, Calendar, MapPin, LogOut, 
   TrendingUp, BookOpen, MessageSquare, Wrench, FileText, ChevronRight,
-  Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History
+  Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History, ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -164,16 +165,16 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
 
     if (currentRole === "Viewer") {
-      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "bi_platform"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "bi_platform", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Pengajar") {
-      return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat"].includes(tabName);
+      return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Admin Kelompok") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Admin Desa") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform", "monitoring_mubaligh"].includes(tabName);
     }
     return true; // Super Admin & Admin Daerah see everything
   };
@@ -184,6 +185,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <SiswaPanel userRole={role} />;
       case "guru":
         return <GuruPanel userRole={role} />;
+      case "monitoring_mubaligh":
+        return <MonitoringMubalighPanel userRole={role} />;
       case "presensi":
         return <PresensiPanel userRole={role} />;
       case "raport":
@@ -419,6 +422,11 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <UserCheck className="h-4.5 w-4.5" /> Mubaligh & Pengurus
               </button>
             )}
+            {hasAccessTo("monitoring_mubaligh") && (
+              <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
+                <ClipboardList className="h-4.5 w-4.5" /> Monev Harian Mubaligh
+              </button>
+            )}
             {hasAccessTo("presensi") && (
               <button onClick={() => setActiveTab("presensi")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "presensi" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Calendar className="h-4.5 w-4.5" /> Presensi Kehadiran
@@ -581,6 +589,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("dashboard") && <button onClick={() => setActiveTab("dashboard")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "dashboard" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Dashboard</button>}
           {hasAccessTo("siswa") && <button onClick={() => setActiveTab("siswa")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "siswa" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Siswa</button>}
           {hasAccessTo("guru") && <button onClick={() => setActiveTab("guru")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "guru" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Guru</button>}
+          {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Monev Mubaligh</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}
           {hasAccessTo("kurikulum") && <button onClick={() => setActiveTab("kurikulum")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "kurikulum" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Kurikulum</button>}

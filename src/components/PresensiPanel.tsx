@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getPresensi, savePresensi, getGenerus, getKelompok, Presensi, Generus, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,8 +90,14 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const allowedKelompoks = kelompokList
     .filter(k => {
       if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
-      if (userRole === "Admin Desa") return k.desa === userScope;
-      if (userRole === "Admin Kelompok" || userRole === "Pengajar") return k.namaKelompok === userScope;
+      if (userRole === "Admin Desa") {
+        if (userScope === "Semua" || userScope === "Daerah Magetan Timur") return true;
+        return k.desa === userScope;
+      }
+      if (userRole === "Admin Kelompok" || userRole === "Pengajar") {
+        if (userScope === "Semua" || userScope === "Daerah Magetan Timur" || userScope.includes("Desa")) return true;
+        return k.namaKelompok === userScope;
+      }
       return true;
     })
     .map(k => k.namaKelompok);
@@ -102,6 +108,21 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
   const [simName, setSimName] = useState(generusList[0]?.namaLengkap || "");
+
+  // Synchronize selectedKelompok when allowedKelompoks list changes
+  useEffect(() => {
+    if (allowedKelompoks.length > 0 && (!selectedKelompok || !allowedKelompoks.includes(selectedKelompok))) {
+      setSelectedKelompok(allowedKelompoks[0]);
+    }
+  }, [allowedKelompoks, selectedKelompok]);
+
+  // Synchronize simName for QR scanner when allowed students change
+  useEffect(() => {
+    const allowedStudents = generusList.filter(g => allowedKelompoks.includes(g.namaKelompok));
+    if (allowedStudents.length > 0 && (!simName || !allowedStudents.some(s => s.namaLengkap === simName))) {
+      setSimName(allowedStudents[0].namaLengkap);
+    }
+  }, [allowedKelompoks, generusList, simName]);
   
   // AI OCR Presensi Scanner
   const [ocrScanning, setOcrScanning] = useState(false);
@@ -255,10 +276,10 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   // Calculate quick stats (filtered by allowed scope and active filters)
   const filteredLogsList = presensiList.filter(p => {
     // 1. Tenant/Scope check
-    if (!allowedKelompoks.includes(p.namaKelompok)) return false;
+    if (!p.namaKelompok || !allowedKelompoks.includes(p.namaKelompok)) return false;
 
     // 2. Search query (student name)
-    if (searchLogQuery && !p.namaLengkap.toLowerCase().includes(searchLogQuery.toLowerCase())) return false;
+    if (searchLogQuery && (!p.namaLengkap || !p.namaLengkap.toLowerCase().includes(searchLogQuery.toLowerCase()))) return false;
 
     // 3. Kelompok filter
     if (filterLogKelompok !== "Semua" && p.namaKelompok !== filterLogKelompok) return false;

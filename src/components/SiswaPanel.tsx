@@ -233,7 +233,9 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
           const rawCatatan = mapping.catatan !== undefined ? row[mapping.catatan]?.trim() : "";
 
           const namaLengkap = rawNama || "Santri Tanpa Nama";
-          const nisInternal = rawNis || `NIS-TEMP-${Date.now()}-${Math.floor(Math.random() * 1005)}`;
+          const nisInternal = rawNis && rawNis.trim().length >= 5
+            ? rawNis.trim()
+            : `NIS-2026${String(generusList.length + index + 1).padStart(4, "0")}`;
           
           let jenisKelamin: "Laki-laki" | "Perempuan" = "Laki-laki";
           const gLower = rawGender.toLowerCase();
@@ -362,7 +364,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
 
     setTimeout(() => {
       setFormNama("Muhammad Fajar Pratama");
-      setFormNis(`NIS-2026${Math.floor(100 + Math.random() * 900)}`);
+      setFormNis(`NIS-2026${String(generusList.length + 1).padStart(3, "0")}`);
       setFormGender("Laki-laki");
       setFormUsia(11);
       setFormTglLahir("2015-06-20");

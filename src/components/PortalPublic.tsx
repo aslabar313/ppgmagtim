@@ -372,8 +372,10 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       </section>
 
       {/* Directory 32 Groups Roster */}
-      <section id="direktori" className={`py-24 border-t border-b border-slate-900/60 relative z-10 ${bgImage !== "none" ? "bg-slate-950/45 backdrop-blur-[1px]" : "bg-slate-950"}`}>
-        <div className="max-w-7xl mx-auto px-6">
+      <section id="direktori" className="py-24 border-t border-b border-slate-900/60 relative z-10 bg-[#0F172A] overflow-hidden">
+        {/* Subtle grid pattern background & blur effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-950/0 to-slate-950/0 opacity-60 pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
           <DirektoriKelompok />
         </div>
       </section>

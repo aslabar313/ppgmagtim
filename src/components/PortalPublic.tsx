@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { DirektoriKelompok } from "./DirektoriKelompok";
 
 interface PortalPublicProps {
   onEnterAdmin: (role: string) => void;
@@ -373,48 +374,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
       {/* Directory 32 Groups Roster */}
       <section id="direktori" className={`py-24 border-t border-b border-slate-900/60 relative z-10 ${bgImage !== "none" ? "bg-slate-950/45 backdrop-blur-[1px]" : "bg-slate-950"}`}>
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-12 gap-6 text-left">
-            <div className="space-y-3">
-              <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full font-bold text-[9px] uppercase tracking-wider">Database Spasial</Badge>
-              <h2 className="font-display text-3xl font-black text-white">Direktori Unit Kelompok Binaan</h2>
-              <p className="text-slate-400 text-xs sm:text-sm font-medium">Cari profil, data santri terdaftar, dan lokasi 30 kelompok binaan di seluruh desa.</p>
-            </div>
-            
-            {/* Search Input bar */}
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
-              <Input
-                placeholder="Cari Kelompok, Desa, atau Kecamatan..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 rounded-xl border-slate-800 bg-slate-900 text-slate-200 text-xs py-5 focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredKelompok.map((klp) => (
-              <Card key={klp.id} className="bg-slate-900/30 border-slate-850 hover:border-slate-800 hover:bg-slate-900/50 transition-all rounded-3xl p-6 text-left flex flex-col justify-between group">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="bg-slate-800/80 text-emerald-400 border border-slate-700 text-[8px] font-extrabold rounded-full tracking-wider uppercase">
-                      Active Unit
-                    </Badge>
-                    <span className="text-[9px] text-slate-450 font-mono font-bold">{klp.id}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-display text-sm font-bold text-white group-hover:text-emerald-400 transition-colors leading-snug">{klp.namaKelompok}</h3>
-                    <span className="text-[10px] text-slate-450 flex items-center gap-0.5 mt-1"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-550" /> {klp.alamat}</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase border-t border-slate-850 pt-4 mt-6">
-                  <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5 text-slate-500" /> {klp.jumlahGenerus} Santri</span>
-                  <span>{klp.desa}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <DirektoriKelompok />
         </div>
       </section>
 

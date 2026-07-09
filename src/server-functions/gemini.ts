@@ -1,10 +1,18 @@
 import { createServerFn } from '@tanstack/react-start';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '../integrations/supabase/client.server';
+import { z } from 'zod';
 
-export const generateQuestions = (createServerFn as any)({ method: 'POST' })
-  .validator((data: { categoryId: string; ageGroup: string; language: string; islamicContent: boolean; difficulty?: string; topic?: string }) => data)
-  .handler(async ({ data }: any) => {
+export const generateQuestions = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({
+    categoryId: z.string(),
+    ageGroup: z.string(),
+    language: z.string(),
+    islamicContent: z.boolean(),
+    difficulty: z.string().optional(),
+    topic: z.string().optional(),
+  }))
+  .handler(async ({ data }) => {
     const { categoryId, ageGroup, language, islamicContent, difficulty = "normal", topic = "General" } = data;
 
     // 1. Check Cache first
@@ -108,5 +116,94 @@ export const generateQuestions = (createServerFn as any)({ method: 'POST' })
     } catch (error: any) {
       console.error("Gemini Error:", error);
       throw new Error("Gagal mengambil soal dari AI Tutor. Cek kuota API atau koneksi.");
+    }
+  });
+
+export const analyzeFileOrQuery = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({
+    queryText: z.string(),
+    chatHistory: z.array(z.object({
+      role: z.enum(['user', 'model', 'assistant']),
+      text: z.string()
+    })),
+    fileData: z.object({
+      base64: z.string(),
+      mimeType: z.string(),
+      fileName: z.string(),
+      parsedText: z.string().optional()
+    }).optional()
+  }))
+  .handler(async ({ data }) => {
+    const { queryText, chatHistory = [], fileData } = data;
+
+    const { data: settings } = await supabaseAdmin.from('app_settings').select('gemini_api_key, gemini_model').eq('id', 1).single();
+
+    let apiKey = settings?.gemini_api_key || process.env.GEMINI_API_KEY;
+    let modelName = settings?.gemini_model || process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
+    if (!apiKey) {
+      throw new Error("Gemini API Key belum dikonfigurasi di Pengaturan Admin atau .env.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // Use gemini-2.0-flash as it is fast, highly accurate, and supports multimodal (PDFs, images)
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const systemPrompt = `
+Anda adalah Asisten AI Analitis untuk SIM Kelompok PintarYuk (Sistem Informasi Monitoring Kelompok TPQ).
+Tugas utama Anda adalah menganalisis data, file (Excel, PDF, Gambar), absensi santri, kinerja pengajar, laporan keuangan, sarpras, dan data lainnya dengan akurasi 100% sempurna.
+
+Aturan Analisis Data & File:
+1. **Ketelitian & Akurasi Mutlak**: Jangan pernah berasumsi, menebak, atau memalsukan data (hallucinate). Jika data tidak ada atau tidak lengkap, sampaikan dengan jelas dan jujur. Jika menganalisis tabel data atau laporan keuangan, pastikan hitungan matematika Anda 100% tepat.
+2. **Multimodal**: Anda dapat menerima data teks hasil ekstraksi Excel, file PDF (dikirim sebagai dokumen), atau Gambar (grafik, foto tabel, dokumen scan).
+3. **Struktur Output**: Gunakan format Markdown yang rapi dan mudah dibaca:
+   - Gunakan tabel untuk menyajikan data terstruktur atau angka.
+   - Gunakan list/bullet points untuk poin-poin analisis penting.
+   - Gunakan tebal (bold) untuk menyoroti hal kritis seperti nama santri bermasalah atau nilai di bawah rata-rata.
+4. **Analisis Mendalam**: Jangan hanya menyalin ulang data. Berikan rangkuman statistik penting (misal: rata-rata kehadiran, total dana, rasio santri dibanding guru).
+5. **Rekomendasi Aksi**: Di akhir analisis, berikan rekomendasi aksi konkret yang relevan untuk pengurus kelompok/daerah (misal: "Kirim WhatsApp Center pengingat ke wali murid", "Lakukan pengecekan sarpras di Kelompok 4").
+6. **Bahasa**: Jawab selalu menggunakan Bahasa Indonesia yang sopan, profesional, dan bersahabat.
+`;
+
+    // Map history to Google Generative AI format
+    const formattedHistory = chatHistory.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.text }]
+    }));
+
+    // Start a chat session with history and system instruction
+    const chat = model.startChat({
+      history: formattedHistory,
+      systemInstruction: systemPrompt,
+    });
+
+    const parts: any[] = [];
+
+    // If there is file data
+    if (fileData) {
+      if (fileData.parsedText) {
+        // For Excel or parsed text
+        parts.push(`[Lampiran Dokumen: ${fileData.fileName}]\nBerikut adalah isi data dari file tersebut:\n\n${fileData.parsedText}\n\n`);
+      } else if (fileData.base64 && fileData.mimeType) {
+        // For PDF or Images sent as base64 inlineData
+        parts.push({
+          inlineData: {
+            data: fileData.base64,
+            mimeType: fileData.mimeType
+          }
+        });
+        parts.push(`[Lampiran Dokumen: ${fileData.fileName} (${fileData.mimeType})]\n`);
+      }
+    }
+
+    parts.push(queryText || "Tolong lakukan analisis mendalam terhadap file yang dilampirkan.");
+
+    try {
+      const result = await chat.sendMessage(parts);
+      const response = await result.response;
+      return response.text();
+    } catch (error: any) {
+      console.error("Gemini Analysis Error:", error);
+      throw new Error(`Gagal melakukan analisis AI: ${error.message || error}`);
     }
   });

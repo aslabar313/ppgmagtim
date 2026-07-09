@@ -9,6 +9,7 @@ import {
   BookOpen, Calendar, Video, FileText, Check, Plus, Upload, Play, Award, ShieldAlert, Trash2, Sparkles 
 } from "lucide-react";
 import { toast } from "sonner";
+import { JurnalKBMPanel } from "./JurnalKBMPanel";
 
 interface KurikulumPanelProps {
   userRole: string;
@@ -46,7 +47,7 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
   const [formCalDate, setFormCalDate] = useState("");
   const [formCalScope, setFormCalScope] = useState("Semua TPQ");
 
-  const [activeSubTab, setActiveSubTab] = useState<"kurikulum" | "kalender_akademik" | "kalender_karakter">("kurikulum");
+  const [activeSubTab, setActiveSubTab] = useState<"kurikulum" | "kalender_akademik" | "kalender_karakter" | "jurnal_kbm">("kurikulum");
   const [materiList, setMateriList] = useState<Kurikulum[]>(getKurikulum());
 
   // Form states
@@ -281,6 +282,9 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
         <button onClick={() => setActiveSubTab("kalender_karakter")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSubTab === "kalender_karakter" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"}`}>
           Kalender Karakter (Target)
         </button>
+        <button onClick={() => setActiveSubTab("jurnal_kbm")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${activeSubTab === "jurnal_kbm" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"}`}>
+          📖 Jurnal KBM
+        </button>
       </div>
 
       {activeSubTab === "kurikulum" && (
@@ -411,6 +415,10 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {activeSubTab === "jurnal_kbm" && (
+        <JurnalKBMPanel userRole={userRole} />
       )}
 
       {/* Add Dialog */}

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Plus, Calendar, UserCheck, QrCode, Upload, FileSpreadsheet, 
-  Check, X, AlertTriangle, Play, Award, Sparkles, Search 
+  Check, X, AlertTriangle, Play, Award, Sparkles, Search, Download,
+  Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -106,6 +107,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
   const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("log");
+  const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
   const [simName, setSimName] = useState((generusList && generusList[0]?.namaLengkap) || "");
@@ -268,29 +271,58 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     setImportValidation({});
   };
 
-  // Search & Filters for Log
-  const [searchLogQuery, setSearchLogQuery] = useState("");
-  const [filterLogKelompok, setFilterLogKelompok] = useState("Semua");
-  const [filterLogStatus, setFilterLogStatus] = useState("Semua");
-  const [filterLogDate, setFilterLogDate] = useState("");
+  // Filters for Log & Input
+  const studentsInKelompok = generusList.filter(g => g.namaKelompok === selectedKelompok);
+  
+  const caberawitCount = studentsInKelompok.filter(g => g.kategori === "Caberawit").length;
+  const mudamudiCount = studentsInKelompok.filter(g => g.kategori === "Muda-Mudi").length;
+  const dewasaCount = studentsInKelompok.filter(g => g.kategori === "Jama'ah Dewasa").length;
 
-  // Calculate quick stats (filtered by allowed scope and active filters)
+  const studentsToDisplay = studentsInKelompok.filter(g => {
+    const matchesCategory = activeCategory === "Semua" || g.kategori === activeCategory;
+    const matchesSearch = !searchQuery || g.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()) || g.nisInternal.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  // Calculate statistics for each category dynamically based on active date
+  const getCategoryStats = (kategori: "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa") => {
+    const students = studentsInKelompok.filter(g => g.kategori === kategori);
+    
+    // Logs for activeDate and this selectedKelompok
+    const logs = presensiList.filter(
+      p => p.namaKelompok === selectedKelompok && 
+           p.tanggal === activeDate &&
+           students.some(s => s.id === p.generusId)
+    );
+
+    const presentCount = logs.filter(p => p.statusKehadiran === "Hadir").length;
+    const permissionCount = logs.filter(p => p.statusKehadiran === "Izin").length;
+    const sickCount = logs.filter(p => p.statusKehadiran === "Sakit").length;
+    const absentCount = logs.filter(p => p.statusKehadiran === "Alfa").length;
+
+    const rate = logs.length > 0 ? Math.round((presentCount / logs.length) * 100) : 0;
+
+    return { totalStudents: students.length, presentCount, permissionCount, sickCount, absentCount, rate, loggedCount: logs.length };
+  };
+
+  const caberawitStats = getCategoryStats("Caberawit");
+  const mudamudiStats = getCategoryStats("Muda-Mudi");
+  const dewasaStats = getCategoryStats("Jama'ah Dewasa");
+
+  // Filtered log lists
   const filteredLogsList = (presensiList || []).filter(p => {
     if (!p) return false;
-    // 1. Tenant/Scope check
     if (!p.namaKelompok || !allowedKelompoks.includes(p.namaKelompok)) return false;
 
-    // 2. Search query (student name)
-    if (searchLogQuery && (!p.namaLengkap || !p.namaLengkap.toLowerCase().includes(searchLogQuery.toLowerCase()))) return false;
+    // Filter by student category
+    const student = generusList.find(g => g.id === p.generusId);
+    if (!student) return false;
+    
+    if (activeCategory !== "Semua" && student.kategori !== activeCategory) return false;
 
-    // 3. Kelompok filter
-    if (filterLogKelompok !== "Semua" && p.namaKelompok !== filterLogKelompok) return false;
-
-    // 4. Status filter
-    if (filterLogStatus !== "Semua" && p.statusKehadiran !== filterLogStatus) return false;
-
-    // 5. Date filter
-    if (filterLogDate && p.tanggal !== filterLogDate) return false;
+    if (searchQuery && (!p.namaLengkap || !p.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()))) return false;
+    if (selectedKelompok && p.namaKelompok !== selectedKelompok) return false;
+    if (activeDate && p.tanggal !== activeDate) return false;
 
     return true;
   });
@@ -306,28 +338,63 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       return;
     }
 
-    // Check if already logged for this date
     const existingIndex = presensiList.findIndex(
       p => p.generusId === gen.id && p.tanggal === activeDate
     );
 
     let updated = [...presensiList];
+    const presensiData: Presensi = {
+      id: existingIndex > -1 ? updated[existingIndex].id : "pr-" + Date.now() + Math.random(),
+      generusId: gen.id,
+      namaLengkap: gen.namaLengkap,
+      namaKelompok: gen.namaKelompok,
+      tanggal: activeDate,
+      statusKehadiran: status
+    };
+
     if (existingIndex > -1) {
-      updated[existingIndex].statusKehadiran = status;
+      updated[existingIndex] = presensiData;
     } else {
-      updated.push({
-        id: "pr-" + Date.now() + Math.random(),
-        generusId: gen.id,
-        namaLengkap: gen.namaLengkap,
-        namaKelompok: gen.namaKelompok,
-        tanggal: activeDate,
-        statusKehadiran: status
-      });
+      updated.push(presensiData);
     }
 
     setPresensiList(updated);
     savePresensi(updated);
     toast.success(`Absensi ${gen.namaLengkap} dicatat sebagai ${status}!`);
+  };
+
+  // Mark all filtered students as present
+  const handleMarkAllPresent = () => {
+    if (isReadOnly) {
+      toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
+      return;
+    }
+    if (studentsToDisplay.length === 0) return;
+
+    let updated = [...presensiList];
+    studentsToDisplay.forEach((student) => {
+      const existingIndex = updated.findIndex(
+        p => p.generusId === student.id && p.tanggal === activeDate
+      );
+      const presensiData: Presensi = {
+        id: existingIndex > -1 ? updated[existingIndex].id : "pr-" + Date.now() + Math.random(),
+        generusId: student.id,
+        namaLengkap: student.namaLengkap,
+        namaKelompok: student.namaKelompok,
+        tanggal: activeDate,
+        statusKehadiran: "Hadir"
+      };
+
+      if (existingIndex > -1) {
+        updated[existingIndex] = presensiData;
+      } else {
+        updated.push(presensiData);
+      }
+    });
+
+    setPresensiList(updated);
+    savePresensi(updated);
+    toast.success(`Semua (${studentsToDisplay.length}) santri ditandai Hadir.`);
   };
 
   // Simulate QR Code scanning
@@ -343,7 +410,6 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       return;
     }
 
-    // Add attendance
     const newLog: Presensi = {
       id: "pr-qr-" + Date.now(),
       generusId: gen.id,
@@ -361,10 +427,6 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     setQrSimOpen(false);
   };
 
-  const csvTemplateHeaders = "NIS,Nama Lengkap,Tanggal,Status Kehadiran";
-  const csvTemplateRow = "NIS-2026001,Muhammad Rizky,2026-07-07,Hadir";
-  const csvTemplateUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvTemplateHeaders + "\n" + csvTemplateRow + "\n")}`;
-
   const handlePresensiOcr = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     if (isReadOnly) {
@@ -373,20 +435,18 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     }
 
     setOcrScanning(true);
-    toast.info("AI sedang menganalisis foto lembar absensi kertas (OCR)...");
+    toast.info("AI sedang memindai berkas absensi dengan teknologi OCR...");
 
     setTimeout(() => {
       const targetGroupStudents = generusList.filter(g => g.namaKelompok === selectedKelompok);
       if (targetGroupStudents.length === 0) {
-        toast.error("Tidak ada santri terdaftar di kelompok terpilih untuk pemindaian.");
+        toast.error("Tidak ada data murid di kelompok ini.");
         setOcrScanning(false);
         return;
       }
 
       let updated = [...presensiList];
-      
       targetGroupStudents.forEach((student, index) => {
-        // Mocking: index 1 is Izin, index 3 is Sakit, others are Hadir
         const status: "Hadir" | "Izin" | "Sakit" | "Alfa" = index === 1 ? "Izin" : index === 3 ? "Sakit" : "Hadir";
         
         const existingIndex = updated.findIndex(
@@ -410,59 +470,79 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       setPresensiList(updated);
       savePresensi(updated);
       setOcrScanning(false);
-      toast.success(`AI OCR Absensi Sukses! Kehadiran ${targetGroupStudents.length} santri di ${selectedKelompok} berhasil diperbarui dari foto.`);
+      toast.success(`AI OCR Absensi berhasil memindai ${targetGroupStudents.length} santri.`);
     }, 2000);
   };
 
-  // Filter students by selected kelompok
-  const studentsInKelompok = generusList.filter(g => g.namaKelompok === selectedKelompok);
+  const getCategoryBadge = (kategori?: string) => {
+    if (kategori === "Caberawit") {
+      return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-250 hover:bg-emerald-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Caberawit</Badge>;
+    }
+    if (kategori === "Muda-Mudi") {
+      return <Badge className="bg-indigo-50 text-indigo-700 border-indigo-250 hover:bg-indigo-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Muda-mudi</Badge>;
+    }
+    if (kategori === "Jama'ah Dewasa") {
+      return <Badge className="bg-rose-50 text-rose-700 border-rose-250 hover:bg-rose-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Dewasa</Badge>;
+    }
+    return null;
+  };
+
+  const csvTemplateHeaders = "NIS,Nama Lengkap,Tanggal,Status Kehadiran";
+  const csvTemplateRow = "NIS-2026001,Muhammad Rizky,2026-07-07,Hadir";
+  const csvTemplateUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvTemplateHeaders + "\n" + csvTemplateRow + "\n")}`;
 
   return (
     <div className="space-y-6 text-left">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      
+      {/* Top Controls: Futuristic Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
-          <h2 className="font-display text-2xl font-bold text-slate-800">Presensi & Kehadiran</h2>
-          <p className="text-slate-500 text-sm">Monitor dan catat absensi harian santri secara cepat atau via scanner QR.</p>
+          <h2 className="font-display text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <UserCheck className="h-7 w-7 text-emerald-600" /> Presensi SIM Kelompok
+          </h2>
+          <p className="text-slate-500 text-xs font-semibold">
+            Pencatatan kehadiran harian generus dengan klasifikasi Caberawit, Muda-mudi, dan Dewasa.
+          </p>
         </div>
         
-        <div className="flex gap-2">
-          <Button onClick={() => setImportOpen(true)} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3">
-            <Upload className="h-4 w-4 text-emerald-600" /> Impor Excel/CSV Absensi
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setImportOpen(true)} variant="outline" className="gap-2 border-slate-200 hover:bg-slate-50 font-bold rounded-xl text-xs py-2 h-10 px-3 bg-white">
+            <Upload className="h-4 w-4 text-emerald-600" /> Impor CSV
           </Button>
+          
           {!isReadOnly && (
             <Dialog open={qrSimOpen} onOpenChange={setQrSimOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold gap-2 py-2 px-4 shadow-sm text-xs">
-                  <QrCode className="h-4 w-4" /> QR Attendance Simulator
+                <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold gap-2 py-2 h-10 px-4 shadow-sm text-xs transition-all active:scale-[0.98]">
+                  <QrCode className="h-4 w-4 text-emerald-500" /> QR Scanner
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[400px] rounded-2xl">
+              <DialogContent className="sm:max-w-[400px] rounded-3xl border-slate-100 shadow-2xl">
                 <DialogHeader>
-                  <DialogTitle className="font-display text-xl font-bold text-slate-900 text-center">QR Scanner Simulator</DialogTitle>
-                  <DialogDescription className="text-center text-slate-500">
-                    Simulasikan pemindaian kartu identitas QR Code santri untuk pencatatan otomatis instan.
+                  <DialogTitle className="font-display text-lg font-black text-slate-900 text-center">QR Attendance Scanner</DialogTitle>
+                  <DialogDescription className="text-center text-xs text-slate-400 font-semibold">
+                    Dekatkan kartu identitas santri ke kamera untuk memindai kehadiran secara otomatis.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 pt-4 flex flex-col items-center">
-                  <div className="h-32 w-32 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-emerald-500 animate-pulse relative">
-                    <QrCode className="h-16 w-16" />
-                    <div className="absolute inset-x-0 h-1 bg-emerald-500 top-1/2 -translate-y-1/2 shadow shadow-emerald-400" />
+                  <div className="h-36 w-36 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-emerald-500 animate-pulse relative shadow-inner">
+                    <QrCode className="h-20 w-20" />
+                    <div className="absolute inset-x-0 h-0.5 bg-emerald-500 top-1/2 -translate-y-1/2 shadow shadow-emerald-450 animate-bounce" />
                   </div>
-                  <div className="w-full space-y-1.5 text-left">
-                    <label className="text-xs font-bold text-slate-700">Pilih Santri yang memindai kartu</label>
+                  <div className="w-full space-y-1 text-left">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Pilih Santri (Simulasi)</label>
                     <select
                       value={simName}
                       onChange={(e) => setSimName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm focus:outline-none h-10"
+                      className="w-full rounded-xl border border-slate-200 bg-white text-slate-750 px-3 py-2 text-xs focus:outline-none h-10 font-bold"
                     >
                       {generusList.filter(g => allowedKelompoks.includes(g.namaKelompok)).map(g => (
-                        <option key={g.id} value={g.namaLengkap}>{g.namaLengkap} ({g.namaKelompok})</option>
+                        <option key={g.id} value={g.namaLengkap}>{g.namaLengkap} ({g.kategori})</option>
                       ))}
                     </select>
                   </div>
-                  <Button onClick={handleQrScanSimulate} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-semibold mt-2">
-                    Simulasikan Pemindaian Kartu
+                  <Button onClick={handleQrScanSimulate} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold text-xs mt-2 transition-all active:scale-[0.98]">
+                    Konfirmasi Hasil Pemindaian
                   </Button>
                 </div>
               </DialogContent>
@@ -471,71 +551,150 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         </div>
       </div>
 
-      {/* Stats and Mode Toggle */}
+      {/* Futuristic Classification Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-semibold block">Rata-rata Kehadiran</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-3xl font-black text-slate-900">{attendanceRate}%</span>
-              <span className="text-emerald-500 text-xs font-bold flex items-center gap-0.5"><Award className="h-3.5 w-3.5" /> Sangat Baik</span>
+        
+        {/* Caberawit Stats Card */}
+        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-200 hover:shadow-md transition-all">
+          <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
+          <div className="flex justify-between items-start relative z-10">
+            <div className="space-y-1.5 text-left">
+              <span className="text-[10px] font-extrabold uppercase text-emerald-600 tracking-wider">01. Caberawit (SD/Cilik)</span>
+              <h3 className="font-display text-2xl font-black text-slate-800">{caberawitCount} Santri</h3>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
+                <span>Kehadiran:</span>
+                <span className="text-emerald-600 font-bold">{caberawitStats.rate}%</span>
+                <span>({caberawitStats.presentCount}/{caberawitStats.loggedCount} hari ini)</span>
+              </div>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
+              <Award className="h-5 w-5" />
             </div>
           </div>
-          <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <UserCheck className="h-6 w-6" />
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
+            <span>Sakit: <strong className="text-slate-700">{caberawitStats.sickCount}</strong></span>
+            <span>Izin: <strong className="text-slate-700">{caberawitStats.permissionCount}</strong></span>
+            <span>Alfa: <strong className="text-rose-650">{caberawitStats.absentCount}</strong></span>
           </div>
         </Card>
 
-        <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-semibold block">Total Absensi Tercatat</span>
-            <span className="font-display text-3xl font-black text-slate-900">{totalLogs} Data</span>
+        {/* Muda Mudi Stats Card */}
+        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-indigo-200 hover:shadow-md transition-all">
+          <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
+          <div className="flex justify-between items-start relative z-10">
+            <div className="space-y-1.5 text-left">
+              <span className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">02. Muda-Mudi (SMP/SMA/Remaja)</span>
+              <h3 className="font-display text-2xl font-black text-slate-800">{mudamudiCount} Murid</h3>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
+                <span>Kehadiran:</span>
+                <span className="text-indigo-600 font-bold">{mudamudiStats.rate}%</span>
+                <span>({mudamudiStats.presentCount}/{mudamudiStats.loggedCount} hari ini)</span>
+              </div>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+              <Sparkles className="h-5 w-5" />
+            </div>
           </div>
-          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-            <Calendar className="h-6 w-6" />
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
+            <span>Sakit: <strong className="text-slate-700">{mudamudiStats.sickCount}</strong></span>
+            <span>Izin: <strong className="text-slate-700">{mudamudiStats.permissionCount}</strong></span>
+            <span>Alfa: <strong className="text-rose-650">{mudamudiStats.absentCount}</strong></span>
           </div>
         </Card>
 
-        <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex flex-col justify-center">
-          <div className="flex gap-2">
-            <Button onClick={() => setAttendanceMode("log")} variant={attendanceMode === "log" ? "default" : "outline"} className={`flex-1 rounded-xl text-xs font-bold ${attendanceMode === "log" ? "bg-emerald-600 text-white" : "border-slate-200 text-slate-600"}`}>
-              Riwayat Absensi
-            </Button>
-            <Button onClick={() => setAttendanceMode("input")} variant={attendanceMode === "input" ? "default" : "outline"} className={`flex-1 rounded-xl text-xs font-bold ${attendanceMode === "input" ? "bg-emerald-600 text-white" : "border-slate-200 text-slate-600"}`}>
-              Input Absensi
-            </Button>
+        {/* Dewasa Stats Card */}
+        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-rose-200 hover:shadow-md transition-all">
+          <div className="absolute top-0 right-0 h-24 w-24 bg-rose-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
+          <div className="flex justify-between items-start relative z-10">
+            <div className="space-y-1.5 text-left">
+              <span className="text-[10px] font-extrabold uppercase text-rose-600 tracking-wider">03. Dewasa (Jama'ah Dewasa)</span>
+              <h3 className="font-display text-2xl font-black text-slate-800">{dewasaCount} Jiwa</h3>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
+                <span>Kehadiran:</span>
+                <span className="text-rose-600 font-bold">{dewasaStats.rate}%</span>
+                <span>({dewasaStats.presentCount}/{dewasaStats.loggedCount} hari ini)</span>
+              </div>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0 shadow-sm">
+              <Users className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
+            <span>Sakit: <strong className="text-slate-700">{dewasaStats.sickCount}</strong></span>
+            <span>Izin: <strong className="text-slate-700">{dewasaStats.permissionCount}</strong></span>
+            <span>Alfa: <strong className="text-rose-650">{dewasaStats.absentCount}</strong></span>
           </div>
         </Card>
       </div>
 
-      {attendanceMode === "input" ? (
-        <Card className="bg-white border-slate-200 shadow-sm rounded-3xl overflow-hidden text-left">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between p-6 gap-4">
-            <div>
-              <CardTitle className="font-display text-lg font-bold text-slate-900">Input Cepat Kehadiran Harian</CardTitle>
-              <span className="text-xs text-slate-500 font-semibold">Tentukan tanggal dan kelompok, lalu ubah status siswa.</span>
-            </div>
+      {/* Main Container Card: Controls & Filtering */}
+      <Card className="bg-white border-slate-200 shadow-sm rounded-3xl overflow-hidden text-left">
+        
+        {/* Sub Header / Filters */}
+        <div className="bg-slate-50 border-b border-slate-100 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             
-             <div className="flex flex-wrap gap-2 items-center">
+            {/* View Mode Toggle */}
+            <div className="bg-slate-200/75 p-1.5 rounded-2xl flex gap-1.5 max-w-fit shadow-inner">
+              <button 
+                onClick={() => setAttendanceMode("log")} 
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  attendanceMode === "log" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-850"
+                }`}
+              >
+                Riwayat Absensi
+              </button>
+              <button 
+                onClick={() => setAttendanceMode("input")} 
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  attendanceMode === "input" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-850"
+                }`}
+              >
+                Input Absensi
+              </button>
+            </div>
+
+            {/* Date Picker */}
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl px-3 py-1.5 shadow-sm h-11 w-[160px]">
+              <Calendar className="h-4 w-4 text-slate-400" />
               <input
                 type="date"
                 value={activeDate}
                 onChange={(e) => setActiveDate(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none h-10 font-bold"
+                className="bg-transparent text-slate-850 text-xs font-bold focus:outline-none w-full cursor-pointer"
               />
-              <select
-                value={selectedKelompok}
-                onChange={(e) => setSelectedKelompok(e.target.value)}
-                disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
-                className="rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs focus:outline-none h-10 font-bold disabled:bg-slate-50 disabled:text-slate-500"
-              >
-                {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
-                  <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
-                ))}
-              </select>
-              
-              <div className="relative overflow-hidden bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-3.5 flex items-center gap-1.5 cursor-pointer font-bold text-xs shadow-sm transition-all">
-                <Sparkles className="h-4 w-4 text-emerald-450 animate-pulse" /> Pindai Absensi Fisik (AI)
+            </div>
+
+            {/* Kelompok Selector */}
+            <select
+              value={selectedKelompok}
+              onChange={(e) => setSelectedKelompok(e.target.value)}
+              disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+              className="rounded-2xl border border-slate-200 bg-white text-slate-850 px-3 py-2 text-xs font-bold focus:outline-none h-11 shadow-sm disabled:bg-slate-100 disabled:text-slate-400 w-full sm:w-auto"
+            >
+              {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
+                <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch w-full xl:w-auto">
+            
+            {/* Search input */}
+            <div className="relative flex-grow sm:w-[220px]">
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Cari nama / NIS..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 rounded-2xl border-slate-200 text-slate-800 text-xs h-11 shadow-sm focus-visible:ring-emerald-500 w-full bg-white"
+              />
+            </div>
+
+            {/* AI OCR File Input */}
+            {attendanceMode === "input" && (
+              <div className="relative overflow-hidden bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl h-11 px-4 flex items-center justify-center gap-1.5 cursor-pointer font-bold text-xs shadow-md transition-all active:scale-[0.98]">
+                <Sparkles className="h-4 w-4 text-emerald-300 animate-pulse" /> Pindai Kertas (AI)
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -544,219 +703,264 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
               </div>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="p-6">
-            {studentsInKelompok.length > 0 ? (
-              <div className="divide-y divide-slate-100">
-                {studentsInKelompok.map((student) => {
-                  const currentLog = presensiList.find(
-                    p => p.generusId === student.id && p.tanggal === activeDate
-                  );
-                  const currentStatus = currentLog ? currentLog.statusKehadiran : null;
-
-                  return (
-                    <div key={student.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="text-left">
-                        <h4 className="font-bold text-slate-900 text-sm">{student.namaLengkap}</h4>
-                        <span className="font-mono text-xs text-slate-400 block font-semibold">{student.nisInternal}</span>
-                      </div>
-                      
-                      <div className="flex gap-2.5">
-                        <Button 
-                          onClick={() => handleMarkAttendance(student, "Hadir")} 
-                          className={`rounded-xl px-4 py-2 font-bold text-xs ${
-                            currentStatus === "Hadir" ? "bg-emerald-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          Hadir
-                        </Button>
-                        <Button 
-                          onClick={() => handleMarkAttendance(student, "Izin")} 
-                          className={`rounded-xl px-4 py-2 font-bold text-xs ${
-                            currentStatus === "Izin" ? "bg-amber-500 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          Izin
-                        </Button>
-                        <Button 
-                          onClick={() => handleMarkAttendance(student, "Sakit")} 
-                          className={`rounded-xl px-4 py-2 font-bold text-xs ${
-                            currentStatus === "Sakit" ? "bg-indigo-500 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          Sakit
-                        </Button>
-                        <Button 
-                          onClick={() => handleMarkAttendance(student, "Alfa")} 
-                          className={`rounded-xl px-4 py-2 font-bold text-xs ${
-                            currentStatus === "Alfa" ? "bg-rose-500 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          Alfa
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center text-slate-400 font-medium">
-                Belum ada data Generus terdaftar di kelompok ini.
-              </div>
             )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {/* Advanced Log Filters */}
-          <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-end">
-              <div className="flex-1 text-left space-y-1 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Cari Santri</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Nama santri..."
-                    value={searchLogQuery}
-                    onChange={(e) => setSearchLogQuery(e.target.value)}
-                    className="pl-9 rounded-xl border-slate-200 text-slate-900 text-xs h-10"
-                  />
+          </div>
+        </div>
+
+        {/* Dynamic Classification Category Tab Control */}
+        <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => setActiveCategory("Semua")}
+            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 ${
+              activeCategory === "Semua" 
+                ? "bg-slate-900 text-white hover:bg-slate-900/90 shadow-sm" 
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-850"
+            }`}
+          >
+            Semua ({studentsInKelompok.length})
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setActiveCategory("Caberawit")}
+            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
+              activeCategory === "Caberawit" 
+                ? "bg-emerald-600 text-white hover:bg-emerald-750 shadow-sm" 
+                : "text-slate-500 hover:bg-emerald-50/40 hover:text-emerald-700"
+            }`}
+          >
+            <Award className="h-3.5 w-3.5" /> Caberawit ({caberawitCount})
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setActiveCategory("Muda-Mudi")}
+            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
+              activeCategory === "Muda-Mudi" 
+                ? "bg-indigo-600 text-white hover:bg-indigo-750 shadow-sm" 
+                : "text-slate-500 hover:bg-indigo-50/40 hover:text-indigo-700"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Muda-mudi ({mudamudiCount})
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setActiveCategory("Jama'ah Dewasa")}
+            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
+              activeCategory === "Jama'ah Dewasa" 
+                ? "bg-rose-600 text-white hover:bg-rose-750 shadow-sm" 
+                : "text-slate-500 hover:bg-rose-50/40 hover:text-rose-700"
+            }`}
+          >
+            <Users className="h-3.5 w-3.5" /> Dewasa ({dewasaCount})
+          </Button>
+        </div>
+
+        {/* Content Viewport */}
+        <CardContent className="p-6">
+          
+          {/* Mode 1: Input Absensi */}
+          {attendanceMode === "input" ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 rounded-2xl p-4 border border-slate-100 flex-wrap gap-2">
+                <span className="text-[11px] font-bold text-slate-450 text-left">
+                  Menampilkan <strong className="text-slate-700">{studentsToDisplay.length}</strong> santri di kelompok <strong className="text-slate-700">{selectedKelompok}</strong>
+                </span>
+                
+                {studentsToDisplay.length > 0 && !isReadOnly && (
+                  <Button 
+                    onClick={handleMarkAllPresent}
+                    variant="outline"
+                    className="rounded-xl border-emerald-250 hover:bg-emerald-50 hover:text-emerald-700 font-bold text-xs h-9 px-3 bg-white text-emerald-600 gap-1.5 transition-all shadow-sm"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Tandai Hadir Semua
+                  </Button>
+                )}
+              </div>
+
+              {ocrScanning && (
+                <div className="flex gap-3 text-xs text-slate-450 font-bold items-center justify-center p-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+                  <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <span>AI OCR sedang mengekstrak lembar kehadiran santri...</span>
+                </div>
+              )}
+
+              {studentsToDisplay.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {studentsToDisplay.map((student) => {
+                    const currentLog = presensiList.find(
+                      p => p.generusId === student.id && p.tanggal === activeDate
+                    );
+                    const currentStatus = currentLog ? currentLog.statusKehadiran : null;
+
+                    return (
+                      <div key={student.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30 px-2 rounded-xl transition-all">
+                        <div className="text-left space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-extrabold text-slate-900 text-sm leading-none">{student.namaLengkap}</h4>
+                            {getCategoryBadge(student.kategori)}
+                          </div>
+                          <span className="font-mono text-[10px] text-slate-400 block font-semibold leading-none">{student.nisInternal}</span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1.5">
+                          <button 
+                            onClick={() => handleMarkAttendance(student, "Hadir")} 
+                            className={`rounded-xl px-4 py-2 font-bold text-xs h-9 shadow-sm transition-all border ${
+                              currentStatus === "Hadir" 
+                                ? "bg-emerald-600 text-white border-emerald-600 scale-[1.02]" 
+                                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Hadir
+                          </button>
+                          <button 
+                            onClick={() => handleMarkAttendance(student, "Izin")} 
+                            className={`rounded-xl px-4 py-2 font-bold text-xs h-9 shadow-sm transition-all border ${
+                              currentStatus === "Izin" 
+                                ? "bg-amber-500 text-white border-amber-500 scale-[1.02]" 
+                                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Izin
+                          </button>
+                          <button 
+                            onClick={() => handleMarkAttendance(student, "Sakit")} 
+                            className={`rounded-xl px-4 py-2 font-bold text-xs h-9 shadow-sm transition-all border ${
+                              currentStatus === "Sakit" 
+                                ? "bg-indigo-500 text-white border-indigo-500 scale-[1.02]" 
+                                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Sakit
+                          </button>
+                          <button 
+                            onClick={() => handleMarkAttendance(student, "Alfa")} 
+                            className={`rounded-xl px-4 py-2 font-bold text-xs h-9 shadow-sm transition-all border ${
+                              currentStatus === "Alfa" 
+                                ? "bg-rose-50 text-white border-rose-500 scale-[1.02]" 
+                                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Alfa
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-16 text-center text-slate-400 font-bold border border-dashed border-slate-150 rounded-2xl flex flex-col items-center justify-center gap-1.5">
+                  <CircleDot className="h-6 w-6 text-slate-350" />
+                  <span>Belum ada data murid terdaftar dalam kategori ini.</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Mode 2: Riwayat Absensi
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 rounded-2xl p-4 border border-slate-100 flex-wrap gap-3">
+                <span className="text-[11px] font-bold text-slate-450 text-left">
+                  Tercatat <strong className="text-slate-700">{filteredLogsList.length}</strong> log kehadiran untuk tanggal <strong className="text-slate-700">{activeDate}</strong>
+                </span>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => toast.success("Mengekspor rekap absensi ke berkas Excel...")}
+                    variant="outline" 
+                    className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 bg-white text-slate-700"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" /> Ekspor Excel
+                  </Button>
+                  <Button 
+                    onClick={() => window.print()}
+                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs h-9 px-3.5 flex items-center gap-1.5"
+                  >
+                    <Download className="h-3.5 w-3.5 text-emerald-450" /> Cetak PDF
+                  </Button>
                 </div>
               </div>
 
-              <div className="w-full sm:w-[180px] text-left space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Kelompok TPQ</label>
-                <select
-                  value={filterLogKelompok}
-                  onChange={(e) => setFilterLogKelompok(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-750 px-3 py-2 text-xs focus:outline-none h-10 font-bold"
-                >
-                  <option value="Semua">Semua Kelompok</option>
-                  {kelompokList.filter(k => allowedKelompoks.includes(k.namaKelompok)).map(k => (
-                    <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
-                  ))}
-                </select>
+              {/* Grid counts specific to this date */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-2xl p-3 text-left">
+                  <span className="text-[9px] text-emerald-600 font-extrabold block uppercase tracking-wider">Hadir</span>
+                  <span className="font-display text-xl font-black text-emerald-800">{filteredLogsList.filter(p => p.statusKehadiran === "Hadir").length}</span>
+                </div>
+                <div className="bg-amber-50/50 border border-amber-100/50 rounded-2xl p-3 text-left">
+                  <span className="text-[9px] text-amber-600 font-extrabold block uppercase tracking-wider">Izin</span>
+                  <span className="font-display text-xl font-black text-amber-800">{filteredLogsList.filter(p => p.statusKehadiran === "Izin").length}</span>
+                </div>
+                <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-3 text-left">
+                  <span className="text-[9px] text-indigo-600 font-extrabold block uppercase tracking-wider">Sakit</span>
+                  <span className="font-display text-xl font-black text-indigo-800">{filteredLogsList.filter(p => p.statusKehadiran === "Sakit").length}</span>
+                </div>
+                <div className="bg-rose-50/50 border border-rose-100/50 rounded-2xl p-3 text-left">
+                  <span className="text-[9px] text-rose-600 font-extrabold block uppercase tracking-wider">Alfa / Bolos</span>
+                  <span className="font-display text-xl font-black text-rose-800">{filteredLogsList.filter(p => p.statusKehadiran === "Alfa").length}</span>
+                </div>
               </div>
 
-              <div className="w-full sm:w-[130px] text-left space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Status Kehadiran</label>
-                <select
-                  value={filterLogStatus}
-                  onChange={(e) => setFilterLogStatus(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-750 px-3 py-2 text-xs focus:outline-none h-10 font-bold"
-                >
-                  <option value="Semua">Semua Status</option>
-                  <option value="Hadir">Hadir</option>
-                  <option value="Izin">Izin</option>
-                  <option value="Sakit">Sakit</option>
-                  <option value="Alfa">Alfa</option>
-                </select>
-              </div>
-
-              <div className="w-full sm:w-[140px] text-left space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Pilih Tanggal</label>
-                <Input
-                  type="date"
-                  value={filterLogDate}
-                  onChange={(e) => setFilterLogDate(e.target.value)}
-                  className="rounded-xl border-slate-200 text-slate-900 text-xs h-10 w-full"
-                />
-              </div>
-
-              <div className="flex gap-2 w-full lg:w-auto shrink-0">
-                <Button 
-                  onClick={() => toast.success("Mengekspor rekap absensi ke berkas Excel...")}
-                  variant="outline" 
-                  className="flex-grow sm:flex-grow-0 rounded-xl border-slate-200 hover:bg-slate-50 font-bold text-xs h-10 px-4"
-                >
-                  Excel
-                </Button>
-                <Button 
-                  onClick={() => window.print()}
-                  className="flex-grow sm:flex-grow-0 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs h-10 px-4"
-                >
-                  Cetak PDF
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          {/* Quick Filter Counts */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-left">
-              <span className="text-[9px] text-emerald-600 font-bold block uppercase tracking-wider">Hadir</span>
-              <span className="font-display text-xl font-black text-emerald-800">{filteredLogsList.filter(p => p.statusKehadiran === "Hadir").length}</span>
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-left">
-              <span className="text-[9px] text-amber-600 font-bold block uppercase tracking-wider">Izin</span>
-              <span className="font-display text-xl font-black text-amber-800">{filteredLogsList.filter(p => p.statusKehadiran === "Izin").length}</span>
-            </div>
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 text-left">
-              <span className="text-[9px] text-indigo-600 font-bold block uppercase tracking-wider">Sakit</span>
-              <span className="font-display text-xl font-black text-indigo-800">{filteredLogsList.filter(p => p.statusKehadiran === "Sakit").length}</span>
-            </div>
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-left">
-              <span className="text-[9px] text-rose-600 font-bold block uppercase tracking-wider">Alfa</span>
-              <span className="font-display text-xl font-black text-rose-800">{filteredLogsList.filter(p => p.statusKehadiran === "Alfa").length}</span>
-            </div>
-          </div>
-
-          {/* Table Card */}
-          <Card className="bg-white border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-slate-700">
-                <thead className="text-xs uppercase bg-slate-50 text-slate-400 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4">Nama Lengkap</th>
-                    <th className="px-6 py-4">Kelompok</th>
-                    <th className="px-6 py-4">Tanggal Absen</th>
-                    <th className="px-6 py-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredLogsList.length > 0 ? (
-                    filteredLogsList.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/50">
-                        <td className="px-6 py-4 font-bold text-slate-900">{p.namaLengkap}</td>
-                        <td className="px-6 py-4 text-xs font-semibold text-slate-500">{p.namaKelompok}</td>
-                        <td className="px-6 py-4 text-xs font-mono font-bold text-slate-450">{p.tanggal}</td>
-                        <td className="px-6 py-4">
-                          <Badge className={`font-semibold rounded-full ${
-                            p.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                            p.statusKehadiran === "Izin" ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                            p.statusKehadiran === "Sakit" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" :
-                            "bg-rose-50 text-rose-700 border border-rose-200"
-                          }`}>
-                            {p.statusKehadiran}
-                          </Badge>
-                        </td>
+              {/* Main Log Table */}
+              <div className="border border-slate-150 rounded-2xl overflow-hidden bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left text-slate-700">
+                    <thead className="text-[10px] uppercase bg-slate-50 text-slate-450 border-b border-slate-200 font-bold">
+                      <tr>
+                        <th className="px-6 py-4">Nama Lengkap</th>
+                        <th className="px-6 py-4">Kategori Klasifikasi</th>
+                        <th className="px-6 py-4">Kelompok TPQ</th>
+                        <th className="px-6 py-4">Tanggal</th>
+                        <th className="px-6 py-4">Status Kehadiran</th>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
-                        Belum ada riwayat absensi tercatat untuk filter ini.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredLogsList.length > 0 ? (
+                        filteredLogsList.map((p) => {
+                          const student = generusList.find(g => g.id === p.generusId);
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4 font-extrabold text-slate-800">{p.namaLengkap}</td>
+                              <td className="px-6 py-4">{getCategoryBadge(student?.kategori)}</td>
+                              <td className="px-6 py-4 text-xs font-semibold text-slate-500">{p.namaKelompok}</td>
+                              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-400">{p.tanggal}</td>
+                              <td className="px-6 py-4">
+                                <Badge className={`font-bold rounded-full text-[10px] px-2.5 py-0.5 border ${
+                                  p.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                  p.statusKehadiran === "Izin" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                  p.statusKehadiran === "Sakit" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                                  "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}>
+                                  {p.statusKehadiran}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-16 text-center text-slate-400 font-bold">
+                            Tidak ditemukan log absensi untuk kategori/tanggal terpilih.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </Card>
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* CSV Import Dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="sm:max-w-[700px] rounded-2xl p-6 text-left flex flex-col space-y-4 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] rounded-3xl p-6 text-left flex flex-col space-y-4 max-h-[90vh] overflow-y-auto border-slate-100 shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg font-bold text-slate-900 flex items-center gap-1.5">
-              <Upload className="h-5 w-5 text-emerald-600" /> Impor Presensi Santri
+            <DialogTitle className="font-display text-lg font-black text-slate-900 flex items-center gap-1.5">
+              <Upload className="h-5 w-5 text-emerald-600" /> Impor Rekap Presensi Santri
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Unggah file CSV untuk mengimpor data kehadiran santri secara massal.
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Ekstrak berkas CSV eksternal untuk memperbarui presensi secara massal di database.
             </DialogDescription>
           </DialogHeader>
 
@@ -769,14 +973,14 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                   onChange={handleImportFileChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
-                <Upload className="h-10 w-10 text-slate-400 mb-3" />
+                <Upload className="h-10 w-10 text-slate-350 mb-3" />
                 <span className="text-xs font-bold text-slate-700">Pilih File CSV</span>
                 <span className="text-[10px] text-slate-400 mt-1">atau seret file ke sini</span>
               </div>
 
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
-                <span className="text-[10px] font-bold text-slate-600 uppercase block">Petunjuk Penggunaan:</span>
-                <ol className="text-[10px] text-slate-500 space-y-1 list-decimal pl-4 font-medium">
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2">
+                <span className="text-[10px] font-bold text-slate-650 uppercase block">Panduan Format Kolom:</span>
+                <ol className="text-[10px] text-slate-500 space-y-1 list-decimal pl-4 font-semibold">
                   <li>Kolom minimal yang harus ada: <strong>NIS</strong> atau <strong>Nama Lengkap</strong>.</li>
                   <li>Kolom opsional lainnya: Tanggal (YYYY-MM-DD), Status Kehadiran (Hadir, Izin, Sakit, Alfa).</li>
                   <li>Jika kolom Tanggal kosong, sistem otomatis menggunakan tanggal aktif saat ini (<strong>{activeDate}</strong>).</li>
@@ -786,7 +990,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                   <a
                     href={csvTemplateUri}
                     download="templat_import_presensi.csv"
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-500"
+                    className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 hover:text-emerald-500"
                   >
                     <Download className="h-3.5 w-3.5" /> Unduh Templat CSV
                   </a>
@@ -809,7 +1013,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               </div>
 
               {/* Preview table */}
-              <div className="border border-slate-150 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto">
+              <div className="border border-slate-150 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto shadow-sm">
                 <table className="w-full border-collapse text-left text-[10px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-150 text-slate-600 font-bold">
@@ -833,11 +1037,11 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                           <td className="p-2">{row.namaKelompok}</td>
                           <td className="p-2 font-mono">{row.tanggal}</td>
                           <td className="p-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              row.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700" :
-                              row.statusKehadiran === "Izin" ? "bg-amber-50 text-amber-700" :
-                              row.statusKehadiran === "Sakit" ? "bg-indigo-50 text-indigo-750" :
-                              "bg-rose-50 text-rose-700"
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                              row.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                              row.statusKehadiran === "Izin" ? "bg-amber-50 text-amber-700 border-amber-250" :
+                              row.statusKehadiran === "Sakit" ? "bg-indigo-50 text-indigo-750 border-indigo-250" :
+                              "bg-rose-50 text-rose-750 border-rose-250"
                             }`}>
                               {row.statusKehadiran}
                             </span>
@@ -876,7 +1080,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 </Button>
                 <Button
                   onClick={executeImport}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold py-2 px-4 text-xs"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold py-2 px-4 text-xs shadow-sm transition-all"
                 >
                   Konfirmasi Impor ({importRows.filter((row, idx) => {
                     const errors = importValidation[idx] || [];

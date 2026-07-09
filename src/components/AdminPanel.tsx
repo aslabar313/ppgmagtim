@@ -397,8 +397,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       <aside className="w-64 bg-slate-950 text-slate-300 border-r border-slate-900 flex flex-col justify-between shrink-0 hidden md:flex text-left">
         <div className="space-y-6 py-6">
           <div className="px-6 flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/10 animate-pulse">
-              <BookOpen className="h-4.5 w-4.5 text-white" />
+            <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center shadow-md overflow-hidden shrink-0">
+              <img src="https://cdn.phototourl.com/free/2026-07-09-8adacd09-43f1-441b-b2ea-577757bfa123.jpg" alt="Logo" className="h-full w-full object-cover" />
             </div>
             <div>
               <span className="font-display text-base font-bold text-white tracking-tight">PPG Magtim</span>

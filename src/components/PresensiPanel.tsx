@@ -476,13 +476,13 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const getCategoryBadge = (kategori?: string) => {
     if (kategori === "Caberawit") {
-      return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-250 hover:bg-emerald-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Caberawit</Badge>;
+      return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-250 hover:bg-emerald-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Pengajian Caberawit</Badge>;
     }
     if (kategori === "Muda-Mudi") {
-      return <Badge className="bg-indigo-50 text-indigo-700 border-indigo-250 hover:bg-indigo-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Muda-mudi</Badge>;
+      return <Badge className="bg-indigo-50 text-indigo-700 border-indigo-250 hover:bg-indigo-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Pengajian Muda-mudi</Badge>;
     }
     if (kategori === "Jama'ah Dewasa") {
-      return <Badge className="bg-rose-50 text-rose-700 border-rose-250 hover:bg-rose-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Dewasa</Badge>;
+      return <Badge className="bg-rose-50 text-rose-700 border-rose-250 hover:bg-rose-100/50 text-[10px] font-extrabold py-0.5 px-2.5 rounded-full">Sambung Kelompok</Badge>;
     }
     return null;
   };
@@ -501,7 +501,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
             <UserCheck className="h-7 w-7 text-emerald-600" /> Presensi SIM Kelompok
           </h2>
           <p className="text-slate-500 text-xs font-semibold">
-            Pencatatan kehadiran harian generus dengan klasifikasi Caberawit, Muda-mudi, dan Dewasa.
+            Pencatatan kehadiran harian generus dengan klasifikasi Pengajian Caberawit, Pengajian Muda-mudi, dan Sambung Kelompok.
           </p>
         </div>
         
@@ -559,7 +559,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
           <div className="flex justify-between items-start relative z-10">
             <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-emerald-600 tracking-wider">01. Caberawit (SD/Cilik)</span>
+              <span className="text-[10px] font-extrabold uppercase text-emerald-600 tracking-wider">01. Pengajian Caberawit</span>
               <h3 className="font-display text-2xl font-black text-slate-800">{caberawitCount} Santri</h3>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
                 <span>Kehadiran:</span>
@@ -583,7 +583,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
           <div className="flex justify-between items-start relative z-10">
             <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">02. Muda-Mudi (SMP/SMA/Remaja)</span>
+              <span className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">02. Pengajian Muda-mudi</span>
               <h3 className="font-display text-2xl font-black text-slate-800">{mudamudiCount} Murid</h3>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
                 <span>Kehadiran:</span>
@@ -607,7 +607,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-rose-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
           <div className="flex justify-between items-start relative z-10">
             <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-rose-600 tracking-wider">03. Dewasa (Jama'ah Dewasa)</span>
+              <span className="text-[10px] font-extrabold uppercase text-rose-600 tracking-wider">03. Sambung Kelompok</span>
               <h3 className="font-display text-2xl font-black text-slate-800">{dewasaCount} Jiwa</h3>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
                 <span>Kehadiran:</span>
@@ -729,7 +729,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 : "text-slate-500 hover:bg-emerald-50/40 hover:text-emerald-700"
             }`}
           >
-            <Award className="h-3.5 w-3.5" /> Caberawit ({caberawitCount})
+            <Award className="h-3.5 w-3.5" /> Pengajian Caberawit ({caberawitCount})
           </Button>
           <Button
             variant="ghost"
@@ -740,7 +740,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 : "text-slate-500 hover:bg-indigo-50/40 hover:text-indigo-700"
             }`}
           >
-            <Sparkles className="h-3.5 w-3.5" /> Muda-mudi ({mudamudiCount})
+            <Sparkles className="h-3.5 w-3.5" /> Pengajian Muda-mudi ({mudamudiCount})
           </Button>
           <Button
             variant="ghost"
@@ -751,7 +751,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 : "text-slate-500 hover:bg-rose-50/40 hover:text-rose-700"
             }`}
           >
-            <Users className="h-3.5 w-3.5" /> Dewasa ({dewasaCount})
+            <Users className="h-3.5 w-3.5" /> Sambung Kelompok ({dewasaCount})
           </Button>
         </div>
 

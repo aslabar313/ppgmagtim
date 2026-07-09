@@ -67,16 +67,16 @@ interface PresensiPanelProps {
 }
 
 export function PresensiPanel({ userRole }: PresensiPanelProps) {
-  const [presensiList, setPresensiList] = useState<Presensi[]>(getPresensi());
-  const [generusList] = useState<Generus[]>(getGenerus());
-  const [kelompokList] = useState<Kelompok[]>(getKelompok());
+  const [presensiList, setPresensiList] = useState<Presensi[]>(() => getPresensi() || []);
+  const [generusList] = useState<Generus[]>(() => getGenerus() || []);
+  const [kelompokList] = useState<Kelompok[]>(() => getKelompok() || []);
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
       const loggedUser = localStorage.getItem("sim_tpq_logged_user");
       if (loggedUser) {
         const details = getUserDetails(loggedUser);
-        if (details) {
+        if (details && details.scope) {
           if (details.level === "kelompok" || details.level === "desa") {
             return details.scope;
           }
@@ -87,15 +87,16 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     return "Semua";
   });
 
-  const allowedKelompoks = kelompokList
+  const allowedKelompoks = (kelompokList || [])
     .filter(k => {
+      if (!k) return false;
       if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
       if (userRole === "Admin Desa") {
-        if (userScope === "Semua" || userScope === "Daerah Magetan Timur") return true;
+        if (!userScope || userScope === "Semua" || userScope === "Daerah Magetan Timur") return true;
         return k.desa === userScope;
       }
       if (userRole === "Admin Kelompok" || userRole === "Pengajar") {
-        if (userScope === "Semua" || userScope === "Daerah Magetan Timur" || userScope.includes("Desa")) return true;
+        if (!userScope || userScope === "Semua" || userScope === "Daerah Magetan Timur" || (typeof userScope === "string" && userScope.includes("Desa"))) return true;
         return k.namaKelompok === userScope;
       }
       return true;
@@ -107,7 +108,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("log");
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
-  const [simName, setSimName] = useState(generusList[0]?.namaLengkap || "");
+  const [simName, setSimName] = useState((generusList && generusList[0]?.namaLengkap) || "");
 
   // Synchronize selectedKelompok when allowedKelompoks list changes
   useEffect(() => {
@@ -274,7 +275,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [filterLogDate, setFilterLogDate] = useState("");
 
   // Calculate quick stats (filtered by allowed scope and active filters)
-  const filteredLogsList = presensiList.filter(p => {
+  const filteredLogsList = (presensiList || []).filter(p => {
+    if (!p) return false;
     // 1. Tenant/Scope check
     if (!p.namaKelompok || !allowedKelompoks.includes(p.namaKelompok)) return false;
 

@@ -401,8 +401,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
               <BookOpen className="h-4.5 w-4.5 text-white" />
             </div>
             <div>
-              <span className="font-display text-base font-bold text-white tracking-tight">PintarYuk</span>
-              <span className="block text-[8px] font-bold text-emerald-400 tracking-widest uppercase">SIM TPQ 2026</span>
+              <span className="font-display text-base font-bold text-white tracking-tight">PPG Magtim</span>
+              <span className="block text-[8px] font-bold text-emerald-400 tracking-widest uppercase">Generus Central App</span>
             </div>
           </div>
 

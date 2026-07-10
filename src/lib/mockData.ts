@@ -580,18 +580,11 @@ export const getGenerus = (): Generus[] => {
     updated = true;
   }
 
-  // 3. Ensure all loaded records have a unique rfidUid field populated
-  loaded = loaded.map(g => {
-    if (!g.rfidUid || g.rfidUid.trim() === "") {
-      let code = "";
-      let isUnique = false;
-      while (!isUnique) {
-        const randSuffix = Math.floor(1000 + Math.random() * 9000);
-        code = `102030${randSuffix}`;
-        isUnique = !loaded.some(item => item.rfidUid === code) && 
-                   !INITIAL_GENERUS.some(item => item.rfidUid === code);
-      }
-      g.rfidUid = code;
+  // 3. Ensure all loaded records have a unique sequential rfidUid field populated neatly
+  loaded = loaded.map((g, index) => {
+    const expectedUid = `102030${String(4001 + index).padStart(4, "0")}`;
+    if (g.rfidUid !== expectedUid) {
+      g.rfidUid = expectedUid;
       updated = true;
     }
     return g;

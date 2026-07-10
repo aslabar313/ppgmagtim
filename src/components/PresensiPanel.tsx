@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getPresensi, savePresensi, getGenerus, getKelompok, Presensi, Generus, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +143,9 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [rfidLogs, setRfidLogs] = useState<{ time: string; uid: string; name: string; status: "success" | "error" }[]>([]);
   const [showArduinoCode, setShowArduinoCode] = useState(false);
 
+  const rfidInputRef = useRef<HTMLInputElement>(null);
+  const rfidTimeoutRef = useRef<any>(null);
+
   const playBeep = (type: "success" | "error") => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -186,23 +189,29 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       return;
     }
 
+    const searchUid = uid.trim();
     const student = generusList.find(
-      g => g.rfidUid === uid || g.nisInternal === uid
+      g => (g.rfidUid && g.rfidUid.trim() === searchUid) || 
+           (g.nisInternal && g.nisInternal.trim() === searchUid)
     );
 
     const logTime = new Date().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+    if (rfidTimeoutRef.current) {
+      clearTimeout(rfidTimeoutRef.current);
+    }
+
     if (!student) {
       playBeep("error");
       setRfidStatus("error");
-      toast.error(`Kartu RFID dengan UID/NIS '${uid}' tidak terdaftar!`);
+      toast.error(`Kartu RFID dengan UID/NIS '${searchUid}' tidak terdaftar!`);
       
       setRfidLogs(prev => [
-        { time: logTime, uid, name: "Kartu Tidak Dikenal", status: "error" },
+        { time: logTime, uid: searchUid, name: "Kartu Tidak Dikenal", status: "error" },
         ...prev.slice(0, 4)
       ]);
 
-      setTimeout(() => setRfidStatus("idle"), 1500);
+      rfidTimeoutRef.current = setTimeout(() => setRfidStatus("idle"), 1500);
       return;
     }
 
@@ -236,11 +245,11 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     toast.success(`${isRealtime ? "⚡ RFID IoT:" : "RFID Terdeteksi:"} ${student.namaLengkap} tercatat HADIR!`);
 
     setRfidLogs(prev => [
-      { time: logTime, uid, name: student.namaLengkap, status: "success" },
+      { time: logTime, uid: searchUid, name: student.namaLengkap, status: "success" },
       ...prev.slice(0, 4)
     ]);
 
-    setTimeout(() => {
+    rfidTimeoutRef.current = setTimeout(() => {
       setRfidStatus("idle");
     }, 1500);
   };
@@ -253,7 +262,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         const { uid } = response.payload;
         if (uid) {
           console.log("Realtime standalone RFID scan received:", uid);
-          triggerFakeRfidTap(uid, true);
+          triggerFakeRfidTap(uid.trim(), true);
         }
       })
       .subscribe((status) => {
@@ -264,6 +273,25 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       supabase.removeChannel(channel);
     };
   }, [generusList, presensiList, activeDate, jenisPengajian, allowedKelompoks, isReadOnly]);
+
+  // Keep hidden input focused for local USB RFID scanner
+  useEffect(() => {
+    if (rfidDialogOpen && rfidMode === "local") {
+      const focusTimer = setTimeout(() => {
+        rfidInputRef.current?.focus();
+      }, 300);
+      
+      const handleGlobalClick = () => {
+        rfidInputRef.current?.focus();
+      };
+      
+      window.addEventListener("click", handleGlobalClick);
+      return () => {
+        clearTimeout(focusTimer);
+        window.removeEventListener("click", handleGlobalClick);
+      };
+    }
+  }, [rfidDialogOpen, rfidMode]);
 
   // CSV Import States for Presensi
   const [importOpen, setImportOpen] = useState(false);
@@ -1399,6 +1427,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               {/* Hidden/Active input for local USB RFID Reader */}
               {rfidMode === "local" && (
                 <input
+                  ref={rfidInputRef}
                   type="text"
                   autoFocus
                   placeholder="RFID Reader Input Stream..."

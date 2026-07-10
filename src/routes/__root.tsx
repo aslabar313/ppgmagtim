@@ -77,14 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PintarYuk — PPG Magetan Timur Center" },
+      { title: "PPG MAGETAN TIMUR CENTER" },
       {
         name: "description",
         content:
           "Sistem Informasi Manajemen Pembinaan Generasi Penerus Wilayah Magetan Timur Center.",
       },
-      { name: "author", content: "PintarYuk — PPG Magetan Timur Center" },
-      { property: "og:title", content: "PintarYuk — PPG Magetan Timur Center" },
+      { name: "author", content: "PPG MAGETAN TIMUR CENTER" },
+      { property: "og:title", content: "PPG MAGETAN TIMUR CENTER" },
       {
         property: "og:description",
         content:
@@ -93,7 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@ppg_magetan_timur" },
-      { name: "twitter:title", content: "PintarYuk — PPG Magetan Timur Center" },
+      { name: "twitter:title", content: "PPG MAGETAN TIMUR CENTER" },
       {
         name: "twitter:description",
         content:

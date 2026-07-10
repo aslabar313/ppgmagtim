@@ -6,10 +6,10 @@ import { AdminPanel } from "@/components/AdminPanel";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "PintarYuk — Sistem Informasi Monitoring Kelompok (SIM Kelompok)" },
+      { title: "PPG MAGETAN TIMUR CENTER — Sistem Informasi Monitoring" },
       {
         name: "description",
-        content: "Platform Sistem Informasi Monitoring Kelompok (SIM Kelompok) untuk memonitor aktivitas harian, absensi, kurikulum materi, raport, sarpras, dan WhatsApp center.",
+        content: "Platform Sistem Informasi Monitoring PPG MAGETAN TIMUR CENTER untuk memonitor aktivitas harian, absensi, kurikulum materi, raport, sarpras, dan WhatsApp center.",
       },
     ],
   }),
@@ -52,7 +52,7 @@ function Index() {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 font-sans">
         <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <span>Menghubungkan ke Portal PintarYuk...</span>
+        <span>Menghubungkan ke Portal PPG MAGETAN TIMUR CENTER...</span>
       </div>
     );
   }

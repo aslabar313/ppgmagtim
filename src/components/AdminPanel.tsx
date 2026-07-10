@@ -114,14 +114,14 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === "accepted") {
-          toast.success("Aplikasi PintarYuk SIM Kelompok berhasil terpasang di perangkat Anda!");
+          toast.success("Aplikasi PPG MAGETAN TIMUR CENTER berhasil terpasang di perangkat Anda!");
         } else {
           toast.info("Pemasangan aplikasi dibatalkan.");
         }
         setDeferredPrompt(null);
       });
     } else {
-      toast.info("Untuk memasang PintarYuk di iPhone/iPad (iOS): ketuk tombol 'Bagikan' (Share) di Safari, lalu pilih 'Tambahkan ke Layar Utama' (Add to Home Screen).");
+      toast.info("Untuk memasang PPG MAGETAN TIMUR CENTER di iPhone/iPad (iOS): ketuk tombol 'Bagikan' (Share) di Safari, lalu pilih 'Tambahkan ke Layar Utama' (Add to Home Screen).");
     }
   };
 
@@ -1064,7 +1064,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             <div className="flex items-center gap-2">
               <span className="text-slate-450 text-xs font-semibold uppercase tracking-wider">{activeTab}</span>
               <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-              <span className="text-slate-900 text-sm font-bold capitalize">SIM Kelompok Platform</span>
+              <span className="text-slate-900 text-sm font-bold capitalize">PPG MAGETAN TIMUR CENTER</span>
             </div>
 
             {/* 12. PWA Install & Offline Sync Simulator Indicator */}

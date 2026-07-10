@@ -498,7 +498,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
           <h2 className="font-display text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-            <UserCheck className="h-7 w-7 text-emerald-600" /> Presensi SIM Kelompok
+            <UserCheck className="h-7 w-7 text-emerald-600" /> Presensi PPG MAGETAN TIMUR CENTER
           </h2>
           <p className="text-slate-500 text-xs font-semibold">
             Pencatatan kehadiran harian generus dengan klasifikasi Pengajian Caberawit, Pengajian Muda-mudi, dan Sambung Kelompok.

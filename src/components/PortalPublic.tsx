@@ -98,10 +98,10 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
             </div>
             <div className="text-left">
               <span className="font-display text-lg font-black tracking-tight text-white block">
-                PintarYuk <span className="text-emerald-500">SIM Kelompok</span>
+                PPG MAGETAN TIMUR <span className="text-emerald-500">CENTER</span>
               </span>
               <span className="block text-[8px] font-bold text-slate-400 tracking-widest uppercase mt-0.5">
-                PPG Magetan Timur Center
+                Sistem Informasi Monitoring
               </span>
             </div>
           </div>
@@ -218,7 +218,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               <DialogContent className="sm:max-w-[420px] rounded-3xl bg-slate-900 border-slate-800 text-slate-100 p-6">
                 <DialogHeader className="space-y-2 text-center">
                   <DialogTitle className="font-display text-xl font-black text-white flex items-center justify-center gap-2">
-                    <Sparkles className="h-5 w-5 text-emerald-500 animate-spin" /> Masuk Akses SIM Kelompok
+                    <Sparkles className="h-5 w-5 text-emerald-500 animate-spin" /> Masuk PPG MAGETAN TIMUR CENTER
                   </DialogTitle>
                   <DialogDescription className="text-xs text-slate-400">
                     Masukkan kredensial otorisasi multi-wilayah untuk mengelola platform.
@@ -328,7 +328,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
             Tiga Target Pembinaan (Tri Sukses)
           </h2>
           <p className="text-slate-400 text-xs sm:text-sm font-medium">
-            SIM Kelompok mengintegrasikan pengawasan indikator keberhasilan kurikulum santri generus.
+            PPG MAGETAN TIMUR CENTER mengintegrasikan pengawasan indikator keberhasilan kurikulum santri generus.
           </p>
         </div>
 
@@ -422,7 +422,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
 
       {/* Footer */}
       <footer className={`border-t border-slate-900/60 py-8 text-center text-xs text-slate-500 font-semibold uppercase tracking-wider relative z-10 ${bgImage !== "none" ? "bg-slate-950/70" : "bg-slate-950"}`}>
-        © 2026 PintarYuk SIM Kelompok. Hak Cipta Dilindungi Undang-Undang.
+        © 2026 PPG MAGETAN TIMUR CENTER. Hak Cipta Dilindungi Undang-Undang.
       </footer>
     </div>
   );

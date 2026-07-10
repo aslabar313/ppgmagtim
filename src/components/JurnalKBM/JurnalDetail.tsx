@@ -86,7 +86,7 @@ export function JurnalDetail({ record, onClose, onApprove, userRole }: JurnalDet
               <BookOpen className="h-7 w-7" />
             </div>
             <div className="space-y-0.5 text-left">
-              <h3 className="font-display text-lg font-black text-slate-900 leading-none">PintarYuk SIM Kelompok</h3>
+              <h3 className="font-display text-lg font-black text-slate-900 leading-none">PPG MAGETAN TIMUR CENTER</h3>
               <p className="text-slate-400 text-xs font-semibold">Sistem Informasi Monitoring KBM Pengajian Daerah</p>
               <p className="text-[10px] text-slate-400 font-bold">Magetan Timur, Jawa Timur</p>
             </div>
@@ -247,7 +247,7 @@ export function JurnalDetail({ record, onClose, onApprove, userRole }: JurnalDet
                   <QrCode className="h-14 w-14 text-slate-900" />
                 </div>
                 <span className="text-[8px] text-slate-400 font-semibold text-center leading-relaxed">
-                  Scan QR untuk memverifikasi keaslian dokumen Jurnal KBM di portal SIM Kelompok.
+                  Scan QR untuk memverifikasi keaslian dokumen Jurnal KBM di portal PPG MAGETAN TIMUR CENTER.
                 </span>
               </div>
             </div>

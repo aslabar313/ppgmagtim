@@ -11,6 +11,8 @@ import {
   Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot, CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 
 function parseCSV(text: string): string[][] {
   const lines: string[][] = [];
@@ -137,6 +139,9 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [rfidInputVal, setRfidInputVal] = useState("");
   const [lastScannedStudent, setLastScannedStudent] = useState<string | null>(null);
   const [rfidStatus, setRfidStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [rfidMode, setRfidMode] = useState<"local" | "standalone">("standalone");
+  const [rfidLogs, setRfidLogs] = useState<{ time: string; uid: string; name: string; status: "success" | "error" }[]>([]);
+  const [showArduinoCode, setShowArduinoCode] = useState(false);
 
   const playBeep = (type: "success" | "error") => {
     try {
@@ -175,7 +180,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     triggerFakeRfidTap(uid);
   };
 
-  const triggerFakeRfidTap = (uid: string) => {
+  const triggerFakeRfidTap = (uid: string, isRealtime: boolean = false) => {
     if (isReadOnly) {
       toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
       return;
@@ -185,10 +190,18 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       g => g.rfidUid === uid || g.nisInternal === uid
     );
 
+    const logTime = new Date().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     if (!student) {
       playBeep("error");
       setRfidStatus("error");
       toast.error(`Kartu RFID dengan UID/NIS '${uid}' tidak terdaftar!`);
+      
+      setRfidLogs(prev => [
+        { time: logTime, uid, name: "Kartu Tidak Dikenal", status: "error" },
+        ...prev.slice(0, 4)
+      ]);
+
       setTimeout(() => setRfidStatus("idle"), 1500);
       return;
     }
@@ -220,12 +233,37 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     playBeep("success");
     setRfidStatus("success");
     setLastScannedStudent(student.namaLengkap);
-    toast.success(`RFID Terdeteksi: ${student.namaLengkap} tercatat HADIR!`);
+    toast.success(`${isRealtime ? "⚡ RFID IoT:" : "RFID Terdeteksi:"} ${student.namaLengkap} tercatat HADIR!`);
+
+    setRfidLogs(prev => [
+      { time: logTime, uid, name: student.namaLengkap, status: "success" },
+      ...prev.slice(0, 4)
+    ]);
 
     setTimeout(() => {
       setRfidStatus("idle");
     }, 1500);
   };
+
+  // Subscribe to real-time RFID scans via Supabase Realtime Broadcast
+  useEffect(() => {
+    const channel = supabase
+      .channel("rfid-scans")
+      .on("broadcast", { event: "scan" }, (response: any) => {
+        const { uid } = response.payload;
+        if (uid) {
+          console.log("Realtime standalone RFID scan received:", uid);
+          triggerFakeRfidTap(uid, true);
+        }
+      })
+      .subscribe((status) => {
+        console.log("Supabase RFID channel status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [generusList, presensiList, activeDate, jenisPengajian, allowedKelompoks, isReadOnly]);
 
   // CSV Import States for Presensi
   const [importOpen, setImportOpen] = useState(false);
@@ -235,90 +273,200 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const isReadOnly = userRole === "Viewer";
 
+  const processImportData = (dataRows: string[][]) => {
+    if (dataRows.length < 2) {
+      toast.error("File kosong atau tidak memiliki baris data.");
+      setImportStatus('idle');
+      return;
+    }
+
+    const headers = dataRows[0];
+    const rows = dataRows.slice(1).filter(r => r.length > 0 && r.some(cell => cell && cell.trim() !== ''));
+
+    const mapping = mapPresensiHeaders(headers);
+    
+    if (mapping.nisInternal === undefined && mapping.namaLengkap === undefined) {
+      toast.error("Kolom 'NIS' atau 'Nama Lengkap' tidak ditemukan.");
+      setImportStatus('idle');
+      return;
+    }
+
+    const parsedRows: any[] = [];
+    const validationMap: { [key: number]: string[] } = {};
+
+    rows.forEach((row, index) => {
+      const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
+      const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
+      const rawTanggal = mapping.tanggal !== undefined ? row[mapping.tanggal]?.trim() : "";
+      const rawStatus = mapping.statusKehadiran !== undefined ? row[mapping.statusKehadiran]?.trim() : "";
+
+      const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(rawTanggal) ? rawTanggal : activeDate;
+      
+      let statusKehadiran: "Hadir" | "Izin" | "Sakit" | "Alfa" = "Hadir";
+      const statusLower = (rawStatus || "").toLowerCase();
+      if (statusLower.includes("izin") || statusLower === "i") statusKehadiran = "Izin";
+      else if (statusLower.includes("sakit") || statusLower === "s") statusKehadiran = "Sakit";
+      else if (statusLower.includes("alfa") || statusLower === "a" || statusLower.includes("tanpa keterangan")) statusKehadiran = "Alfa";
+
+      const errors: string[] = [];
+
+      let student = generusList.find(g => g.nisInternal === rawNis);
+      if (!student && rawNama) {
+        student = generusList.find(g => g.namaLengkap.toLowerCase() === rawNama.toLowerCase());
+      }
+
+      if (!student) {
+        errors.push(`Santri dengan NIS '${rawNis}' atau Nama '${rawNama}' tidak ditemukan di database.`);
+      } else {
+        if (!allowedKelompoks.includes(student.namaKelompok)) {
+          errors.push(`Santri '${student.namaLengkap}' berada di kelompok '${student.namaKelompok}' di luar hak akses Anda.`);
+        }
+      }
+
+      parsedRows.push({
+        generusId: student ? student.id : "",
+        namaLengkap: student ? student.namaLengkap : (rawNama || "Tidak Diketahui"),
+        namaKelompok: student ? student.namaKelompok : "Tidak Diketahui",
+        tanggal,
+        statusKehadiran,
+        isValid: !!student && allowedKelompoks.includes(student.namaKelompok),
+        nisInternal: rawNis || (student ? student.nisInternal : "")
+      });
+
+      if (errors.length > 0) {
+        validationMap[index] = errors;
+      }
+    });
+
+    setImportRows(parsedRows);
+    setImportValidation(validationMap);
+    setImportStatus('ready');
+  };
+
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImportStatus('parsing');
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
     const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const csvData = parseCSV(text);
-        if (csvData.length < 2) {
-          toast.error("File CSV kosong atau tidak memiliki baris data.");
-          setImportStatus('idle');
-          return;
-        }
 
-        const headers = csvData[0];
-        const rows = csvData.slice(1).filter(r => r.length > 0 && r.some(cell => cell.trim() !== ''));
-
-        const mapping = mapPresensiHeaders(headers);
-        
-        if (mapping.nisInternal === undefined && mapping.namaLengkap === undefined) {
-          toast.error("Kolom 'NIS' atau 'Nama Lengkap' tidak ditemukan dalam file CSV.");
-          setImportStatus('idle');
-          return;
-        }
-
-        const parsedRows: any[] = [];
-        const validationMap: { [key: number]: string[] } = {};
-
-        rows.forEach((row, index) => {
-          const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
-          const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
-          const rawTanggal = mapping.tanggal !== undefined ? row[mapping.tanggal]?.trim() : "";
-          const rawStatus = mapping.statusKehadiran !== undefined ? row[mapping.statusKehadiran]?.trim() : "";
-
-          const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(rawTanggal) ? rawTanggal : activeDate;
+    if (fileExt === 'xlsx' || fileExt === 'xls') {
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
           
-          let statusKehadiran: "Hadir" | "Izin" | "Sakit" | "Alfa" = "Hadir";
-          const statusLower = rawStatus.toLowerCase();
-          if (statusLower.includes("izin") || statusLower === "i") statusKehadiran = "Izin";
-          else if (statusLower.includes("sakit") || statusLower === "s") statusKehadiran = "Sakit";
-          else if (statusLower.includes("alfa") || statusLower === "a" || statusLower.includes("tanpa keterangan")) statusKehadiran = "Alfa";
+          // Convert sheet to json array of arrays
+          const rawData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          const stringData = rawData.map(row => 
+            row.map(cell => cell === null || cell === undefined ? "" : String(cell).trim())
+          );
+          
+          processImportData(stringData);
+        } catch (err) {
+          console.error(err);
+          toast.error("Gagal membaca file Excel. Pastikan format file benar.");
+          setImportStatus('idle');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const csvData = parseCSV(text);
+          processImportData(csvData);
+        } catch (err) {
+          console.error(err);
+          toast.error("Gagal membaca file CSV. Pastikan format file benar.");
+          setImportStatus('idle');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
 
-          const errors: string[] = [];
-
-          let student = generusList.find(g => g.nisInternal === rawNis);
-          if (!student && rawNama) {
-            student = generusList.find(g => g.namaLengkap.toLowerCase() === rawNama.toLowerCase());
-          }
-
-          if (!student) {
-            errors.push(`Santri dengan NIS '${rawNis}' atau Nama '${rawNama}' tidak ditemukan di database.`);
-          } else {
-            if (!allowedKelompoks.includes(student.namaKelompok)) {
-              errors.push(`Santri '${student.namaLengkap}' berada di kelompok '${student.namaKelompok}' di luar hak akses Anda.`);
-            }
-          }
-
-          parsedRows.push({
-            generusId: student ? student.id : "",
-            namaLengkap: student ? student.namaLengkap : (rawNama || "Tidak Diketahui"),
-            namaKelompok: student ? student.namaKelompok : "Tidak Diketahui",
-            tanggal,
-            statusKehadiran,
-            isValid: !!student && allowedKelompoks.includes(student.namaKelompok),
-            nisInternal: rawNis || (student ? student.nisInternal : "")
-          });
-
-          if (errors.length > 0) {
-            validationMap[index] = errors;
-          }
+  const handleDownloadExcelTemplate = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      // Filter students in the currently selected kelompok
+      const targetStudents = selectedKelompok && selectedKelompok !== "Semua"
+        ? generusList.filter(g => g.namaKelompok === selectedKelompok)
+        : [];
+      
+      const rows: any[] = [
+        ["NIS", "Nama Lengkap", "Tanggal", "Status Kehadiran"]
+      ];
+      
+      if (targetStudents.length > 0) {
+        targetStudents.forEach(s => {
+          rows.push([s.nisInternal, s.namaLengkap, activeDate, "Hadir"]);
         });
-
-        setImportRows(parsedRows);
-        setImportValidation(validationMap);
-        setImportStatus('ready');
-      } catch (err) {
-        console.error(err);
-        toast.error("Gagal membaca file CSV. Pastikan format file benar.");
-        setImportStatus('idle');
+      } else {
+        // Fallback to sample rows if no student is found or no kelompok is selected
+        rows.push(
+          ["NIS-2026001", "Muhammad Rizky", activeDate, "Hadir"],
+          ["NIS-2026002", "Siti Aminah", activeDate, "Izin"]
+        );
       }
-    };
-    reader.readAsText(file);
+      
+      const wsInput = XLSX.utils.aoa_to_sheet(rows);
+      
+      // Set column widths
+      wsInput["!cols"] = [
+        { wch: 15 }, // NIS
+        { wch: 25 }, // Nama Lengkap
+        { wch: 15 }, // Tanggal
+        { wch: 20 }  // Status Kehadiran
+      ];
+      
+      const sheetTitle = selectedKelompok && selectedKelompok !== "Semua" ? `Absensi ${selectedKelompok.substring(0, 20)}` : "Absensi Santri";
+      XLSX.utils.book_append_sheet(wb, wsInput, sheetTitle);
+      
+      // Sheet 2: Panduan & Info Validasi
+      const guideHeaders = ["Nama Kolom", "Aturan / Keterangan", "Opsi yang Valid"];
+      const guideData = [
+        ["NIS", "Nomor Induk Santri (Harus cocok dengan database santri)", "Contoh: NIS-2026001"],
+        ["Nama Lengkap", "Nama lengkap santri (Membantu pencocokan jika NIS kosong)", "Contoh: Muhammad Rizky"],
+        ["Tanggal", "Format tanggal YYYY-MM-DD (Tahun-Bulan-Tanggal)", activeDate],
+        ["Status Kehadiran", "Kehadiran santri (Wajib diisi sesuai opsi di samping)", "Pilihan: Hadir, Izin, Sakit, Alfa"]
+      ];
+      
+      const guideRows = [
+        ["PANDUAN PENGISIAN REKAP ABSENSI SANTRI"],
+        [],
+        ["Kategori Kegiatan Saat Ini:", jenisPengajian],
+        ["Kelompok Terpilih Saat Ini:", selectedKelompok || "Semua Kelompok"],
+        [],
+        guideHeaders,
+        ...guideData,
+        [],
+        ["TIPS PENGGUNAAN:"],
+        ["1. Jika Anda mengunduh setelah memilih Kelompok, daftar santri akan otomatis terisi."],
+        ["2. Anda cukup mengubah kolom 'Status Kehadiran' untuk santri yang berhalangan (Izin/Sakit/Alfa)."],
+        ["3. Simpan file sebagai .xlsx atau .csv kemudian unggah kembali untuk impor massal."]
+      ];
+      
+      const wsGuide = XLSX.utils.aoa_to_sheet(guideRows);
+      wsGuide["!cols"] = [
+        { wch: 20 },
+        { wch: 60 },
+        { wch: 30 }
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, wsGuide, "Panduan & Petunjuk");
+      
+      const filename = `templat_presensi_${selectedKelompok && selectedKelompok !== "Semua" ? selectedKelompok.replace(/\s+/g, "_") : "umum"}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success(`Template Excel (.xlsx) berhasil diunduh untuk kelompok ${selectedKelompok || "umum"}!`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal membuat template Excel.");
+    }
   };
 
   const executeImport = () => {
@@ -1037,13 +1185,13 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer relative">
                 <input
                   type="file"
-                  accept=".csv,.txt"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleImportFileChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <Upload className="h-10 w-10 text-slate-350 mb-3" />
-                <span className="text-xs font-bold text-slate-700">Pilih File CSV</span>
-                <span className="text-[10px] text-slate-400 mt-1">atau seret file ke sini</span>
+                <span className="text-xs font-bold text-slate-700">Pilih File Excel / CSV</span>
+                <span className="text-[10px] text-slate-400 mt-1">Mendukung format .xlsx, .xls, .csv</span>
               </div>
 
               <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2">
@@ -1054,13 +1202,21 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                   <li>Jika kolom Tanggal kosong, sistem otomatis menggunakan tanggal aktif saat ini (<strong>{activeDate}</strong>).</li>
                   <li>Status kehadiran default adalah <strong>Hadir</strong> jika tidak ditentukan.</li>
                 </ol>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    onClick={handleDownloadExcelTemplate}
+                    variant="outline"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-705 hover:text-emerald-600 border-emerald-250 bg-emerald-50/55 hover:bg-emerald-50 rounded-xl h-8 px-3 bg-white"
+                  >
+                    <Download className="h-3.5 w-3.5 text-emerald-600" /> Unduh Templat Excel (.xlsx)
+                  </Button>
                   <a
                     href={csvTemplateUri}
                     download="templat_import_presensi.csv"
-                    className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 hover:text-emerald-500"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-slate-700 hover:text-slate-600 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-xl h-8 px-3"
                   >
-                    <Download className="h-3.5 w-3.5" /> Unduh Templat CSV
+                    <Download className="h-3.5 w-3.5 text-slate-500" /> Unduh Templat CSV
                   </a>
                 </div>
               </div>
@@ -1070,7 +1226,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           {importStatus === 'parsing' && (
             <div className="flex flex-col items-center justify-center py-10 space-y-3">
               <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis file CSV...</span>
+              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis berkas...</span>
             </div>
           )}
 
@@ -1164,60 +1320,191 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
       {/* RFID Scan Dialog */}
       <Dialog open={rfidDialogOpen} onOpenChange={setRfidDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] rounded-3xl p-6 text-left flex flex-col space-y-4 border-slate-100 shadow-2xl bg-white">
+        <DialogContent className="sm:max-w-[550px] rounded-3xl p-6 text-left flex flex-col space-y-4 border-slate-100 shadow-2xl bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-lg font-black text-slate-900 flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-indigo-600 animate-pulse" /> Pindai Kartu RFID Santri
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-450 font-bold">
-              Hubungkan alat RFID Reader Anda. Tempelkan kartu RFID ke alat pembaca untuk mendeteksi secara otomatis.
+            <DialogDescription className="text-xs text-slate-455 font-bold">
+              Hubungkan alat pembaca RFID. Pilih mode koneksi langsung (IoT Standalone) atau lokal (USB Keyboard).
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleRfidSubmit} className="space-y-6 pt-2">
+          {/* Mode Selector */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-250/20 w-full">
+            <button
+              type="button"
+              onClick={() => setRfidMode("standalone")}
+              className={`flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
+                rfidMode === "standalone" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              ⚡ IoT Standalone (Nirkabel)
+            </button>
+            <button
+              type="button"
+              onClick={() => setRfidMode("local")}
+              className={`flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
+                rfidMode === "local" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              🔌 USB Reader (Kabel)
+            </button>
+          </div>
+
+          <form onSubmit={handleRfidSubmit} className="space-y-4 pt-2">
             <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-150 rounded-2xl bg-slate-50 relative overflow-hidden">
               {/* RFID Scanner Animation Indicator */}
-              <div className={`h-24 w-24 rounded-full flex items-center justify-center border transition-all duration-300 ${
+              <div className={`h-20 w-20 rounded-full flex items-center justify-center border transition-all duration-300 ${
                 rfidStatus === "success" ? "bg-emerald-50 border-emerald-300 text-emerald-600 scale-110" :
                 rfidStatus === "error" ? "bg-rose-50 border-rose-300 text-rose-600 scale-110 animate-bounce" :
-                "bg-indigo-50/50 border-indigo-200 text-indigo-600"
+                rfidMode === "standalone" ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-100 border-slate-200 text-slate-650"
               }`}>
                 {rfidStatus === "success" ? (
-                  <Check className="h-10 w-10 stroke-[3]" />
+                  <Check className="h-9 w-9 stroke-[3]" />
                 ) : rfidStatus === "error" ? (
-                  <X className="h-10 w-10 stroke-[3]" />
+                  <X className="h-9 w-9 stroke-[3]" />
+                ) : rfidMode === "standalone" ? (
+                  <div className="relative">
+                    <CreditCard className="h-9 w-9 animate-pulse stroke-[2]" />
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                  </div>
                 ) : (
-                  <CreditCard className="h-10 w-10 animate-pulse stroke-[2]" />
+                  <CreditCard className="h-9 w-9 stroke-[2]" />
                 )}
               </div>
 
-              <div className="text-center mt-4 space-y-1">
+              <div className="text-center mt-3 space-y-1">
                 <span className="text-xs font-extrabold text-slate-700 block">
                   {rfidStatus === "success" ? "Berhasil Mengabsen!" :
                    rfidStatus === "error" ? "Kartu Gagal Terdeteksi" :
-                   "Silakan Tempelkan Kartu RFID..."}
+                   rfidMode === "standalone" ? "⚡ Standalone IoT Siaga..." : "🔌 Hubungkan Alat ke PC & Fokuskan Kursor..."}
                 </span>
                 <span className="text-[10px] text-slate-450 font-semibold block">
                   {rfidStatus === "success" && lastScannedStudent ? (
                     <>Santri terdaftar: <strong className="text-emerald-600 font-extrabold">{lastScannedStudent}</strong></>
                   ) : rfidStatus === "error" ? (
                     "UID Kartu tidak dikenali di kelompok ini."
+                  ) : rfidMode === "standalone" ? (
+                    "Alat pembaca RFID akan langsung mengirim scan via Wi-Fi ke server"
                   ) : (
-                    "Sistem siaga mendengarkan input kartu."
+                    "Tempelkan kartu RFID ke alat pembaca keyboard-emulasi Anda."
                   )}
                 </span>
               </div>
 
-              {/* Hidden/Active input for RFID Reader */}
-              <input
-                type="text"
-                autoFocus
-                placeholder="RFID Reader Input Stream..."
-                value={rfidInputVal}
-                onChange={(e) => setRfidInputVal(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-default focus:ring-0 focus:outline-none w-full h-full"
-              />
+              {/* Hidden/Active input for local USB RFID Reader */}
+              {rfidMode === "local" && (
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="RFID Reader Input Stream..."
+                  value={rfidInputVal}
+                  onChange={(e) => setRfidInputVal(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-default focus:ring-0 focus:outline-none w-full h-full"
+                />
+              )}
             </div>
+
+            {/* Standalone IoT Instructions */}
+            {rfidMode === "standalone" && (
+              <div className="border border-slate-205 rounded-2xl p-4 bg-slate-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    Konfigurasi Perangkat IoT
+                  </span>
+                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[9px] font-black">Online API Mode</Badge>
+                </div>
+                
+                <div className="space-y-2 text-[10px] text-slate-500 font-semibold leading-relaxed">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                    <span>API Endpoint URL:</span>
+                    <code className="bg-slate-200/70 text-slate-800 px-2 py-0.5 rounded font-mono select-all">
+                      {typeof window !== "undefined" ? window.location.origin + "/api/rfid-scan" : "http://localhost:8080/api/rfid-scan"}
+                    </code>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                    <span>Secret Token:</span>
+                    <code className="bg-slate-200/70 text-slate-800 px-2 py-0.5 rounded font-mono select-all">PintarYukRFIDToken2026</code>
+                  </div>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowArduinoCode(!showArduinoCode)}
+                      className="text-indigo-650 hover:text-indigo-500 font-extrabold flex items-center gap-1 text-[9px] bg-transparent border-0"
+                    >
+                      {showArduinoCode ? "▲ Sembunyikan Kode Arduino" : "▼ Dapatkan Kode Arduino (ESP32 + RC522)"}
+                    </button>
+                    
+                    {showArduinoCode && (
+                      <div className="mt-2 relative">
+                        <pre className="bg-slate-900 text-slate-300 p-2.5 rounded-xl text-[9px] font-mono overflow-x-auto max-h-[150px] leading-tight select-all">
+{`#include <WiFi.h>
+#include <HTTPClient.h>
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define SS_PIN  21
+#define RST_PIN 22
+MFRC522 mfrc(SS_PIN, RST_PIN);
+
+const char* ssid = "WIFI_SSID";
+const char* pass = "WIFI_PASSWORD";
+const char* url = "${typeof window !== "undefined" ? window.location.origin + "/api/rfid-scan" : "http://localhost:8080/api/rfid-scan"}";
+const char* token = "PintarYukRFIDToken2026";
+
+void setup() {
+  Serial.begin(115200); SPI.begin(); mfrc.PCD_Init();
+  WiFi.begin(ssid, pass);
+  while(WiFi.status()!=WL_CONNECTED) delay(500);
+}
+
+void loop() {
+  if(!mfrc.PICC_IsNewCardPresent() || !mfrc.PICC_ReadCardSerial()) return;
+  String uid = "";
+  for(byte i=0; i<mfrc.uid.size; i++) uid += String(mfrc.uid.uidByte[i]);
+  
+  if(WiFi.status()==WL_CONNECTED) {
+    HTTPClient http; http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    int code = http.POST("{\\"uid\\":\\""+uid+"\\",\\"token\\":\\""+token+"\\"}");
+    http.end();
+  }
+  mfrc.PICC_HaltA(); mfrc.PCD_StopCrypto1();
+  delay(1500);
+}`}
+                        </pre>
+                        <span className="absolute top-2 right-2 text-[8px] bg-slate-800 text-slate-400 py-0.5 px-1.5 rounded uppercase font-bold">Copy-Paste</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Standalone Scan Live Logs */}
+            {rfidLogs.length > 0 && (
+              <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 space-y-1.5">
+                <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider block">Log Scan Standalone (Real-Time):</span>
+                <div className="space-y-1 max-h-[100px] overflow-y-auto pr-1">
+                  {rfidLogs.map((log, lIdx) => (
+                    <div key={lIdx} className="flex items-center justify-between text-[9px] font-semibold border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 font-mono">{log.time}</span>
+                        <span className={log.status === "success" ? "text-emerald-700 font-bold" : "text-rose-600 font-bold"}>
+                          {log.name}
+                        </span>
+                      </div>
+                      <span className="font-mono text-slate-450">UID: {log.uid}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Simulated RFID Tags for interactive testing */}
             <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2.5">
@@ -1225,7 +1512,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Simulasi Tap Kartu (Klik untuk Uji):</span>
                 <Badge className="bg-slate-200 text-slate-700 text-[9px] hover:bg-slate-200 font-extrabold">Demo Testing</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto pr-1">
                 {studentsToDisplay.map((std) => (
                   <button
                     key={std.id}
@@ -1240,7 +1527,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
                 onClick={() => setRfidDialogOpen(false)}

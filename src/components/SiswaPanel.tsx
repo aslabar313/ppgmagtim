@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import * as XLSX from "xlsx";
 
 // Strict validation and XSS prevention schema
 const studentSchema = z.object({
@@ -190,115 +191,257 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   // Check RBAC Permissions
   const isReadOnly = userRole === "Viewer";
 
+  const processImportData = (dataRows: string[][]) => {
+    if (dataRows.length < 2) {
+      toast.error("File tidak memiliki baris data.");
+      setImportStatus('idle');
+      return;
+    }
+
+    const headers = dataRows[0];
+    const rows = dataRows.slice(1).filter(r => r.length > 0 && r.some(cell => cell && cell.trim() !== ''));
+
+    const mapping = mapHeaders(headers);
+    
+    if (mapping.namaLengkap === undefined && mapping.nisInternal === undefined) {
+      toast.error("Kolom 'Nama Lengkap' atau 'NIS' tidak ditemukan.");
+      setImportStatus('idle');
+      return;
+    }
+
+    const parsedRows: any[] = [];
+    const validationMap: { [key: number]: string[] } = {};
+
+    rows.forEach((row, index) => {
+      const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
+      const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
+      const rawGender = mapping.jenisKelamin !== undefined ? row[mapping.jenisKelamin]?.trim() : "";
+      const rawUsia = mapping.usia !== undefined ? row[mapping.usia]?.trim() : "";
+      const rawTglLahir = mapping.tanggalLahir !== undefined ? row[mapping.tanggalLahir]?.trim() : "";
+      const rawAlamat = mapping.alamat !== undefined ? row[mapping.alamat]?.trim() : "";
+      const rawOrangTua = mapping.namaOrangTua !== undefined ? row[mapping.namaOrangTua]?.trim() : "";
+      const rawWaOrangTua = mapping.whatsappOrangTua !== undefined ? row[mapping.whatsappOrangTua]?.trim() : "";
+      const rawKelompok = mapping.namaKelompok !== undefined ? row[mapping.namaKelompok]?.trim() : "";
+      const rawCatatan = mapping.catatan !== undefined ? row[mapping.catatan]?.trim() : "";
+
+      const namaLengkap = rawNama || "Santri Tanpa Nama";
+      const nisInternal = rawNis && rawNis.trim().length >= 5
+        ? rawNis.trim()
+        : `NIS-2026${String(generusList.length + index + 1).padStart(4, "0")}`;
+      
+      let jenisKelamin: "Laki-laki" | "Perempuan" = "Laki-laki";
+      const gLower = (rawGender || "").toLowerCase();
+      if (gLower === "perempuan" || gLower === "p" || gLower === "female") {
+        jenisKelamin = "Perempuan";
+      }
+
+      const usia = Number(rawUsia) || 10;
+      const tanggalLahir = /^\d{4}-\d{2}-\d{2}$/.test(rawTglLahir) ? rawTglLahir : "2016-01-01";
+      const alamat = rawAlamat || "-";
+      const namaOrangTua = rawOrangTua || "-";
+      const whatsappOrangTua = (rawWaOrangTua || "").replace(/[^0-9]/g, "") || "081200000000";
+      const namaKelompok = rawKelompok || (allowedKelompoks[0] || "");
+      const catatan = rawCatatan || "";
+
+      const errors: string[] = [];
+
+      if (!rawNama) {
+        errors.push("Nama Lengkap tidak boleh kosong");
+      }
+      if (!rawNis) {
+        errors.push("NIS tidak boleh kosong (menggunakan NIS otomatis sementara)");
+      }
+      if (rawKelompok && !allowedKelompoks.includes(namaKelompok)) {
+        errors.push(`Kelompok '${namaKelompok}' tidak sesuai dengan hak akses Anda (${userScope})`);
+      }
+      
+      const isExisting = generusList.some(g => g.nisInternal === nisInternal);
+      if (isExisting) {
+        errors.push(`NIS '${nisInternal}' sudah terdaftar (akan diperbarui jika dicentang)`);
+      }
+
+      parsedRows.push({
+        id: isExisting ? (generusList.find(g => g.nisInternal === nisInternal)?.id || "g-" + Date.now() + index) : "g-" + Date.now() + index,
+        namaLengkap,
+        nisInternal,
+        jenisKelamin,
+        usia,
+        tanggalLahir,
+        alamat,
+        namaOrangTua,
+        whatsappOrangTua,
+        namaKelompok,
+        statusAktif: true,
+        catatan,
+        isExisting
+      });
+
+      if (errors.length > 0) {
+        validationMap[index] = errors;
+      }
+    });
+
+    setImportRows(parsedRows);
+    setImportValidation(validationMap);
+    setImportStatus('ready');
+  };
+
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImportStatus('parsing');
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
     const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const csvData = parseCSV(text);
-        if (csvData.length < 2) {
-          toast.error("File CSV kosong atau tidak memiliki baris data.");
-          setImportStatus('idle');
-          return;
-        }
 
-        const headers = csvData[0];
-        const rows = csvData.slice(1).filter(r => r.length > 0 && r.some(cell => cell.trim() !== ''));
-
-        const mapping = mapHeaders(headers);
-        
-        if (mapping.namaLengkap === undefined && mapping.nisInternal === undefined) {
-          toast.error("Kolom 'Nama Lengkap' atau 'NIS' tidak ditemukan dalam file CSV.");
-          setImportStatus('idle');
-          return;
-        }
-
-        const parsedRows: any[] = [];
-        const validationMap: { [key: number]: string[] } = {};
-
-        rows.forEach((row, index) => {
-          const rawNama = mapping.namaLengkap !== undefined ? row[mapping.namaLengkap]?.trim() : "";
-          const rawNis = mapping.nisInternal !== undefined ? row[mapping.nisInternal]?.trim() : "";
-          const rawGender = mapping.jenisKelamin !== undefined ? row[mapping.jenisKelamin]?.trim() : "";
-          const rawUsia = mapping.usia !== undefined ? row[mapping.usia]?.trim() : "";
-          const rawTglLahir = mapping.tanggalLahir !== undefined ? row[mapping.tanggalLahir]?.trim() : "";
-          const rawAlamat = mapping.alamat !== undefined ? row[mapping.alamat]?.trim() : "";
-          const rawOrangTua = mapping.namaOrangTua !== undefined ? row[mapping.namaOrangTua]?.trim() : "";
-          const rawWaOrangTua = mapping.whatsappOrangTua !== undefined ? row[mapping.whatsappOrangTua]?.trim() : "";
-          const rawKelompok = mapping.namaKelompok !== undefined ? row[mapping.namaKelompok]?.trim() : "";
-          const rawCatatan = mapping.catatan !== undefined ? row[mapping.catatan]?.trim() : "";
-
-          const namaLengkap = rawNama || "Santri Tanpa Nama";
-          const nisInternal = rawNis && rawNis.trim().length >= 5
-            ? rawNis.trim()
-            : `NIS-2026${String(generusList.length + index + 1).padStart(4, "0")}`;
+    if (fileExt === 'xlsx' || fileExt === 'xls') {
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
           
-          let jenisKelamin: "Laki-laki" | "Perempuan" = "Laki-laki";
-          const gLower = rawGender.toLowerCase();
-          if (gLower === "perempuan" || gLower === "p" || gLower === "female") {
-            jenisKelamin = "Perempuan";
-          }
-
-          const usia = Number(rawUsia) || 10;
-          const tanggalLahir = /^\d{4}-\d{2}-\d{2}$/.test(rawTglLahir) ? rawTglLahir : "2016-01-01";
-          const alamat = rawAlamat || "-";
-          const namaOrangTua = rawOrangTua || "-";
-          const whatsappOrangTua = rawWaOrangTua.replace(/[^0-9]/g, "") || "081200000000";
-          const namaKelompok = rawKelompok || (allowedKelompoks[0] || "");
-          const catatan = rawCatatan || "";
-
-          const errors: string[] = [];
-
-          if (!rawNama) {
-            errors.push("Nama Lengkap tidak boleh kosong");
-          }
-          if (!rawNis) {
-            errors.push("NIS tidak boleh kosong (menggunakan NIS otomatis sementara)");
-          }
-          if (rawKelompok && !allowedKelompoks.includes(namaKelompok)) {
-            errors.push(`Kelompok '${namaKelompok}' tidak sesuai dengan hak akses Anda (${userScope})`);
-          }
+          // Convert sheet to json array of arrays
+          const rawData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          const stringData = rawData.map(row => 
+            row.map(cell => cell === null || cell === undefined ? "" : String(cell).trim())
+          );
           
-          const isExisting = generusList.some(g => g.nisInternal === nisInternal);
-          if (isExisting) {
-            errors.push(`NIS '${nisInternal}' sudah terdaftar (akan diperbarui jika dicentang)`);
-          }
+          processImportData(stringData);
+        } catch (err) {
+          console.error(err);
+          toast.error("Gagal membaca file Excel. Pastikan format file benar.");
+          setImportStatus('idle');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const csvData = parseCSV(text);
+          processImportData(csvData);
+        } catch (err) {
+          console.error(err);
+          toast.error("Gagal membaca file CSV. Pastikan format file benar.");
+          setImportStatus('idle');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
 
-          parsedRows.push({
-            id: isExisting ? (generusList.find(g => g.nisInternal === nisInternal)?.id || "g-" + Date.now() + index) : "g-" + Date.now() + index,
-            namaLengkap,
-            nisInternal,
-            jenisKelamin,
-            usia,
-            tanggalLahir,
-            alamat,
-            namaOrangTua,
-            whatsappOrangTua,
-            namaKelompok,
-            statusAktif: true,
-            catatan,
-            isExisting
-          });
-
-          if (errors.length > 0) {
-            validationMap[index] = errors;
-          }
-        });
-
-        setImportRows(parsedRows);
-        setImportValidation(validationMap);
-        setImportStatus('ready');
-      } catch (err) {
-        console.error(err);
-        toast.error("Gagal membaca file CSV. Pastikan format file benar.");
-        setImportStatus('idle');
-      }
-    };
-    reader.readAsText(file);
+  const handleDownloadExcelTemplate = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      // Sheet 1: Input Data
+      const headers = [
+        "NIS",
+        "Nama Lengkap",
+        "Jenis Kelamin",
+        "Usia",
+        "Tanggal Lahir",
+        "Kelompok Binaan",
+        "Nama Orang Tua",
+        "WhatsApp Orang Tua",
+        "Alamat",
+        "Catatan"
+      ];
+      
+      const sampleData = [
+        [
+          "NIS-010",
+          "Muhammad Rizky",
+          "Laki-laki",
+          "12",
+          "2014-08-15",
+          allowedKelompoks[0] || "Kelompok 1",
+          "Ahmad Yani",
+          "081234567890",
+          "Ds. Karas RT 02 RW 01 Magetan",
+          "Santri teladan"
+        ],
+        [
+          "NIS-011",
+          "Siti Aminah",
+          "Perempuan",
+          "11",
+          "2015-04-20",
+          allowedKelompoks[0] || "Kelompok 1",
+          "Budi Santoso",
+          "085712345678",
+          "Kec. Karas, Kab. Magetan",
+          "Aktif mengaji"
+        ]
+      ];
+      
+      const wsInput = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
+      
+      // Auto-fit column widths
+      wsInput["!cols"] = [
+        { wch: 12 }, // NIS
+        { wch: 25 }, // Nama Lengkap
+        { wch: 15 }, // Jenis Kelamin
+        { wch: 8 },  // Usia
+        { wch: 15 }, // Tanggal Lahir
+        { wch: 20 }, // Kelompok Binaan
+        { wch: 22 }, // Nama Orang Tua
+        { wch: 18 }, // WhatsApp Orang Tua
+        { wch: 35 }, // Alamat
+        { wch: 25 }  // Catatan
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, wsInput, "Data Generus");
+      
+      // Sheet 2: Panduan & Referensi
+      const guideHeaders = ["Nama Kolom", "Keterangan / Aturan", "Contoh Nilai"];
+      const guideData = [
+        ["NIS", "Nomor Induk Santri (Harus unik. Jika dikosongkan, sistem akan membuat NIS otomatis)", "NIS-010"],
+        ["Nama Lengkap", "Nama santri lengkap (Wajib diisi)", "Muhammad Rizky"],
+        ["Jenis Kelamin", "Pilihan: Laki-laki atau Perempuan", "Laki-laki"],
+        ["Usia", "Usia santri saat ini (Angka)", "12"],
+        ["Tanggal Lahir", "Format penulisan YYYY-MM-DD", "2014-08-15"],
+        ["Kelompok Binaan", "Nama kelompok terdaftar (Harus sesuai hak akses)", allowedKelompoks[0] || "Kelompok 1"],
+        ["Nama Orang Tua", "Nama ayah/ibu/wali santri", "Ahmad Yani"],
+        ["WhatsApp Orang Tua", "Nomor WhatsApp aktif orang tua (hanya angka)", "081234567890"],
+        ["Alamat", "Alamat lengkap tempat tinggal santri", "Ds. Karas RT 02 RW 01 Magetan"],
+        ["Catatan", "Catatan tambahan atau keterangan prestasi", "Santri teladan"]
+      ];
+      
+      const guideRows = [
+        ["PANDUAN PENGISIAN TEMPLATE DATA GENERUS"],
+        [],
+        guideHeaders,
+        ...guideData,
+        [],
+        ["DAFTAR KELOMPOK BINAAN YANG VALID (Sesuai Hak Akses Anda):"],
+        ["No", "Nama Kelompok"]
+      ];
+      
+      // Add Kelompok List to the guide sheet
+      allowedKelompoks.forEach((klp, idx) => {
+        guideRows.push([String(idx + 1), klp]);
+      });
+      
+      const wsGuide = XLSX.utils.aoa_to_sheet(guideRows);
+      
+      // Format Guide sheet columns
+      wsGuide["!cols"] = [
+        { wch: 22 }, // Nama Kolom
+        { wch: 65 }, // Keterangan
+        { wch: 30 }  // Contoh
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, wsGuide, "Panduan & Referensi");
+      
+      XLSX.writeFile(wb, "templat_import_generus.xlsx");
+      toast.success("Template Excel (.xlsx) berhasil diunduh!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal membuat template Excel.");
+    }
   };
 
   const executeImport = () => {
@@ -1035,30 +1178,38 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer relative">
                 <input
                   type="file"
-                  accept=".csv,.txt"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleImportFileChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <Upload className="h-10 w-10 text-slate-400 mb-3" />
-                <span className="text-xs font-bold text-slate-700">Pilih File CSV</span>
-                <span className="text-[10px] text-slate-400 mt-1">atau seret file ke sini</span>
+                <span className="text-xs font-bold text-slate-700">Pilih File Excel / CSV</span>
+                <span className="text-[10px] text-slate-400 mt-1">Mendukung format .xlsx, .xls, .csv</span>
               </div>
 
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
                 <span className="text-[10px] font-bold text-slate-600 uppercase block">Petunjuk Penggunaan:</span>
                 <ol className="text-[10px] text-slate-500 space-y-1 list-decimal pl-4 font-medium">
                   <li>Kolom minimal yang harus ada: <strong>Nama Lengkap</strong> dan <strong>NIS</strong>.</li>
-                  <li>Kolom opsional lainnya: Jenis Kelamin, Usia, Tanggal Lahir, Kelompok, Orang Tua, No WhatsApp, Alamat, Catatan.</li>
+                  <li>Kolom opsional lainnya: Jenis Kelamin, Usia, Tanggal Lahir, Kelompok Binaan, Nama Orang Tua, WhatsApp Orang Tua, Alamat, Catatan.</li>
                   <li>Gunakan format tanggal <strong>YYYY-MM-DD</strong> (contoh: 2016-05-12).</li>
-                  <li>Untuk kelancaran, Anda dapat mengunduh templat di bawah ini.</li>
+                  <li>Untuk kelancaran, silakan unduh templat profesional di bawah ini (telah dilengkapi daftar kelompok binaan Anda).</li>
                 </ol>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    onClick={handleDownloadExcelTemplate}
+                    variant="outline"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 hover:text-emerald-600 border-emerald-200 bg-emerald-50/55 hover:bg-emerald-50 rounded-xl h-8 px-3"
+                  >
+                    <Download className="h-3.5 w-3.5 text-emerald-600" /> Unduh Templat Excel (.xlsx)
+                  </Button>
                   <a
                     href={csvTemplateUri}
                     download="templat_import_generus.csv"
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-500"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-700 hover:text-slate-600 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-xl h-8 px-3"
                   >
-                    <Download className="h-3.5 w-3.5" /> Unduh Templat CSV
+                    <Download className="h-3.5 w-3.5 text-slate-500" /> Unduh Templat CSV
                   </a>
                 </div>
               </div>
@@ -1068,7 +1219,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
           {importStatus === 'parsing' && (
             <div className="flex flex-col items-center justify-center py-10 space-y-3">
               <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis file CSV...</span>
+              <span className="text-xs font-bold text-slate-600">Sedang membaca dan menganalisis berkas...</span>
             </div>
           )}
 

@@ -73,6 +73,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [presensiList, setPresensiList] = useState<Presensi[]>(() => getPresensi() || []);
   const [generusList] = useState<Generus[]>(() => getGenerus() || []);
   const [kelompokList] = useState<Kelompok[]>(() => getKelompok() || []);
+  
+  const isReadOnly = userRole === "Viewer";
 
   const [userScope] = useState(() => {
     if (typeof window !== "undefined") {
@@ -191,8 +193,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
     const searchUid = uid.trim();
     const student = generusList.find(
-      g => (g.rfidUid && g.rfidUid.trim() === searchUid) || 
-           (g.nisInternal && g.nisInternal.trim() === searchUid)
+      g => (g.rfidUid && String(g.rfidUid).trim() === searchUid) || 
+           (g.nisInternal && String(g.nisInternal).trim() === searchUid)
     );
 
     const logTime = new Date().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -256,21 +258,32 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   // Subscribe to real-time RFID scans via Supabase Realtime Broadcast
   useEffect(() => {
-    const channel = supabase
-      .channel("rfid-scans")
-      .on("broadcast", { event: "scan" }, (response: any) => {
-        const { uid } = response.payload;
-        if (uid) {
-          console.log("Realtime standalone RFID scan received:", uid);
-          triggerFakeRfidTap(uid.trim(), true);
-        }
-      })
-      .subscribe((status) => {
-        console.log("Supabase RFID channel status:", status);
-      });
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel("rfid-scans")
+        .on("broadcast", { event: "scan" }, (response: any) => {
+          const { uid } = response.payload;
+          if (uid) {
+            console.log("Realtime standalone RFID scan received:", uid);
+            triggerFakeRfidTap(uid.trim(), true);
+          }
+        })
+        .subscribe((status) => {
+          console.log("Supabase RFID channel status:", status);
+        });
+    } catch (err) {
+      console.warn("Failed to subscribe to Supabase Realtime RFID broadcast:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn("Failed to unsubscribe/remove Supabase Realtime channel:", err);
+        }
+      }
     };
   }, [generusList, presensiList, activeDate, jenisPengajian, allowedKelompoks, isReadOnly]);
 
@@ -298,8 +311,6 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [importRows, setImportRows] = useState<any[]>([]);
   const [importValidation, setImportValidation] = useState<{ [key: number]: string[] }>({});
   const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'ready' | 'importing'>('idle');
-
-  const isReadOnly = userRole === "Viewer";
 
   const processImportData = (dataRows: string[][]) => {
     if (dataRows.length < 2) {

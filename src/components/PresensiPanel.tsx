@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { 
   Plus, Calendar, UserCheck, QrCode, Upload, FileSpreadsheet, 
   Check, X, AlertTriangle, Play, Award, Sparkles, Search, Download,
-  Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot
+  Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot, CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -131,6 +131,101 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   
   // AI OCR Presensi Scanner
   const [ocrScanning, setOcrScanning] = useState(false);
+
+  // RFID Scanner States
+  const [rfidDialogOpen, setRfidDialogOpen] = useState(false);
+  const [rfidInputVal, setRfidInputVal] = useState("");
+  const [lastScannedStudent, setLastScannedStudent] = useState<string | null>(null);
+  const [rfidStatus, setRfidStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const playBeep = (type: "success" | "error") => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      if (type === "success") {
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        oscillator.stop(audioCtx.currentTime + 0.15);
+      } else {
+        oscillator.type = "sawtooth";
+        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+      }
+    } catch (e) {
+      console.warn("AudioContext blocked or not supported:", e);
+    }
+  };
+
+  const handleRfidSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rfidInputVal) return;
+    const uid = rfidInputVal.trim();
+    setRfidInputVal("");
+    triggerFakeRfidTap(uid);
+  };
+
+  const triggerFakeRfidTap = (uid: string) => {
+    if (isReadOnly) {
+      toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
+      return;
+    }
+
+    const student = generusList.find(
+      g => g.rfidUid === uid || g.nisInternal === uid
+    );
+
+    if (!student) {
+      playBeep("error");
+      setRfidStatus("error");
+      toast.error(`Kartu RFID dengan UID/NIS '${uid}' tidak terdaftar!`);
+      setTimeout(() => setRfidStatus("idle"), 1500);
+      return;
+    }
+
+    const existingIndex = presensiList.findIndex(
+      p => p.generusId === student.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
+    );
+
+    let updated = [...presensiList];
+    const presensiData: Presensi = {
+      id: existingIndex > -1 ? updated[existingIndex].id : "pr-rfid-" + Date.now(),
+      generusId: student.id,
+      namaLengkap: student.namaLengkap,
+      namaKelompok: student.namaKelompok,
+      tanggal: activeDate,
+      statusKehadiran: "Hadir",
+      jenisPengajian: jenisPengajian
+    };
+
+    if (existingIndex > -1) {
+      updated[existingIndex] = presensiData;
+    } else {
+      updated.push(presensiData);
+    }
+
+    setPresensiList(updated);
+    savePresensi(updated);
+
+    playBeep("success");
+    setRfidStatus("success");
+    setLastScannedStudent(student.namaLengkap);
+    toast.success(`RFID Terdeteksi: ${student.namaLengkap} tercatat HADIR!`);
+
+    setTimeout(() => {
+      setRfidStatus("idle");
+    }, 1500);
+  };
 
   // CSV Import States for Presensi
   const [importOpen, setImportOpen] = useState(false);
@@ -697,6 +792,21 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 />
               </div>
             )}
+
+            {/* RFID Scanner Dialog Trigger */}
+            {attendanceMode === "input" && (
+              <Button
+                onClick={() => {
+                  setLastScannedStudent(null);
+                  setRfidInputVal("");
+                  setRfidStatus("idle");
+                  setRfidDialogOpen(true);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl h-11 px-4 flex items-center justify-center gap-1.5 font-bold text-xs shadow-md transition-all active:scale-[0.98]"
+              >
+                <CreditCard className="h-4 w-4 text-indigo-300" /> Pindai RFID
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1049,6 +1159,97 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* RFID Scan Dialog */}
+      <Dialog open={rfidDialogOpen} onOpenChange={setRfidDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-3xl p-6 text-left flex flex-col space-y-4 border-slate-100 shadow-2xl bg-white">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-black text-slate-900 flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-indigo-600 animate-pulse" /> Pindai Kartu RFID Santri
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-450 font-bold">
+              Hubungkan alat RFID Reader Anda. Tempelkan kartu RFID ke alat pembaca untuk mendeteksi secara otomatis.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRfidSubmit} className="space-y-6 pt-2">
+            <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-150 rounded-2xl bg-slate-50 relative overflow-hidden">
+              {/* RFID Scanner Animation Indicator */}
+              <div className={`h-24 w-24 rounded-full flex items-center justify-center border transition-all duration-300 ${
+                rfidStatus === "success" ? "bg-emerald-50 border-emerald-300 text-emerald-600 scale-110" :
+                rfidStatus === "error" ? "bg-rose-50 border-rose-300 text-rose-600 scale-110 animate-bounce" :
+                "bg-indigo-50/50 border-indigo-200 text-indigo-600"
+              }`}>
+                {rfidStatus === "success" ? (
+                  <Check className="h-10 w-10 stroke-[3]" />
+                ) : rfidStatus === "error" ? (
+                  <X className="h-10 w-10 stroke-[3]" />
+                ) : (
+                  <CreditCard className="h-10 w-10 animate-pulse stroke-[2]" />
+                )}
+              </div>
+
+              <div className="text-center mt-4 space-y-1">
+                <span className="text-xs font-extrabold text-slate-700 block">
+                  {rfidStatus === "success" ? "Berhasil Mengabsen!" :
+                   rfidStatus === "error" ? "Kartu Gagal Terdeteksi" :
+                   "Silakan Tempelkan Kartu RFID..."}
+                </span>
+                <span className="text-[10px] text-slate-450 font-semibold block">
+                  {rfidStatus === "success" && lastScannedStudent ? (
+                    <>Santri terdaftar: <strong className="text-emerald-600 font-extrabold">{lastScannedStudent}</strong></>
+                  ) : rfidStatus === "error" ? (
+                    "UID Kartu tidak dikenali di kelompok ini."
+                  ) : (
+                    "Sistem siaga mendengarkan input kartu."
+                  )}
+                </span>
+              </div>
+
+              {/* Hidden/Active input for RFID Reader */}
+              <input
+                type="text"
+                autoFocus
+                placeholder="RFID Reader Input Stream..."
+                value={rfidInputVal}
+                onChange={(e) => setRfidInputVal(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-default focus:ring-0 focus:outline-none w-full h-full"
+              />
+            </div>
+
+            {/* Simulated RFID Tags for interactive testing */}
+            <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Simulasi Tap Kartu (Klik untuk Uji):</span>
+                <Badge className="bg-slate-200 text-slate-700 text-[9px] hover:bg-slate-200 font-extrabold">Demo Testing</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-1">
+                {studentsToDisplay.map((std) => (
+                  <button
+                    key={std.id}
+                    type="button"
+                    onClick={() => triggerFakeRfidTap(std.rfidUid || std.nisInternal)}
+                    className="text-left bg-white hover:bg-slate-100 hover:border-slate-300 border border-slate-200 rounded-xl p-2.5 transition-all active:scale-[0.98]"
+                  >
+                    <div className="text-[10px] font-black text-slate-800 leading-tight truncate">{std.namaLengkap}</div>
+                    <div className="text-[8px] font-extrabold text-slate-400 leading-none mt-1 font-mono">RFID UID: {std.rfidUid || std.nisInternal}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                onClick={() => setRfidDialogOpen(false)}
+                className="rounded-xl text-xs font-extrabold py-2.5 h-10 border-slate-200 hover:bg-slate-50 bg-white text-slate-600 px-4 border"
+              >
+                Tutup Scanner
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

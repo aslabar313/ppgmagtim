@@ -285,31 +285,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     return matchesSearch;
   });
 
-  // Calculate statistics for each category dynamically based on active date
-  const getCategoryStats = (kategori: "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa") => {
-    const students = studentsInKelompok.filter(g => g.kategori === kategori);
-    
-    // Logs for activeDate and this selectedKelompok
-    const logs = presensiList.filter(
-      p => p.namaKelompok === selectedKelompok && 
-           p.tanggal === activeDate &&
-           students.some(s => s.id === p.generusId) &&
-           (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
-    );
 
-    const presentCount = logs.filter(p => p.statusKehadiran === "Hadir").length;
-    const permissionCount = logs.filter(p => p.statusKehadiran === "Izin").length;
-    const sickCount = logs.filter(p => p.statusKehadiran === "Sakit").length;
-    const absentCount = logs.filter(p => p.statusKehadiran === "Alfa").length;
-
-    const rate = logs.length > 0 ? Math.round((presentCount / logs.length) * 100) : 0;
-
-    return { totalStudents: students.length, presentCount, permissionCount, sickCount, absentCount, rate, loggedCount: logs.length };
-  };
-
-  const caberawitStats = getCategoryStats("Caberawit");
-  const mudamudiStats = getCategoryStats("Muda-Mudi");
-  const dewasaStats = getCategoryStats("Jama'ah Dewasa");
 
   // Filtered log lists
   const filteredLogsList = (presensiList || []).filter(p => {
@@ -569,78 +545,48 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         </div>
       </div>
 
-      {/* Futuristic Classification Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Caberawit Stats Card */}
-        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-200 hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
-          <div className="flex justify-between items-start relative z-10">
+      {/* Unified Presensi Stats Card */}
+      <div className="grid grid-cols-1 gap-6">
+        <Card className="bg-white border-slate-200/80 shadow-sm rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-200 hover:shadow-md transition-all">
+          <div className="absolute top-0 right-0 h-32 w-32 bg-emerald-50/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
             <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-emerald-600 tracking-wider">01. Pengajian Caberawit</span>
-              <h3 className="font-display text-2xl font-black text-slate-800">{caberawitCount} Santri</h3>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
-                <span>Kehadiran:</span>
-                <span className="text-emerald-600 font-bold">{caberawitStats.rate}%</span>
-                <span>({caberawitStats.presentCount}/{caberawitStats.loggedCount} hari ini)</span>
+              <span className="text-[10px] font-extrabold uppercase text-emerald-600 tracking-wider">Statistik Kehadiran Aktif</span>
+              <h3 className="font-display text-2xl font-black text-slate-800 uppercase">{jenisPengajian}</h3>
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 font-semibold flex-wrap">
+                <span>Kelompok: <strong className="text-slate-700">{selectedKelompok}</strong></span>
+                <span>•</span>
+                <span>Tanggal: <strong className="text-slate-700">{activeDate}</strong></span>
+                <span>•</span>
+                <span>Persentase Kehadiran: <strong className="text-emerald-600 font-bold">{
+                  filteredLogsList.length > 0 ? Math.round((filteredLogsList.filter(p => p.statusKehadiran === "Hadir").length / filteredLogsList.length) * 100) : 0
+                }%</strong></span>
               </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
-              <Award className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
-            <span>Sakit: <strong className="text-slate-700">{caberawitStats.sickCount}</strong></span>
-            <span>Izin: <strong className="text-slate-700">{caberawitStats.permissionCount}</strong></span>
-            <span>Alfa: <strong className="text-rose-650">{caberawitStats.absentCount}</strong></span>
-          </div>
-        </Card>
-
-        {/* Muda Mudi Stats Card */}
-        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-indigo-200 hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
-          <div className="flex justify-between items-start relative z-10">
-            <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">02. Pengajian Muda-mudi</span>
-              <h3 className="font-display text-2xl font-black text-slate-800">{mudamudiCount} Murid</h3>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
-                <span>Kehadiran:</span>
-                <span className="text-indigo-600 font-bold">{mudamudiStats.rate}%</span>
-                <span>({mudamudiStats.presentCount}/{mudamudiStats.loggedCount} hari ini)</span>
+            
+            {/* Unified Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full lg:w-auto shrink-0">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center min-w-[90px]">
+                <span className="text-[9px] text-slate-400 font-extrabold block uppercase tracking-wider">Total Murid</span>
+                <span className="font-display text-lg font-black text-slate-800">{studentsInKelompok.length}</span>
+              </div>
+              <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-2xl p-3 text-center min-w-[90px]">
+                <span className="text-[9px] text-emerald-600 font-extrabold block uppercase tracking-wider">Hadir</span>
+                <span className="font-display text-lg font-black text-emerald-800">{filteredLogsList.filter(p => p.statusKehadiran === "Hadir").length}</span>
+              </div>
+              <div className="bg-amber-50/50 border border-amber-100/50 rounded-2xl p-3 text-center min-w-[90px]">
+                <span className="text-[9px] text-amber-600 font-extrabold block uppercase tracking-wider">Izin</span>
+                <span className="font-display text-lg font-black text-emerald-850">{filteredLogsList.filter(p => p.statusKehadiran === "Izin").length}</span>
+              </div>
+              <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-3 text-center min-w-[90px]">
+                <span className="text-[9px] text-indigo-600 font-extrabold block uppercase tracking-wider">Sakit</span>
+                <span className="font-display text-lg font-black text-slate-800">{filteredLogsList.filter(p => p.statusKehadiran === "Sakit").length}</span>
+              </div>
+              <div className="bg-rose-50/50 border border-rose-100/50 rounded-2xl p-3 text-center min-w-[90px]">
+                <span className="text-[9px] text-rose-600 font-extrabold block uppercase tracking-wider">Alfa</span>
+                <span className="font-display text-lg font-black text-rose-800">{filteredLogsList.filter(p => p.statusKehadiran === "Alfa").length}</span>
               </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
-              <Sparkles className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
-            <span>Sakit: <strong className="text-slate-700">{mudamudiStats.sickCount}</strong></span>
-            <span>Izin: <strong className="text-slate-700">{mudamudiStats.permissionCount}</strong></span>
-            <span>Alfa: <strong className="text-rose-650">{mudamudiStats.absentCount}</strong></span>
-          </div>
-        </Card>
-
-        {/* Dewasa Stats Card */}
-        <Card className="bg-white border-slate-200/80 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-rose-200 hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 h-24 w-24 bg-rose-50/50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-105" />
-          <div className="flex justify-between items-start relative z-10">
-            <div className="space-y-1.5 text-left">
-              <span className="text-[10px] font-extrabold uppercase text-rose-600 tracking-wider">03. Sambung Kelompok</span>
-              <h3 className="font-display text-2xl font-black text-slate-800">{dewasaCount} Jiwa</h3>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-semibold">
-                <span>Kehadiran:</span>
-                <span className="text-rose-600 font-bold">{dewasaStats.rate}%</span>
-                <span>({dewasaStats.presentCount}/{dewasaStats.loggedCount} hari ini)</span>
-              </div>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0 shadow-sm">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[10px] font-bold text-slate-400">
-            <span>Sakit: <strong className="text-slate-700">{dewasaStats.sickCount}</strong></span>
-            <span>Izin: <strong className="text-slate-700">{dewasaStats.permissionCount}</strong></span>
-            <span>Alfa: <strong className="text-rose-650">{dewasaStats.absentCount}</strong></span>
           </div>
         </Card>
       </div>

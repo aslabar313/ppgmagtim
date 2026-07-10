@@ -14,4 +14,4 @@ export default defineConfig({
       publicDir: ".vercel/output/static"
     }
   }
-});
+} as any);

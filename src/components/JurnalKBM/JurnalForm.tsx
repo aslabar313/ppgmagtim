@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { X, Upload, Sparkles, Check, CheckCircle2, ShieldCheck, PenTool } from "lucide-react";
 import { getGenerus, Generus } from "@/lib/mockData";

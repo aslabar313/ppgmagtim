@@ -144,6 +144,19 @@ export function DirektoriKelompok() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Sangat Aktif":
+        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
+      case "Aktif":
+        return "bg-amber-500/10 border-amber-500/20 text-amber-400";
+      case "Pengajian":
+        return "bg-blue-500/10 border-blue-500/20 text-blue-400";
+      default:
+        return "bg-rose-500/10 border-rose-500/20 text-rose-400";
+    }
+  };
+
   const getHealthColor = (score: number) => {
     if (score >= 90) return "text-emerald-400";
     if (score >= 80) return "text-amber-400";

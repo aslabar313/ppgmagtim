@@ -641,7 +641,7 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
 
         return {
           ...rep,
-          evaluasiPengurus,
+          evaluasiPengurus: evalPengurus,
           nilaiAkhir,
           kategoriNilai
         };

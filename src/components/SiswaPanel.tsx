@@ -42,7 +42,11 @@ const studentSchema = z.object({
     .regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh berupa angka"),
   catatan: z.string()
     .max(1000, "Catatan maksimal 1000 karakter")
-    .transform(val => val.replace(/<[^>]*>/g, ""))
+    .transform(val => val.replace(/<[^>]*>/g, "")),
+  rfidUid: z.string()
+    .max(50, "UID RFID maksimal 50 karakter")
+    .optional()
+    .or(z.literal(""))
 });
 
 function parseCSV(text: string): string[][] {
@@ -173,6 +177,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [formStatus, setFormStatus] = useState(true);
   const [formCatatan, setFormCatatan] = useState("");
   const [formKategori, setFormKategori] = useState<"Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Caberawit");
+  const [formRfidUid, setFormRfidUid] = useState("");
 
   // QR & Document Viewer State
   const [qrOpen, setQrOpen] = useState(false);
@@ -539,6 +544,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     setFormStatus(true);
     setFormCatatan("");
     setFormKategori("Caberawit");
+    setFormRfidUid("");
     setIsOpen(true);
   };
 
@@ -561,6 +567,7 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
     setFormStatus(g.statusAktif);
     setFormCatatan(g.catatan);
     setFormKategori(g.kategori || (g.usia < 13 ? "Caberawit" : g.usia <= 22 ? "Muda-Mudi" : "Jama'ah Dewasa"));
+    setFormRfidUid(g.rfidUid || "");
     setIsOpen(true);
   };
 
@@ -595,7 +602,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
       alamat: formAlamat,
       namaOrangTua: formOrangTua,
       whatsappOrangTua: formWaOrangTua,
-      catatan: formCatatan
+      catatan: formCatatan,
+      rfidUid: formRfidUid
     });
 
     if (!validationResult.success) {
@@ -622,7 +630,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
             namaKelompok: formKelompok,
             statusAktif: formStatus,
             catatan: validated.catatan,
-            kategori: formKategori
+            kategori: formKategori,
+            rfidUid: validated.rfidUid
           };
         }
         return g;
@@ -646,7 +655,8 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
         statusAktif: formStatus,
         catatan: validated.catatan,
         qrCode: `QR-${validated.namaLengkap.replace(/\s+/g, "-")}`,
-        kategori: formKategori
+        kategori: formKategori,
+        rfidUid: validated.rfidUid
       };
       const updated = [...generusList, newGenerus];
       setGenerusList(updated);
@@ -825,6 +835,9 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
                         </div>
                         <div>
                           <span className="font-mono text-xs text-slate-500 font-bold block">{g.nisInternal}</span>
+                          {g.rfidUid && (
+                            <span className="font-mono text-[9px] text-indigo-650 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-black mt-0.5 inline-block">RFID: {g.rfidUid}</span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1138,6 +1151,16 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
                   value={formCatatan}
                   onChange={(e) => setFormCatatan(e.target.value)}
                   className="rounded-xl border-slate-200 text-slate-900 text-sm"
+                />
+              </div>
+
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">UID RFID (Opsional)</label>
+                <Input
+                  placeholder="Masukkan UID RFID (contoh: 1020304001)"
+                  value={formRfidUid}
+                  onChange={(e) => setFormRfidUid(e.target.value)}
+                  className="rounded-xl border-slate-200 text-slate-900 text-sm font-mono"
                 />
               </div>
 

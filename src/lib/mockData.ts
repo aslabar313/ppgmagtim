@@ -141,6 +141,7 @@ export interface Presensi {
   namaKelompok: string;
   tanggal: string;
   statusKehadiran: "Hadir" | "Izin" | "Sakit" | "Alfa";
+  jenisPengajian?: string;
 }
 
 export interface Raport {

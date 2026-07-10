@@ -108,6 +108,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
   const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("log");
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
+  const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
@@ -234,7 +235,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       if (!row.isValid) return;
 
       const existingIndex = updatedList.findIndex(
-        p => p.generusId === row.generusId && p.tanggal === row.tanggal
+        p => p.generusId === row.generusId && p.tanggal === row.tanggal && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
       );
 
       const presensiData: Presensi = {
@@ -243,7 +244,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         namaLengkap: row.namaLengkap,
         namaKelompok: row.namaKelompok,
         tanggal: row.tanggal,
-        statusKehadiran: row.statusKehadiran
+        statusKehadiran: row.statusKehadiran,
+        jenisPengajian: jenisPengajian
       };
 
       if (existingIndex > -1) {
@@ -279,9 +281,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
   const dewasaCount = studentsInKelompok.filter(g => g.kategori === "Jama'ah Dewasa").length;
 
   const studentsToDisplay = studentsInKelompok.filter(g => {
-    const matchesCategory = activeCategory === "Semua" || g.kategori === activeCategory;
     const matchesSearch = !searchQuery || g.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()) || g.nisInternal.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   // Calculate statistics for each category dynamically based on active date
@@ -292,7 +293,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     const logs = presensiList.filter(
       p => p.namaKelompok === selectedKelompok && 
            p.tanggal === activeDate &&
-           students.some(s => s.id === p.generusId)
+           students.some(s => s.id === p.generusId) &&
+           (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
     );
 
     const presentCount = logs.filter(p => p.statusKehadiran === "Hadir").length;
@@ -323,6 +325,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     if (searchQuery && (!p.namaLengkap || !p.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()))) return false;
     if (selectedKelompok && p.namaKelompok !== selectedKelompok) return false;
     if (activeDate && p.tanggal !== activeDate) return false;
+    if (p.jenisPengajian && p.jenisPengajian !== jenisPengajian) return false;
 
     return true;
   });
@@ -349,7 +352,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       namaLengkap: gen.namaLengkap,
       namaKelompok: gen.namaKelompok,
       tanggal: activeDate,
-      statusKehadiran: status
+      statusKehadiran: status,
+      jenisPengajian: jenisPengajian
     };
 
     if (existingIndex > -1) {
@@ -382,7 +386,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         namaLengkap: student.namaLengkap,
         namaKelompok: student.namaKelompok,
         tanggal: activeDate,
-        statusKehadiran: "Hadir"
+        statusKehadiran: "Hadir",
+        jenisPengajian: jenisPengajian
       };
 
       if (existingIndex > -1) {
@@ -410,16 +415,27 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
       return;
     }
 
+    const targetDate = new Date().toISOString().split("T")[0];
     const newLog: Presensi = {
       id: "pr-qr-" + Date.now(),
       generusId: gen.id,
       namaLengkap: gen.namaLengkap,
       namaKelompok: gen.namaKelompok,
-      tanggal: new Date().toISOString().split("T")[0],
-      statusKehadiran: "Hadir"
+      tanggal: targetDate,
+      statusKehadiran: "Hadir",
+      jenisPengajian: jenisPengajian
     };
 
-    const updated = [...presensiList, newLog];
+    const existingIndex = presensiList.findIndex(
+      p => p.generusId === gen.id && p.tanggal === targetDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
+    );
+
+    let updated = [...presensiList];
+    if (existingIndex > -1) {
+      updated[existingIndex] = { ...newLog, id: updated[existingIndex].id };
+    } else {
+      updated.push(newLog);
+    }
     setPresensiList(updated);
     savePresensi(updated);
 
@@ -450,11 +466,12 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         const status: "Hadir" | "Izin" | "Sakit" | "Alfa" = index === 1 ? "Izin" : index === 3 ? "Sakit" : "Hadir";
         
         const existingIndex = updated.findIndex(
-          p => p.generusId === student.id && p.tanggal === activeDate
+          p => p.generusId === student.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
         );
 
         if (existingIndex > -1) {
           updated[existingIndex].statusKehadiran = status;
+          updated[existingIndex].jenisPengajian = jenisPengajian;
         } else {
           updated.push({
             id: "pr-ocr-" + Date.now() + index,
@@ -462,7 +479,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
             namaLengkap: student.namaLengkap,
             namaKelompok: student.namaKelompok,
             tanggal: activeDate,
-            statusKehadiran: status
+            statusKehadiran: status,
+            jenisPengajian: jenisPengajian
           });
         }
       });
@@ -676,6 +694,35 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 <option key={k.id} value={k.namaKelompok}>{k.namaKelompok}</option>
               ))}
             </select>
+
+            {/* Jenis Pengajian Selector */}
+            <select
+              value={jenisPengajian}
+              onChange={(e) => setJenisPengajian(e.target.value)}
+              className="rounded-2xl border border-slate-200 bg-white text-slate-850 px-3 py-2 text-xs font-bold focus:outline-none h-11 shadow-sm w-full sm:w-auto cursor-pointer"
+            >
+              <optgroup label="Tingkat Kelompok">
+                <option value="Sambung Kelompok">Sambung Kelompok</option>
+                <option value="Pengajian Caberawit">Pengajian Caberawit</option>
+                <option value="Pengajian Muda-mudi">Pengajian Muda-mudi</option>
+                <option value="Sambung Caberawit">Sambung Caberawit</option>
+                <option value="Sambung Muda-mudi">Sambung Muda-mudi</option>
+                <option value="Musyawaroh 5 Unsur">Musyawaroh 5 Unsur</option>
+                <option value="Pengajian Ibu-ibu Kelompok">Pengajian Ibu-ibu Kelompok</option>
+              </optgroup>
+              <optgroup label="Tingkat Desa">
+                <option value="Pengajian Umum Desa">Pengajian Umum Desa</option>
+                <option value="Pengajian Muda-mudi Desa">Pengajian Muda-mudi Desa</option>
+                <option value="Pengajian Caberawit Desa">Pengajian Caberawit Desa</option>
+                <option value="Pengajian Ibu-ibu Desa">Pengajian Ibu-ibu Desa</option>
+                <option value="Musawaroh PPG Desa">Musawaroh PPG Desa</option>
+              </optgroup>
+              <optgroup label="Tingkat Daerah">
+                <option value="Pengajian Umum Daerah">Pengajian Umum Daerah</option>
+                <option value="Pengajian Muda-mudi Daerah">Pengajian Muda-mudi Daerah</option>
+                <option value="Pengajian Ibu-ibu Daerah">Pengajian Ibu-ibu Daerah</option>
+              </optgroup>
+            </select>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 items-stretch w-full xl:w-auto">
@@ -707,52 +754,17 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
           </div>
         </div>
 
-        {/* Dynamic Classification Category Tab Control */}
-        <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => setActiveCategory("Semua")}
-            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 ${
-              activeCategory === "Semua" 
-                ? "bg-slate-900 text-white hover:bg-slate-900/90 shadow-sm" 
-                : "text-slate-500 hover:bg-slate-100 hover:text-slate-850"
-            }`}
-          >
-            Semua ({studentsInKelompok.length})
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setActiveCategory("Caberawit")}
-            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
-              activeCategory === "Caberawit" 
-                ? "bg-emerald-600 text-white hover:bg-emerald-750 shadow-sm" 
-                : "text-slate-500 hover:bg-emerald-50/40 hover:text-emerald-700"
-            }`}
-          >
-            <Award className="h-3.5 w-3.5" /> Pengajian Caberawit ({caberawitCount})
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setActiveCategory("Muda-Mudi")}
-            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
-              activeCategory === "Muda-Mudi" 
-                ? "bg-indigo-600 text-white hover:bg-indigo-750 shadow-sm" 
-                : "text-slate-500 hover:bg-indigo-50/40 hover:text-indigo-700"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> Pengajian Muda-mudi ({mudamudiCount})
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setActiveCategory("Jama'ah Dewasa")}
-            className={`rounded-xl text-xs font-bold py-1 px-4 h-9 flex items-center gap-1.5 ${
-              activeCategory === "Jama'ah Dewasa" 
-                ? "bg-rose-600 text-white hover:bg-rose-750 shadow-sm" 
-                : "text-slate-500 hover:bg-rose-50/40 hover:text-rose-700"
-            }`}
-          >
-            <Users className="h-3.5 w-3.5" /> Sambung Kelompok ({dewasaCount})
-          </Button>
+        {/* Unified Activity Info Banner */}
+        <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <CircleDot className="h-4 w-4 text-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-slate-700">
+              Absensi Kegiatan: <span className="text-emerald-600 font-extrabold uppercase">{jenisPengajian}</span>
+            </span>
+          </div>
+          <div className="text-xs font-bold text-slate-450">
+            Total Murid: <span className="text-slate-700 font-extrabold">{studentsInKelompok.length} Orang</span>
+          </div>
         </div>
 
         {/* Content Viewport */}
@@ -788,7 +800,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 <div className="divide-y divide-slate-100">
                   {studentsToDisplay.map((student) => {
                     const currentLog = presensiList.find(
-                      p => p.generusId === student.id && p.tanggal === activeDate
+                      p => p.generusId === student.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
                     );
                     const currentStatus = currentLog ? currentLog.statusKehadiran : null;
 
@@ -907,7 +919,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                     <thead className="text-[10px] uppercase bg-slate-50 text-slate-450 border-b border-slate-200 font-bold">
                       <tr>
                         <th className="px-6 py-4">Nama Lengkap</th>
-                        <th className="px-6 py-4">Kategori Klasifikasi</th>
+                        <th className="px-6 py-4">Jenis Pengajian</th>
                         <th className="px-6 py-4">Kelompok TPQ</th>
                         <th className="px-6 py-4">Tanggal</th>
                         <th className="px-6 py-4">Status Kehadiran</th>
@@ -920,7 +932,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                           return (
                             <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4 font-extrabold text-slate-800">{p.namaLengkap}</td>
-                              <td className="px-6 py-4">{getCategoryBadge(student?.kategori)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700">{p.jenisPengajian || student?.kategori || "Sambung Kelompok"}</td>
                               <td className="px-6 py-4 text-xs font-semibold text-slate-500">{p.namaKelompok}</td>
                               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-400">{p.tanggal}</td>
                               <td className="px-6 py-4">

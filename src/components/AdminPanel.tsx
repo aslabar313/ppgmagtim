@@ -209,7 +209,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "whatsapp":
         return <WhatsAppPanel userRole={role} />;
       case "analitik":
-        return <AnalitikPanel />;
+        return <AnalitikPanel role={role} level={level} />;
       case "safety":
         return <SafetyView role={role} />;
       case "laporan_perubahan":
@@ -222,7 +222,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     }
   };
 
-  // 16. Dashboard Realtime Widgets
   const renderDashboardBertingkat = () => {
     const activeScope = typeof window !== "undefined" ? (localStorage.getItem("sim_tpq_active_scope") || "Kelompok Karas") : "Kelompok Karas";
     const studentList = generusList.filter(g => g.namaKelompok === activeScope);
@@ -248,104 +247,652 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     
     const teachersKelompok = 3;
 
+    // Super Admin / Daerah statistics
+    const totalCaberawitDaerah = generusList.filter(g => g.usia < 13).length;
+    const totalMudamudiDaerah = generusList.filter(g => g.usia >= 13 && g.usia <= 22).length;
+    const totalGuruDaerah = totalGuru;
+    const totalPresensiHariIniDaerah = getPresensi().filter(p => p.tanggal === "2026-07-06");
+    const totalHadirDaerah = totalPresensiHariIniDaerah.filter(p => p.statusKehadiran === "Hadir").length;
+    const attendancePercentageDaerah = totalPresensiHariIniDaerah.length > 0 
+      ? Math.round((totalHadirDaerah / totalPresensiHariIniDaerah.length) * 100) 
+      : 92;
+
+    // Desa statistics (based on activeScope e.g. "Desa Selatan")
+    const kelompoksDesa = getKelompok().filter(k => k.desa === activeScope);
+    const totalKelompoksDesa = kelompoksDesa.length;
+    const kelompoksNamesDesa = kelompoksDesa.map(k => k.namaKelompok);
+    const studentListDesa = generusList.filter(g => kelompoksNamesDesa.includes(g.namaKelompok));
+    const totalGenerusDesa = studentListDesa.length;
+    const caberawitDesaCount = studentListDesa.filter(g => g.usia < 13).length;
+    const mudamudiDesaCount = studentListDesa.filter(g => g.usia >= 13 && g.usia <= 22).length;
+    const totalGuruDesa = kelompoksDesa.reduce((acc, k) => acc + k.jumlahPengajar, 0);
+
+    const presensiHariIniDesa = getPresensi().filter(p => kelompoksNamesDesa.includes(p.namaKelompok) && p.tanggal === "2026-07-06");
+    const totalHadirDesa = presensiHariIniDesa.filter(p => p.statusKehadiran === "Hadir").length;
+    const attendancePercentageDesa = presensiHariIniDesa.length > 0 
+      ? Math.round((totalHadirDesa / presensiHariIniDesa.length) * 100) 
+      : 94;
+
+    const totalRaportIsiDesa = raports.filter(r => kelompoksNamesDesa.includes(r.namaKelompok)).length;
+    const totalSarprasLayakDesa = sarpras.filter(s => kelompoksNamesDesa.includes(s.namaKelompok) && s.statusLayak).length;
+
     if (level === "daerah") {
       return (
-        <div className="space-y-6 text-left">
-          {/* Dashboard Daerah */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl font-bold text-slate-800">Dashboard Daerah (Magetan)</h2>
-              <p className="text-slate-500 text-sm">Pemantauan operasional koordinasi tingkat daerah untuk 32 kelompok TPQ.</p>
+        <div className="space-y-8 text-left animate-pop-in">
+          {/* 1. Hero Dashboard */}
+          <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-100 p-8 shadow-sm hover:shadow-md transition-shadow">
+            {/* Subtle Geometric Islamic pattern in background */}
+            <div className="absolute right-0 top-0 h-full w-1/3 opacity-[0.04] text-emerald-800 pointer-events-none hidden md:block">
+              <svg viewBox="0 0 100 100" className="h-full w-full" fill="currentColor">
+                <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="1" fill="none" />
+                <rect x="25" y="25" width="50" height="50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(45 50 50)" />
+                <rect x="25" y="25" width="50" height="50" stroke="currentColor" strokeWidth="1" fill="none" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(30 50 50)" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(60 50 50)" />
+              </svg>
             </div>
-            <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 px-3 py-1 font-semibold rounded-full text-xs">
-              Akses Tingkat Daerah
-            </Badge>
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-slate-900">
+                      Assalamu'alaikum, {greetingName} 👋
+                    </h1>
+                    <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 px-3 py-1 font-semibold rounded-full text-xs">
+                      Akses Tingkat Daerah
+                    </Badge>
+                  </div>
+                  <p className="text-slate-500 font-bold text-sm">
+                    Selamat datang di Command Center Daerah (Magetan Timur Center)
+                  </p>
+                </div>
+
+                {/* Today's Date */}
+                <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-400">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1 text-slate-600">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                    Kamis, 9 Juli 2026
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-emerald-50/50 border border-emerald-100/55 rounded-lg px-2.5 py-1 text-emerald-800">
+                    <Star className="h-3.5 w-3.5 text-emerald-500" />
+                    13 Muharram 1448 H
+                  </div>
+                </div>
+
+                {/* Ringkasan Hari Ini */}
+                <div className="pt-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Ringkasan Operasional Daerah</span>
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      4 Wilayah Desa
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      {totalKelompok} Kelompok TPQ Binaan
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      {totalGuruDaerah} Mubaligh & Pengajar Aktif
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
+                      {attendancePercentageDaerah}% Presensi Hari Ini
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick actions on right */}
+              {role === "Super Admin" && (
+                <div className="shrink-0 pt-4 md:pt-0">
+                  <Button 
+                    onClick={() => {
+                      localStorage.setItem("sim_tpq_active_scope", "Desa Selatan");
+                      setRole("Admin Desa");
+                      toast.info("Beralih ke monitoring tingkat Desa.");
+                    }} 
+                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4 py-2 text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-1.5 border-none shadow-sm"
+                  >
+                    <Map className="h-4 w-4 text-emerald-400" /> Beralih ke Tingkat Desa
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Jumlah Desa</span>
-              <span className="font-display text-3xl font-black text-slate-900">8 Desa</span>
-            </Card>
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Jumlah Kelompok (TPQ)</span>
-              <span className="font-display text-3xl font-black text-slate-900">{totalKelompok} Unit</span>
-            </Card>
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Total Generus Binaan</span>
-              <span className="font-display text-3xl font-black text-emerald-600">{totalGenerus} Santri</span>
-            </Card>
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Rata-rata Kehadiran</span>
-              <span className="font-display text-3xl font-black text-blue-600">92% Teratur</span>
-            </Card>
+          {/* 2. Quick Actions */}
+          <div className="space-y-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
+            <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+                <button 
+                  onClick={() => setActiveTab("siswa")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <Users className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">👥 Database Santri</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("bi_platform")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <TrendingUp className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📊 Analitik BI</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("monitoring_mubaligh")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <UserCheck className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📋 Monitor Mubaligh</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("map")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <MapPin className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📍 Peta Sebaran</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("safety")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <Shield className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">🛡️ Safety & Backup</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <Card className="bg-white border-slate-200 shadow-sm rounded-3xl p-6">
-            <CardHeader className="p-0 pb-4">
-              <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-1.5"><TrendingUp className="h-4.5 w-4.5 text-emerald-500" /> Tren Presensi Bulanan Daerah</CardTitle>
-            </CardHeader>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[{ name: "Mei", Persentase: 90 }, { name: "Jun", Persentase: 95 }, { name: "Jul", Persentase: 93 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[70, 100]} />
-                  <ChartTooltip />
-                  <Bar dataKey="Persentase" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* 3. KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 animate-pop-in">
+            {/* Card 1: Total Wilayah */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Wilayah Terpantau</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <MapPin className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">8</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Desa</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Total Kecamatan:</span>
+                <span className="text-emerald-600 font-black">1 Daerah</span>
+              </div>
             </div>
-          </Card>
+
+            {/* Card 2: Jumlah Kelompok */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Jumlah Kelompok</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <Layers className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalKelompok}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Unit TPQ</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Status Operasional:</span>
+                <span className="text-emerald-600 font-black">100% Aktif</span>
+              </div>
+            </div>
+
+            {/* Card 3: Total Generus */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Generus</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <Users className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalGenerus}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Santri</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Rasio Santri/Kelompok:</span>
+                <span className="text-emerald-600 font-black">{Math.round(totalGenerus / (totalKelompok || 1))} Santri</span>
+              </div>
+            </div>
+
+            {/* Card 4: Rata-rata Kehadiran */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rata Presensi Daerah</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <CheckCircle2 className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{attendancePercentageDaerah}%</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Hadir</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Target Kehadiran:</span>
+                <span className="text-indigo-600 font-extrabold">&gt;90%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Standalone Target / Progress Card */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm animate-pop-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-800 flex items-center gap-1.5 font-display font-bold">
+                    <Star className="h-4 w-4 text-emerald-500 fill-emerald-500" />
+                    Progress Pengisian Raport & Sarpras Layak Operasi Daerah
+                  </span>
+                  <span className="text-emerald-600 font-black">
+                    {Math.round((totalRaportIsi / (totalGenerus || 1)) * 100)}% Evaluasi Selesai
+                  </span>
+                </div>
+                <div className="h-3 w-full bg-slate-50 border border-slate-100 rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-1000 ease-out shadow-sm"
+                    style={{ width: `${Math.round((totalRaportIsi / (totalGenerus || 1)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="text-xs bg-slate-50 border border-slate-100 rounded-xl p-3 shrink-0 flex items-center justify-center gap-3">
+                <div className="text-center font-bold">
+                  <span className="block text-[8px] text-slate-400 uppercase tracking-wider leading-none">Sarpras Layak</span>
+                  <span className="text-indigo-700 text-sm font-extrabold block mt-0.5">
+                    {totalSarprasLayak} / {totalKelompok} Kelompok ({Math.round((totalSarprasLayak / (totalKelompok || 1)) * 100)}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Dashboard Analytics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pop-in">
+            {/* Card 1: Tren Presensi Bulanan Daerah */}
+            <Card className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 hover:shadow-md transition-shadow">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-500" /> Tren Presensi Bulanan Daerah
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-[10px] font-semibold">Tingkat kehadiran kumulatif seluruh kelompok</CardDescription>
+              </CardHeader>
+              <div className="h-[200px] mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={[
+                    { name: "Mei", Persentase: 90 },
+                    { name: "Jun", Persentase: 95 },
+                    { name: "Jul", Persentase: 93 }
+                  ]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorDaerahLine" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[70, 100]} />
+                    <ChartTooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
+                    />
+                    <Area type="monotone" name="Kehadiran" dataKey="Persentase" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorDaerahLine)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* Card 2: Sebaran Kategori Santri Daerah */}
+            <Card className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 hover:shadow-md transition-shadow">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <BarChart3 className="h-4.5 w-4.5 text-emerald-500" /> Kategori Santri Daerah
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-[10px] font-semibold">Distribusi santri berdasarkan jenjang usia</CardDescription>
+              </CardHeader>
+              <div className="h-[200px] mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { name: "Caberawit (<13 th)", Jumlah: totalCaberawitDaerah },
+                    { name: "Muda-Mudi (13-22 th)", Jumlah: totalMudamudiDaerah },
+                    { name: "Total Santri", Jumlah: totalGenerus }
+                  ]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <ChartTooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
+                    />
+                    <Bar dataKey="Jumlah" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
         </div>
       );
     }
 
     if (level === "desa") {
       return (
-        <div className="space-y-6 text-left">
-          {/* Dashboard Desa */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl font-bold text-slate-800">Dashboard Desa (Kecamatan)</h2>
-              <p className="text-slate-500 text-sm">Pemantauan statistik kelompok TPQ binaan di wilayah desa.</p>
+        <div className="space-y-8 text-left animate-pop-in">
+          {/* 1. Hero Dashboard */}
+          <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-100 p-8 shadow-sm hover:shadow-md transition-shadow">
+            {/* Subtle Geometric Islamic pattern in background */}
+            <div className="absolute right-0 top-0 h-full w-1/3 opacity-[0.04] text-emerald-800 pointer-events-none hidden md:block">
+              <svg viewBox="0 0 100 100" className="h-full w-full" fill="currentColor">
+                <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="1" fill="none" />
+                <rect x="25" y="25" width="50" height="50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(45 50 50)" />
+                <rect x="25" y="25" width="50" height="50" stroke="currentColor" strokeWidth="1" fill="none" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(30 50 50)" />
+                <polygon points="50,10 90,50 50,90 10,50" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(60 50 50)" />
+              </svg>
             </div>
-            <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-700 px-3 py-1 font-semibold rounded-full text-xs">
-              Akses Tingkat Desa
-            </Badge>
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-slate-900">
+                      Assalamu'alaikum, {greetingName} 👋
+                    </h1>
+                    <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-700 px-3 py-1 font-semibold rounded-full text-xs">
+                      Akses Tingkat Desa
+                    </Badge>
+                  </div>
+                  <p className="text-slate-500 font-bold text-sm">
+                    Selamat datang di Dashboard Monitoring {activeScope}
+                  </p>
+                </div>
+
+                {/* Today's Date */}
+                <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-400">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1 text-slate-600">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                    Kamis, 9 Juli 2026
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-emerald-50/50 border border-emerald-100/55 rounded-lg px-2.5 py-1 text-emerald-800">
+                    <Star className="h-3.5 w-3.5 text-emerald-500" />
+                    13 Muharram 1448 H
+                  </div>
+                </div>
+
+                {/* Ringkasan Hari Ini */}
+                <div className="pt-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Ringkasan Operasional Desa</span>
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {totalKelompoksDesa} Kelompok
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      {totalGuruDesa} Ustadz/ah Desa
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      {totalGenerusDesa} Santri Terdaftar
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-100/55 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
+                      {attendancePercentageDesa}% Kehadiran Desa
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Kelompok di Desa</span>
-              <span className="font-display text-3xl font-black text-slate-900">4 Kelompok</span>
-            </Card>
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Progress Pengisian Raport</span>
-              <span className="font-display text-3xl font-black text-blue-600">{totalRaportIsi} Terisi</span>
-            </Card>
-            <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6">
-              <span className="text-xs text-slate-400 font-semibold block">Sarpras Layak Operasi</span>
-              <span className="font-display text-3xl font-black text-emerald-600">{totalSarprasLayak} TPQ</span>
-            </Card>
-          </div>
+          {/* 2. Quick Actions */}
+          <div className="space-y-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
+            <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+                <button 
+                  onClick={() => setActiveTab("siswa")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <Users className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">👥 Database Santri</span>
+                </button>
 
-          {/* Ranking card */}
-          <Card className="bg-white border-slate-200 shadow-sm rounded-3xl p-6">
-            <CardHeader className="p-0 pb-4">
-              <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-1.5"><Award className="h-4.5 w-4.5 text-amber-500 animate-bounce" /> Ranking Kelompok Teraktif Desa</CardTitle>
-            </CardHeader>
-            <div className="space-y-3 text-xs font-bold text-slate-600">
-              <div className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                <span>1. TPQ Al-Hikmah Kelompok 1 (Kiringan)</span>
-                <Badge className="bg-emerald-50 text-emerald-700">Skor: 96</Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                <span>2. TPQ Al-Hikmah Kelompok 2 (Kawedanan)</span>
-                <Badge className="bg-emerald-50 text-emerald-700">Skor: 91</Badge>
+                <button 
+                  onClick={() => setActiveTab("kurikulum")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <GraduationCap className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📚 Capaian Kurikulum</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("presensi")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <Calendar className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📅 Presensi Harian</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("map")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <MapPin className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📍 Peta Sebaran</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab("raport")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                    <FileText className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📝 Input Raport</span>
+                </button>
               </div>
             </div>
-          </Card>
+          </div>
+
+          {/* 3. KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 animate-pop-in">
+            {/* Card 1: Kelompok di Desa */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Kelompok di Desa</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <Layers className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalKelompoksDesa}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">TPQ</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Tingkat Wilayah:</span>
+                <span className="text-emerald-600 font-black">{activeScope}</span>
+              </div>
+            </div>
+
+            {/* Card 2: Total Generus Desa */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Generus Desa</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <Users className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalGenerusDesa}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Santri</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Kategori Caberawit:</span>
+                <span className="text-emerald-600 font-black">{caberawitDesaCount} Anak</span>
+              </div>
+            </div>
+
+            {/* Card 3: Progress Raport Desa */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Raport Terisi</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <FileText className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalRaportIsiDesa}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">Santri</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Rasio Terisi:</span>
+                <span className="text-emerald-600 font-black">
+                  {totalGenerusDesa > 0 ? Math.round((totalRaportIsiDesa / totalGenerusDesa) * 100) : 100}%
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Sarpras Layak Desa */}
+            <div className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sarpras Layak</span>
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                  <CheckCircle2 className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="font-display text-3xl font-black text-slate-900 leading-none">{totalSarprasLayakDesa}</span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">TPQ</span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-400">Total Sarpras Layak:</span>
+                <span className="text-indigo-600 font-extrabold">{totalSarprasLayakDesa} / {totalKelompoksDesa}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Standalone Target / Progress Card */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm animate-pop-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-800 flex items-center gap-1.5 font-display font-bold">
+                    <Star className="h-4 w-4 text-emerald-500 fill-emerald-500" />
+                    Capaian Administrasi & Raport {activeScope}
+                  </span>
+                  <span className="text-emerald-600 font-black">
+                    {totalGenerusDesa > 0 ? Math.round((totalRaportIsiDesa / totalGenerusDesa) * 100) : 80}% Capaian
+                  </span>
+                </div>
+                <div className="h-3 w-full bg-slate-50 border border-slate-100 rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-1000 ease-out shadow-sm"
+                    style={{ width: `${totalGenerusDesa > 0 ? Math.round((totalRaportIsiDesa / totalGenerusDesa) * 100) : 80}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Dashboard Analytics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pop-in">
+            {/* Card 1: Tren Presensi Bulanan Desa */}
+            <Card className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 hover:shadow-md transition-shadow">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-500" /> Tren Presensi Bulanan Desa
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-[10px] font-semibold">Statistik kehadiran santri se-wilayah {activeScope}</CardDescription>
+              </CardHeader>
+              <div className="h-[200px] mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={[
+                    { name: "Mei", Persentase: 89 },
+                    { name: "Jun", Persentase: 94 },
+                    { name: "Jul", Persentase: attendancePercentageDesa }
+                  ]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorDesaLine" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[70, 100]} />
+                    <ChartTooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
+                    />
+                    <Area type="monotone" name="Kehadiran" dataKey="Persentase" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorDesaLine)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* Card 2: Ranking Kelompok Teraktif Desa */}
+            <Card className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 hover:shadow-md transition-shadow">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="font-display text-sm font-bold text-slate-800 flex items-center gap-1.5 font-bold">
+                  <Award className="h-4.5 w-4.5 text-amber-500 animate-pulse" /> 
+                  Ranking Kelompok Teraktif di {activeScope}
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-[10px] font-semibold">Berdasarkan keaktifan KBM, presensi, dan kelengkapan administrasi</CardDescription>
+              </CardHeader>
+              <div className="space-y-3 mt-2">
+                {kelompoksDesa.slice(0, 3).map((k, idx) => {
+                  const score = 98 - (idx * 4); // Simulated active score
+                  return (
+                    <div key={k.id} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100/70 border border-slate-100 rounded-xl transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`h-6 w-6 rounded-full flex items-center justify-center font-bold text-xs ${
+                          idx === 0 ? 'bg-amber-100 text-amber-800' :
+                          idx === 1 ? 'bg-slate-200 text-slate-800' :
+                          'bg-orange-100 text-orange-850'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <span className="font-display font-bold text-xs text-slate-700">{k.namaKelompok}</span>
+                      </div>
+                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 font-extrabold">Skor: {score}</Badge>
+                    </div>
+                  );
+                })}
+                {kelompoksDesa.length === 0 && (
+                  <div className="text-center py-6 text-slate-400 text-xs font-semibold">
+                    Tidak ada data kelompok di wilayah desa ini.
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
       );
     }

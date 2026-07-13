@@ -9,6 +9,7 @@ import { PresensiPanel } from "./PresensiPanel";
 import { RaportPanel } from "./RaportPanel";
 import { KurikulumPanel } from "./KurikulumPanel";
 import { SarprasPanel } from "./SarprasPanel";
+import { InventarisPanel } from "./InventarisPanel";
 import { WhatsAppPanel } from "./WhatsAppPanel";
 import { AnalitikPanel } from "./AnalitikPanel";
 import { MapPanel } from "./MapPanel";
@@ -210,7 +211,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "map":
         return <MapPanel userRole={role} />;
       case "sarpras":
-        return <SarprasPanel userRole={role} />;
+        return <SarprasInventarisView role={role} />;
       case "galeri":
         return <GaleriPanel userRole={role} />;
       case "pengumuman":
@@ -1516,7 +1517,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             )}
             {hasAccessTo("sarpras") && (
               <button onClick={() => setActiveTab("sarpras")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "sarpras" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <Wrench className="h-4.5 w-4.5" /> Audit Sarpras
+                <Wrench className="h-4.5 w-4.5" /> Sarpras & Inventaris
               </button>
             )}
             {hasAccessTo("galeri") && (
@@ -1538,11 +1539,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             {hasAccessTo("keuangan") && (
               <button onClick={() => setActiveTab("keuangan")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "keuangan" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <FileText className="h-4.5 w-4.5" /> Keuangan SPP & Kas
-              </button>
-            )}
-            {hasAccessTo("inventaris") && (
-              <button onClick={() => setActiveTab("inventaris")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "inventaris" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <Wrench className="h-4.5 w-4.5" /> Inventaris Aset
               </button>
             )}
             {hasAccessTo("sertifikat") && (
@@ -1651,7 +1647,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}
           {hasAccessTo("kurikulum") && <button onClick={() => setActiveTab("kurikulum")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "kurikulum" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Kurikulum</button>}
           {hasAccessTo("map") && <button onClick={() => setActiveTab("map")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "map" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Peta</button>}
-          {hasAccessTo("sarpras") && <button onClick={() => setActiveTab("sarpras")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "sarpras" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Sarpras</button>}
+          {hasAccessTo("sarpras") && <button onClick={() => setActiveTab("sarpras")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "sarpras" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Sarpras & Inventaris</button>}
           {hasAccessTo("galeri") && <button onClick={() => setActiveTab("galeri")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "galeri" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Galeri</button>}
           {hasAccessTo("pengumuman") && <button onClick={() => setActiveTab("pengumuman")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pengumuman" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pengumuman</button>}
           {hasAccessTo("ranking") && <button onClick={() => setActiveTab("ranking")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "ranking" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Ranking</button>}
@@ -1742,6 +1738,36 @@ function DatabasePanelView({ role, canAccessSiswa, canAccessGuru }: { role: stri
       </div>
       <div>
         {dbTab === "siswa" ? <SiswaPanel userRole={role} /> : <GuruPanel userRole={role} />}
+      </div>
+    </div>
+  );
+}
+
+// Consolidating Sarpras and Inventaris sub-tabs
+function SarprasInventarisView({ role }: { role: string }) {
+  const [subTab, setSubTab] = useState<"sarpras" | "inventaris">("sarpras");
+  return (
+    <div className="space-y-6 text-left animate-fade-in">
+      <div className="bg-slate-100 p-1 rounded-2xl flex flex-wrap gap-1 max-w-fit shadow-sm">
+        <button 
+          onClick={() => setSubTab("sarpras")} 
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+            subTab === "sarpras" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"
+          }`}
+        >
+          Audit Kelayakan Sarpras
+        </button>
+        <button 
+          onClick={() => setSubTab("inventaris")} 
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+            subTab === "inventaris" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"
+          }`}
+        >
+          Inventaris & Aset TPQ
+        </button>
+      </div>
+      <div>
+        {subTab === "sarpras" ? <SarprasPanel userRole={role} /> : <InventarisPanel userRole={role} />}
       </div>
     </div>
   );

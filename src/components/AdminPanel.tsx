@@ -184,10 +184,10 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Admin Kelompok") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     if (currentRole === "Admin Desa") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     return true; // Super Admin & Admin Daerah see everything
   };
@@ -228,7 +228,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "laporan_perubahan":
         return <LaporanPerubahanPanel />;
       default:
-        if (["keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant"].includes(activeTab)) {
+        if (["inventaris", "sertifikat", "feedback", "ai_assistant"].includes(activeTab)) {
           return <EnterpriseModuleLoader activeTab={activeTab} role={role} />;
         }
         return renderDashboardBertingkat();
@@ -1536,11 +1536,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
               </button>
             )}
 
-            {hasAccessTo("keuangan") && (
-              <button onClick={() => setActiveTab("keuangan")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "keuangan" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <FileText className="h-4.5 w-4.5" /> Keuangan SPP & Kas
-              </button>
-            )}
             {hasAccessTo("sertifikat") && (
               <button onClick={() => setActiveTab("sertifikat")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "sertifikat" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Award className="h-4.5 w-4.5" /> Cetak Sertifikat

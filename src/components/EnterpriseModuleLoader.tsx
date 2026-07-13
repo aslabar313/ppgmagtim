@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { KeuanganPanel } from "./KeuanganPanel";
 import { InventarisPanel } from "./InventarisPanel";
 import { HelpdeskPanel } from "./HelpdeskPanel";
 import { SurveiPanel } from "./SurveiPanel";
@@ -14,8 +13,6 @@ interface LoaderProps {
 
 export function EnterpriseModuleLoader({ activeTab, role }: LoaderProps) {
   switch (activeTab) {
-    case "keuangan":
-      return <KeuanganPanel userRole={role} />;
     case "inventaris":
       return <InventarisPanel userRole={role} />;
     case "sertifikat":

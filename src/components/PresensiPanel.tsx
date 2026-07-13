@@ -110,7 +110,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("log");
+  const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("input");
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
   const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
@@ -981,7 +981,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
             )}
 
             {/* RFID Scanner Dialog Trigger */}
-            {attendanceMode === "input" && (
+            {!isReadOnly && (
               <Button
                 onClick={() => {
                   setLastScannedStudent(null);

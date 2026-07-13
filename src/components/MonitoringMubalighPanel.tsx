@@ -318,7 +318,7 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
   
   // Navigation sub-tabs
   const [mubalighTab, setMubalighTab] = useState<"dashboard" | "form" | "reports">("dashboard");
-  const [pengurusTab, setPengurusTab] = useState<"dashboard" | "evaluasi" | "bi" | "reminders" | "gamifikasi">("dashboard");
+  const [pengurusTab, setPengurusTab] = useState<"dashboard" | "evaluasi" | "reminders" | "gamifikasi">("dashboard");
 
   // Selected Mubaligh for Mubaligh Dashboard (if Pengurus view) or current logged in Mubaligh
   const [selectedMubalighId, setSelectedMubalighId] = useState<string>("ms-1");
@@ -1808,14 +1808,7 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
             >
               <ClipboardList className="h-4 w-4" /> Penilaian & Laporan
             </button>
-            <button 
-              onClick={() => setPengurusTab("bi")} 
-              className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
-                pengurusTab === "bi" ? "bg-emerald-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <FileSpreadsheet className="h-4 w-4" /> Business Intelligence
-            </button>
+
             <button 
               onClick={() => setPengurusTab("reminders")} 
               className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
@@ -2065,70 +2058,7 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
                 </table>
               </div>
             </Card>
-          )}
-
-          {/* PENGURUS VIEW: BUSINESS INTELLIGENCE (BI) */}
-          {pengurusTab === "bi" && (
-            <div className="space-y-6">
-              {/* Radar chart of competency and distribution cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-white border-slate-200 rounded-3xl shadow-sm p-6 text-left md:col-span-2">
-                  <CardTitle className="text-sm font-bold text-slate-800 pb-4">Distribusi Jam Mengajar & Produktivitas Harian</CardTitle>
-                  <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartDataWeekly} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                        <XAxis dataKey="tanggal" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                        <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                        <ChartTooltip />
-                        <Area name="Materi Diselesaikan (%)" type="monotone" dataKey="materiProgress" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                {/* Analysis reasons of quality drops */}
-                <Card className="bg-white border-slate-200 rounded-3xl shadow-sm p-6 text-left space-y-4">
-                  <CardTitle className="text-sm font-bold text-slate-850">Analisis Kebutuhan Pelatihan AI (BI)</CardTitle>
-                  <div className="space-y-3 text-xs">
-                    <div className="p-3 bg-red-50 border border-red-150 rounded-2xl space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold text-red-800">
-                        <AlertTriangle className="h-4.5 w-4.5" /> Penurunan Kualitas Tajwid
-                      </div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Terdeteksi pada 2 kelompok di Desa Utara karena kurangnya media kartu peraga tajwid.</p>
-                    </div>
-
-                    <div className="p-3 bg-indigo-50 border border-indigo-150 rounded-2xl space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold text-indigo-805">
-                        <Bot className="h-4.5 w-4.5" /> Prediksi Pelatihan Mendesak
-                      </div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Diperlukan Kelas Metode Mengajar Cepat *Tahsin Al-Qur'an* pada akhir bulan ini.</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Distribution metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <Card className="bg-white border-slate-200 rounded-3xl p-6 text-left">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rasio Kinerja TPQ Terbaik</span>
-                  <span className="text-2xl font-black text-slate-805 mt-1 block">94% Sangat Baik</span>
-                  <p className="text-[10px] text-slate-400 mt-1">Kelompok Karas memimpin penyelesaian kurikulum.</p>
-                </Card>
-                
-                <Card className="bg-white border-slate-200 rounded-3xl p-6 text-left">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Kelompok Termonitor</span>
-                  <span className="text-2xl font-black text-emerald-600 mt-1 block">32 TPQ</span>
-                  <p className="text-[10px] text-slate-400 mt-1">Sinkronisasi data 100% cloud realtime.</p>
-                </Card>
-
-                <Card className="bg-white border-slate-200 rounded-3xl p-6 text-left">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rekomendasi AI Terproses</span>
-                  <span className="text-2xl font-black text-indigo-700 mt-1 block">18 Tindakan</span>
-                  <p className="text-[10px] text-indigo-405 mt-1">Pembinaan terpadu tersalurkan via WA.</p>
-                </Card>
-              </div>
-            </div>
-          )}
+           )}
 
           {/* PENGURUS VIEW: WHATSAPP NOTIFICATIONS CENTER */}
           {pengurusTab === "reminders" && (

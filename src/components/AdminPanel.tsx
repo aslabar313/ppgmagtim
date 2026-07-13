@@ -162,20 +162,27 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
   };
 
   const hasAccessTo = (tabName: string) => {
+    const roleLower = String(role).toLowerCase();
+    const maxRoleLower = String(actualMaxRole).toLowerCase();
+    if (tabName === "analitik") {
+      return roleLower.includes("admin") || roleLower.includes("super") ||
+             maxRoleLower.includes("admin") || maxRoleLower.includes("super");
+    }
+
     const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
     const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
 
     if (currentRole === "Viewer") {
-      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "bi_platform", "monitoring_mubaligh"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Pengajar") {
       return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Admin Kelompok") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform", "monitoring_mubaligh"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     if (currentRole === "Admin Desa") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform", "monitoring_mubaligh"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     return true; // Super Admin & Admin Daerah see everything
   };
@@ -215,7 +222,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "laporan_perubahan":
         return <LaporanPerubahanPanel />;
       default:
-        if (["keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "bi_platform"].includes(activeTab)) {
+        if (["keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant"].includes(activeTab)) {
           return <EnterpriseModuleLoader activeTab={activeTab} role={role} />;
         }
         return renderDashboardBertingkat();
@@ -367,7 +374,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           <div className="space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
-              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-4 md:min-w-0">
                 <button 
                   onClick={() => setActiveTab("siswa")} 
                   className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
@@ -376,16 +383,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                     <Users className="h-5.5 w-5.5" />
                   </div>
                   <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">👥 Database Santri</span>
-                </button>
-
-                <button 
-                  onClick={() => setActiveTab("bi_platform")} 
-                  className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
-                >
-                  <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                    <TrendingUp className="h-5.5 w-5.5" />
-                  </div>
-                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📊 Analitik BI</span>
                 </button>
 
                 <button 
@@ -1464,8 +1461,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     <div className="min-h-screen bg-slate-50 flex text-slate-900 font-sans">
       
       {/* 12. Sidebar (Responsive collapsed on mobile view) */}
-      <aside className="w-64 bg-slate-950 text-slate-300 border-r border-slate-900 flex flex-col justify-between shrink-0 hidden md:flex text-left">
-        <div className="space-y-6 py-6">
+      <aside className="w-64 bg-slate-950 text-slate-300 border-r border-slate-900 flex flex-col justify-between shrink-0 hidden md:flex text-left h-screen sticky top-0">
+        <div className="space-y-6 py-6 overflow-y-auto flex-grow scrollbar-thin">
           <div className="px-6 flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center shadow-md overflow-hidden shrink-0">
               <img src="https://cdn.phototourl.com/free/2026-07-09-8adacd09-43f1-441b-b2ea-577757bfa123.jpg" alt="Logo" className="h-full w-full object-cover" />
@@ -1565,11 +1562,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             {hasAccessTo("ai_assistant") && (
               <button onClick={() => setActiveTab("ai_assistant")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "ai_assistant" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Settings className="h-4.5 w-4.5" /> AI Assistant
-              </button>
-            )}
-            {hasAccessTo("bi_platform") && (
-              <button onClick={() => setActiveTab("bi_platform")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "bi_platform" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <TrendingUp className="h-4.5 w-4.5" /> BI Dashboard
               </button>
             )}
             {hasAccessTo("whatsapp") && (

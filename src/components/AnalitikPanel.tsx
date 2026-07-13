@@ -151,11 +151,20 @@ export function AnalitikPanel({ role = "Admin Daerah", level = "daerah" }: Anali
           
           table2Title = "2. Catatan Khusus & Tindak Lanjut Perkembangan Santri Mingguan";
           table2Head = [["No", "Nama Santri", "Kelompok TPQ", "Catatan Perkembangan", "Rencana Tindak Lanjut"]];
-          table2Body = [
+          let baseTable2Body = [
             ["1", "Ziyad Al-Fatih", "Kelompok Karas", "Hafalan Juz 30 belum lancar di akhir surah", "Bimbingan khusus 15 menit sebelum kelas"],
             ["2", "Salma Aulia", "Kelompok Pandeyan", "Sering terlambat masuk kelas KBM", "Koordinasi dengan orang tua via WhatsApp"],
             ["3", "Fathan Rasyid", "Kelompok Bendo", "Kemajuan membaca jilid sangat cepat", "Diberikan pengayaan materi jilid berikutnya"]
           ];
+          if (level === "kelompok") {
+            baseTable2Body = baseTable2Body.filter(row => row[2] === activeScope);
+          } else if (level === "desa") {
+            baseTable2Body = baseTable2Body.filter(row => {
+              const kDesa = kelompokList.find(k => k.namaKelompok === row[2])?.desa || "";
+              return kDesa === activeScope;
+            });
+          }
+          table2Body = baseTable2Body.map((row, idx) => [(idx + 1).toString(), row[1], row[2], row[3], row[4]]);
           break;
           
         case "Bulanan":
@@ -216,9 +225,9 @@ export function AnalitikPanel({ role = "Admin Daerah", level = "daerah" }: Anali
           if (level === "desa") {
             table2Body = table2Body.filter(row => row[2] === activeScope);
           } else if (level === "kelompok") {
-            const myDesa = kelompokList.find(k => k.namaKelompok === activeScope)?.desa || "";
-            table2Body = table2Body.filter(row => row[2] === myDesa);
+            table2Body = table2Body.filter(row => row[1] === activeScope);
           }
+          table2Body = table2Body.map((row, idx) => [(idx + 1).toString(), row[1], row[2], row[3], row[4]]);
           break;
           
         case "Semester":
@@ -269,21 +278,45 @@ export function AnalitikPanel({ role = "Admin Daerah", level = "daerah" }: Anali
             ["2026", `${Math.round(180 * scaleTahunan)}`, `${Math.round(120 * scaleTahunan)}`, `${Math.round(110 * scaleTahunan)}`, `${Math.round(410 * scaleTahunan)} Santri`, "↑ +5.1%"]
           ];
           
-          table2Title = "2. Evaluasi Fisik & Kelayakan Sarana Prasarana (Tingkat Wilayah)";
-          table2Head = [["Desa Binaan", "Jumlah TPQ", "Sarpras Layak", "Rata-rata Skor", "Status Kelayakan Wilayah"]];
           let sarprasRows = [
             ["Desa Selatan", "7 Kelompok", "6 Unit", "85 / 100", "Sangat Layak (Pertahankan)"],
             ["Desa Tengah", "6 Kelompok", "5 Unit", "81 / 100", "Layak (Pemeliharaan Berkala)"],
             ["Desa Utara", "10 Kelompok", "8 Unit", "78 / 100", "Cukup Layak (Perlu Peremajaan)"],
             ["Desa Timur", "7 Kelompok", "5 Unit", "72 / 100", "Kurang Layak (Prioritas Renovasi)"]
           ];
-          if (level === "desa") {
-            sarprasRows = sarprasRows.filter(row => row[0] === activeScope);
-          } else if (level === "kelompok") {
-            const parentDesa = kelompokList.find(k => k.namaKelompok === activeScope)?.desa || "";
-            sarprasRows = sarprasRows.filter(row => row[0] === parentDesa);
+          if (level === "kelompok") {
+            table2Title = "2. Evaluasi Fisik & Kelayakan Sarana Prasarana Kelompok";
+            table2Head = [["Nama Kelompok", "Desa Binaan", "Status Sarpras", "Skor Sarpras", "Rekomendasi"]];
+            
+            const myKelompokData = kelompokList.find(k => k.namaKelompok === activeScope);
+            const mySarpras = filteredSarpras[0];
+            const skor = mySarpras ? mySarpras.skorSarpras : 0;
+            let status = "Kurang Layak";
+            let rek = "Pengajuan renovasi & pengadaan alat KBM";
+            if (skor >= 80) {
+              status = "Sangat Layak";
+              rek = "Pertahankan & Berikan Apresiasi";
+            } else if (skor >= 60) {
+              status = "Cukup Layak";
+              rek = "Pemeliharaan berkala inventaris";
+            }
+            
+            table2Body = [[
+              activeScope,
+              myKelompokData?.desa || "",
+              status,
+              `${skor} / 100`,
+              rek
+            ]];
+          } else if (level === "desa") {
+            table2Title = "2. Evaluasi Fisik & Kelayakan Sarana Prasarana (Tingkat Wilayah)";
+            table2Head = [["Desa Binaan", "Jumlah TPQ", "Sarpras Layak", "Rata-rata Skor", "Status Kelayakan Wilayah"]];
+            table2Body = sarprasRows.filter(row => row[0] === activeScope);
+          } else {
+            table2Title = "2. Evaluasi Fisik & Kelayakan Sarana Prasarana (Tingkat Wilayah)";
+            table2Head = [["Desa Binaan", "Jumlah TPQ", "Sarpras Layak", "Rata-rata Skor", "Status Kelayakan Wilayah"]];
+            table2Body = sarprasRows;
           }
-          table2Body = sarprasRows;
           break;
       }
 

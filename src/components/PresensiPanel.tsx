@@ -600,7 +600,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     }
 
     const existingIndex = presensiList.findIndex(
-      p => p.generusId === gen.id && p.tanggal === activeDate
+      p => p.generusId === gen.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
     );
 
     let updated = [...presensiList];
@@ -636,7 +636,7 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
     let updated = [...presensiList];
     studentsToDisplay.forEach((student) => {
       const existingIndex = updated.findIndex(
-        p => p.generusId === student.id && p.tanggal === activeDate
+        p => p.generusId === student.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
       );
       const presensiData: Presensi = {
         id: existingIndex > -1 ? updated[existingIndex].id : "pr-" + Date.now() + Math.random(),

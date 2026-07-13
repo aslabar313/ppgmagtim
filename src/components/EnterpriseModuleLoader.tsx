@@ -5,7 +5,6 @@ import { HelpdeskPanel } from "./HelpdeskPanel";
 import { SurveiPanel } from "./SurveiPanel";
 import { SertifikatPanel } from "./SertifikatPanel";
 import { AIAssistantPanel } from "./AIAssistantPanel";
-import { BIPanel } from "./BIPanel";
 import { APIDocsPanel } from "./APIDocsPanel";
 
 interface LoaderProps {
@@ -25,8 +24,6 @@ export function EnterpriseModuleLoader({ activeTab, role }: LoaderProps) {
       return <FeedbackView role={role} />;
     case "ai_assistant":
       return <AIAssistantPanel />;
-    case "bi_platform":
-      return <BIPanel />;
     case "apidocs":
       return <APIDocsPanel />;
     default:

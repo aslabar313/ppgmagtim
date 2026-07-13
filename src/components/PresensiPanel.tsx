@@ -67,9 +67,10 @@ function mapPresensiHeaders(headers: string[]): { [key: string]: number } {
 
 interface PresensiPanelProps {
   userRole: string;
+  initialMode?: "log" | "input" | "rfid";
 }
 
-export function PresensiPanel({ userRole }: PresensiPanelProps) {
+export function PresensiPanel({ userRole, initialMode = "rfid" }: PresensiPanelProps) {
   const [presensiList, setPresensiList] = useState<Presensi[]>(() => getPresensi() || []);
   const [generusList] = useState<Generus[]>(() => getGenerus() || []);
   const [kelompokList] = useState<Kelompok[]>(() => getKelompok() || []);
@@ -110,13 +111,20 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
 
   const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendanceMode, setAttendanceMode] = useState<"log" | "input">("input");
+  const [attendanceMode, setAttendanceMode] = useState<"log" | "input" | "rfid">("rfid");
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
   const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
   const [simName, setSimName] = useState((generusList && generusList[0]?.namaLengkap) || "");
+
+  // Synchronize attendanceMode with initialMode prop
+  useEffect(() => {
+    if (initialMode) {
+      setAttendanceMode(initialMode);
+    }
+  }, [initialMode]);
 
   // Synchronize selectedKelompok when allowedKelompoks list changes
   useEffect(() => {
@@ -896,7 +904,15 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                   attendanceMode === "input" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-850"
                 }`}
               >
-                Input Absensi
+                Input Manual
+              </button>
+              <button 
+                onClick={() => setAttendanceMode("rfid")} 
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  attendanceMode === "rfid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-850"
+                }`}
+              >
+                Scan RFID
               </button>
             </div>
 
@@ -1013,8 +1029,8 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
         {/* Content Viewport */}
         <CardContent className="p-6">
           
-          {/* Mode 1: Input Absensi */}
-          {attendanceMode === "input" ? (
+          {/* Mode 1: Input Absensi Manual */}
+          {attendanceMode === "input" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-slate-50 rounded-2xl p-4 border border-slate-100 flex-wrap gap-2">
                 <span className="text-[11px] font-bold text-slate-450 text-left">
@@ -1110,8 +1126,186 @@ export function PresensiPanel({ userRole }: PresensiPanelProps) {
                 </div>
               )}
             </div>
-          ) : (
-            // Mode 2: Riwayat Absensi
+          )}
+
+          {/* Mode 2: Scan RFID (inline) */}
+          {attendanceMode === "rfid" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-slate-50 border border-slate-100 rounded-3xl p-6 flex flex-col md:flex-row gap-6">
+                
+                {/* Left side: Tap Status Indicator & Local scanner handler */}
+                <div className="flex-grow space-y-4 max-w-full md:max-w-md text-left">
+                  <div className="flex bg-slate-200/50 p-1 rounded-xl border border-slate-250/20 w-full max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => setRfidMode("standalone")}
+                      className={`flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
+                        rfidMode === "standalone" ? "bg-white text-indigo-755 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      ⚡ IoT Standalone
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRfidMode("local")}
+                      className={`flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
+                        rfidMode === "local" ? "bg-white text-indigo-755 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      🔌 USB Reader
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleRfidSubmit} className="space-y-4 pt-2">
+                    <div className="flex flex-col items-center justify-center p-8 border border-slate-200 rounded-2xl bg-white shadow-sm relative overflow-hidden h-60">
+                      
+                      {/* Scanning Animation */}
+                      <div className={`h-24 w-24 rounded-full flex items-center justify-center border transition-all duration-300 ${
+                        rfidStatus === "success" ? "bg-emerald-50 border-emerald-300 text-emerald-600 scale-110" :
+                        rfidStatus === "error" ? "bg-rose-50 border-rose-300 text-rose-600 scale-110 animate-bounce" :
+                        rfidMode === "standalone" ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-100 border-slate-200 text-slate-650"
+                      }`}>
+                        {rfidStatus === "success" ? (
+                          <Check className="h-10 w-10 stroke-[3]" />
+                        ) : rfidStatus === "error" ? (
+                          <X className="h-10 w-10 stroke-[3]" />
+                        ) : rfidMode === "standalone" ? (
+                          <div className="relative">
+                            <CreditCard className="h-10 w-10 animate-pulse stroke-[2]" />
+                            <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                            </span>
+                          </div>
+                        ) : (
+                          <CreditCard className="h-10 w-10 stroke-[2]" />
+                        )}
+                      </div>
+
+                      <div className="text-center mt-4 space-y-1">
+                        <span className="text-xs font-extrabold text-slate-800 block">
+                          {rfidStatus === "success" ? "Berhasil Mengabsen!" :
+                           rfidStatus === "error" ? "Kartu Gagal Terdeteksi" :
+                           rfidMode === "standalone" ? "⚡ Standalone IoT Siaga..." : "🔌 Hubungkan Alat ke PC & Fokuskan Kursor..."}
+                        </span>
+                        <span className="text-[10px] text-slate-455 font-semibold block leading-relaxed max-w-xs mx-auto">
+                          {rfidStatus === "success" && lastScannedStudent ? (
+                            <>Santri terdaftar: <strong className="text-emerald-600 font-extrabold">{lastScannedStudent}</strong></>
+                          ) : rfidStatus === "error" ? (
+                            "UID Kartu tidak dikenali di kelompok ini."
+                          ) : rfidMode === "standalone" ? (
+                            "Alat pembaca RFID akan langsung mengirim scan via Wi-Fi ke server"
+                          ) : (
+                            "Fokuskan kursor di sini dan dekatkan kartu ke pembaca USB."
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Hidden/Active input for local USB RFID Reader */}
+                      {rfidMode === "local" && (
+                        <input
+                          ref={rfidInputRef}
+                          type="text"
+                          autoFocus
+                          placeholder="RFID Reader Input Stream..."
+                          value={rfidInputVal}
+                          onChange={(e) => setRfidInputVal(e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-default focus:ring-0 focus:outline-none w-full h-full"
+                        />
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* Right side: Instructions or Logs */}
+                <div className="flex-grow space-y-4 text-left">
+                  {rfidMode === "standalone" ? (
+                    <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                          Konfigurasi IoT RFID
+                        </span>
+                        <Badge className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[9px] font-black">Standalone API</Badge>
+                      </div>
+                      
+                      <div className="space-y-2.5 text-[10px] text-slate-500 font-semibold leading-relaxed">
+                        <div className="flex flex-col gap-1 border-b border-slate-100 pb-2">
+                          <span>API Endpoint URL:</span>
+                          <code className="bg-slate-100 text-indigo-750 px-2.5 py-1 rounded font-mono select-all break-all text-[9px]">
+                            {typeof window !== "undefined" ? window.location.origin + "/api/rfid-scan" : "http://localhost:8080/api/rfid-scan"}
+                          </code>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <span>Secret Token Header:</span>
+                          <code className="bg-slate-100 text-indigo-700 px-2.5 py-1 rounded font-mono select-all">PintarYukRFIDToken2026</code>
+                        </div>
+                      </div>
+                      <div className="pt-2 text-[10px] text-slate-400 font-semibold leading-relaxed">
+                        Perangkat RFID NodeMCU/ESP8266 mengirimkan payload JSON: <code className="bg-slate-100 p-1 rounded font-mono text-[9px]">{"{ \"uid\": \"CARD_UID\", \"token\": \"TOKEN\" }"}</code> ke URL di atas.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-2">
+                      <span className="text-[10px] font-extrabold text-slate-705 uppercase tracking-wider block">Panduan USB Keyboard Emulation</span>
+                      <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
+                        Alat pembaca RFID jenis USB Keyboard Emulasi bertindak seperti keyboard biasa. 
+                        Ketika kartu ditempelkan, alat akan mengetik UID kartu dan menekan tombol <kbd className="bg-slate-100 px-1 py-0.5 rounded border border-slate-200 font-mono">Enter</kbd> secara otomatis.
+                      </p>
+                      <p className="text-[10px] text-slate-450 leading-relaxed font-semibold mt-2">
+                        Pastikan Anda mengklik area pemindaian di sebelah kiri agar kursor tetap fokus mendengarkan input kartu.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Logs Table */}
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
+                    <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">Log Aktivitas Pemindaian (Hari Ini)</span>
+                    {rfidLogs.length > 0 ? (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {rfidLogs.map((log, lIdx) => (
+                          <div key={lIdx} className="flex justify-between items-center text-[10px] border-b border-slate-50 pb-1.5 last:border-0 last:pb-0 font-semibold">
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-slate-800 block">{log.name}</span>
+                              <span className="font-mono text-slate-400 block">UID: {log.uid}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-slate-400 font-bold block">{log.time}</span>
+                              <span className={`font-extrabold text-[9px] ${log.status === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+                                {log.status === "success" ? "Hadir" : "Gagal"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 py-4 text-center">Belum ada aktivitas pemindaian kartu RFID.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Simulated Tags */}
+              <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50 text-left space-y-3">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Simulasi Kartu RFID Santri (Uji Coba Cepat)</span>
+                <div className="flex flex-wrap gap-2">
+                  {studentsInKelompok.slice(0, 8).map((std) => (
+                    <button
+                      key={std.id}
+                      onClick={() => triggerFakeRfidTap(std.rfidUid || std.nisInternal)}
+                      className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all shadow-xs hover:scale-[1.02] active:scale-[0.98] cursor-pointer text-left"
+                    >
+                      <div className="font-extrabold leading-none">{std.namaLengkap}</div>
+                      <div className="text-[8px] font-bold text-slate-400 leading-none mt-1 font-mono">UID: {std.rfidUid || std.nisInternal}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 3: Riwayat Absensi */}
+          {attendanceMode === "log" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-slate-50 rounded-2xl p-4 border border-slate-100 flex-wrap gap-3">
                 <span className="text-[11px] font-bold text-slate-450 text-left">

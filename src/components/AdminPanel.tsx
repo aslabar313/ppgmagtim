@@ -12,7 +12,7 @@ import { SarprasPanel } from "./SarprasPanel";
 import { WhatsAppPanel } from "./WhatsAppPanel";
 import { AnalitikPanel } from "./AnalitikPanel";
 import { MapPanel } from "./MapPanel";
-import { AlumniPanel } from "./AlumniPanel";
+
 import { AuditPanel } from "./AuditPanel";
 import { BackupPanel } from "./BackupPanel";
 import { GaleriPanel } from "./GaleriPanel";
@@ -179,7 +179,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
 
     if (currentRole === "Viewer") {
-      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "alumni", "monitoring_mubaligh"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "monitoring_mubaligh"].includes(tabName);
     }
     if (currentRole === "Pengajar") {
       return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh"].includes(tabName);
@@ -188,7 +188,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     if (currentRole === "Admin Desa") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "alumni", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "keuangan", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik"].includes(tabName);
     }
     return true; // Super Admin & Admin Daerah see everything
   };
@@ -221,8 +221,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <PengumumanPanel userRole={role} />;
       case "ranking":
         return <RankingPanel />;
-      case "alumni":
-        return <AlumniPanel userRole={role} />;
+
       case "whatsapp":
         return <WhatsAppPanel userRole={role} />;
       case "analitik":
@@ -1544,11 +1543,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <Award className="h-4.5 w-4.5" /> Ranking & Lencana
               </button>
             )}
-            {hasAccessTo("alumni") && (
-              <button onClick={() => setActiveTab("alumni")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "alumni" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <Users className="h-4.5 w-4.5" /> Arsip Alumni
-              </button>
-            )}
+
             {hasAccessTo("keuangan") && (
               <button onClick={() => setActiveTab("keuangan")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "keuangan" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <FileText className="h-4.5 w-4.5" /> Keuangan SPP & Kas
@@ -1670,7 +1665,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("galeri") && <button onClick={() => setActiveTab("galeri")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "galeri" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Galeri</button>}
           {hasAccessTo("pengumuman") && <button onClick={() => setActiveTab("pengumuman")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pengumuman" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pengumuman</button>}
           {hasAccessTo("ranking") && <button onClick={() => setActiveTab("ranking")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "ranking" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Ranking</button>}
-          {hasAccessTo("alumni") && <button onClick={() => setActiveTab("alumni")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "alumni" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Alumni</button>}
+
           {hasAccessTo("whatsapp") && <button onClick={() => setActiveTab("whatsapp")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "whatsapp" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>WhatsApp</button>}
           {hasAccessTo("analitik") && <button onClick={() => setActiveTab("analitik")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "analitik" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Analitik</button>}
           {hasAccessTo("safety") && <button onClick={() => setActiveTab("safety")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "safety" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Safety</button>}

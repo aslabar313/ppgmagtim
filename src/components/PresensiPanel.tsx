@@ -70,7 +70,7 @@ interface PresensiPanelProps {
   initialMode?: "log" | "input" | "rfid";
 }
 
-export function PresensiPanel({ userRole, initialMode = "rfid" }: PresensiPanelProps) {
+export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanelProps) {
   const [presensiList, setPresensiList] = useState<Presensi[]>(() => getPresensi() || []);
   const [generusList] = useState<Generus[]>(() => getGenerus() || []);
   const [kelompokList] = useState<Kelompok[]>(() => getKelompok() || []);
@@ -111,7 +111,7 @@ export function PresensiPanel({ userRole, initialMode = "rfid" }: PresensiPanelP
 
   const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendanceMode, setAttendanceMode] = useState<"log" | "input" | "rfid">("rfid");
+  const [attendanceMode, setAttendanceMode] = useState<"log" | "input" | "rfid">(initialMode);
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
   const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1233,14 +1233,37 @@ export function PresensiPanel({ userRole, initialMode = "rfid" }: PresensiPanelP
                         <div className="flex flex-col gap-1 border-b border-slate-100 pb-2">
                           <span>API Endpoint URL:</span>
                           <code className="bg-slate-100 text-indigo-750 px-2.5 py-1 rounded font-mono select-all break-all text-[9px]">
-                            {typeof window !== "undefined" ? window.location.origin + "/api/rfid-scan" : "http://localhost:8080/api/rfid-scan"}
+                            {typeof window !== "undefined" ? window.location.origin + "/api/rfid-scan" : "https://ppgmagtim-354.vercel.app/api/rfid-scan"}
                           </code>
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                           <span>Secret Token Header:</span>
                           <code className="bg-slate-100 text-indigo-700 px-2.5 py-1 rounded font-mono select-all">PintarYukRFIDToken2026</code>
                         </div>
+                        
+                        {/* Arduino Configuration Constants */}
+                        <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-3 mt-2 text-left">
+                          <span className="text-[9px] font-black text-indigo-900 uppercase tracking-wider block">Arduino C++ Configuration Variables:</span>
+                          <div className="space-y-2.5 font-mono text-[9px] text-slate-700 font-bold">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-slate-400 font-sans font-bold">String ServerName (Arduino):</span>
+                              <code className="bg-white border border-indigo-100/70 px-2.5 py-1.5 rounded-lg select-all break-all font-mono font-bold text-indigo-950">
+                                {`String ServerName = "${typeof window !== "undefined" ? window.location.hostname : "ppgmagtim-354.vercel.app"}";`}
+                              </code>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-slate-400 font-sans font-bold">String ScanServer (Arduino):</span>
+                              <code className="bg-white border border-indigo-100/70 px-2.5 py-1.5 rounded-lg select-all break-all font-mono font-bold text-indigo-950">
+                                {`String ScanServer = "${typeof window !== "undefined" ? "/api/rfid-scan" : "/api/rfid-scan"}";`}
+                              </code>
+                            </div>
+                            <div className="text-[8px] text-slate-400 font-sans font-bold mt-1.5">
+                              * Gunakan variabel di atas untuk melakukan HTTP POST dari ESP8266/ESP32 Anda.
+                            </div>
+                          </div>
+                        </div>
                       </div>
+
                       <div className="pt-2 text-[10px] text-slate-400 font-semibold leading-relaxed">
                         Perangkat RFID NodeMCU/ESP8266 mengirimkan payload JSON: <code className="bg-slate-100 p-1 rounded font-mono text-[9px]">{"{ \"uid\": \"CARD_UID\", \"token\": \"TOKEN\" }"}</code> ke URL di atas.
                       </div>

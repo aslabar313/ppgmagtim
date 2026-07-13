@@ -171,9 +171,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     if (tabName === "database") {
       return hasAccessTo("siswa") || hasAccessTo("guru");
     }
-    if (tabName === "presensi_rfid") {
-      return hasAccessTo("presensi");
-    }
+
 
     const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
     const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
@@ -205,8 +203,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <MonitoringMubalighPanel userRole={role} />;
       case "presensi":
         return <PresensiPanel userRole={role} initialMode="input" />;
-      case "presensi_rfid":
-        return <PresensiPanel userRole={role} initialMode="rfid" />;
       case "raport":
         return <RaportPanel userRole={role} />;
       case "kurikulum":
@@ -1503,11 +1499,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <Calendar className="h-4.5 w-4.5" /> Presensi Kehadiran
               </button>
             )}
-            {hasAccessTo("presensi") && (
-              <button onClick={() => setActiveTab("presensi_rfid")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "presensi_rfid" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <CreditCard className="h-4.5 w-4.5" /> Input Presensi (RFID)
-              </button>
-            )}
             {hasAccessTo("raport") && (
               <button onClick={() => setActiveTab("raport")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "raport" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <FileText className="h-4.5 w-4.5" /> Raport Kurikulum
@@ -1657,7 +1648,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("database") && <button onClick={() => setActiveTab("database")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "database" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Fitur Database</button>}
           {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Monev Mubaligh</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
-          {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi_rfid")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi_rfid" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi RFID</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}
           {hasAccessTo("kurikulum") && <button onClick={() => setActiveTab("kurikulum")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "kurikulum" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Kurikulum</button>}
           {hasAccessTo("map") && <button onClick={() => setActiveTab("map")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "map" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Peta</button>}

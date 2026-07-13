@@ -33,7 +33,7 @@ import {
   LayoutDashboard, Users, UserCheck, Calendar, MapPin, LogOut, 
   TrendingUp, BookOpen, MessageSquare, Wrench, FileText, ChevronRight,
   Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History, ClipboardList,
-  AlertCircle, BarChart3, Star, Map, CheckCircle2, GraduationCap, Clock
+  AlertCircle, BarChart3, Star, Map, CheckCircle2, GraduationCap, Clock, Database
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -161,12 +161,15 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     toast.info(`Peran beralih ke: ${newRole}. Hierarki dashboard disesuaikan.`);
   };
 
-  const hasAccessTo = (tabName: string) => {
+  const hasAccessTo = (tabName: string): boolean => {
     const roleLower = String(role).toLowerCase();
     const maxRoleLower = String(actualMaxRole).toLowerCase();
     if (tabName === "analitik") {
       return roleLower.includes("admin") || roleLower.includes("super") ||
              maxRoleLower.includes("admin") || maxRoleLower.includes("super");
+    }
+    if (tabName === "database") {
+      return hasAccessTo("siswa") || hasAccessTo("guru");
     }
 
     const allowedRoles = ROLE_HIERARCHY[actualMaxRole] || ["Viewer"];
@@ -189,6 +192,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
 
   const renderContent = () => {
     switch (activeTab) {
+      case "database":
+        return <DatabasePanelView role={role} canAccessSiswa={hasAccessTo("siswa")} canAccessGuru={hasAccessTo("guru")} />;
       case "siswa":
         return <SiswaPanel userRole={role} />;
       case "guru":
@@ -376,13 +381,13 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
               <div className="flex gap-4 min-w-max md:grid md:grid-cols-4 md:min-w-0">
                 <button 
-                  onClick={() => setActiveTab("siswa")} 
+                  onClick={() => setActiveTab("database")} 
                   className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
                 >
                   <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                    <Users className="h-5.5 w-5.5" />
+                    <Database className="h-5.5 w-5.5" />
                   </div>
-                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">👥 Database Santri</span>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">🗂️ Fitur Database</span>
                 </button>
 
                 <button 
@@ -667,13 +672,13 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
               <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
                 <button 
-                  onClick={() => setActiveTab("siswa")} 
+                  onClick={() => setActiveTab("database")} 
                   className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
                 >
                   <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                    <Users className="h-5.5 w-5.5" />
+                    <Database className="h-5.5 w-5.5" />
                   </div>
-                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">👥 Database Santri</span>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">🗂️ Fitur Database</span>
                 </button>
 
                 <button 
@@ -982,13 +987,13 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
             <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
               <button 
-                onClick={() => setActiveTab("siswa")} 
+                onClick={() => setActiveTab("database")} 
                 className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
               >
                 <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                  <Users className="h-5.5 w-5.5" />
+                  <Database className="h-5.5 w-5.5" />
                 </div>
-                <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">➕ Tambah Santri</span>
+                <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">🗂️ Fitur Database</span>
               </button>
 
               <button 
@@ -1479,14 +1484,9 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <LayoutDashboard className="h-4.5 w-4.5" /> Dashboard
               </button>
             )}
-            {hasAccessTo("siswa") && (
-              <button onClick={() => setActiveTab("siswa")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "siswa" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <Users className="h-4.5 w-4.5" /> Database Jama'ah & Generus
-              </button>
-            )}
-            {hasAccessTo("guru") && (
-              <button onClick={() => setActiveTab("guru")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "guru" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <UserCheck className="h-4.5 w-4.5" /> Mubaligh & Pengurus
+            {hasAccessTo("database") && (
+              <button onClick={() => setActiveTab("database")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "database" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
+                <Database className="h-4.5 w-4.5" /> Fitur Database
               </button>
             )}
             {hasAccessTo("monitoring_mubaligh") && (
@@ -1649,8 +1649,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         {/* Dynamic Mobile Nav Header */}
         <div className="bg-slate-950 text-slate-400 p-2 overflow-x-auto flex gap-2 md:hidden">
           {hasAccessTo("dashboard") && <button onClick={() => setActiveTab("dashboard")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "dashboard" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Dashboard</button>}
-          {hasAccessTo("siswa") && <button onClick={() => setActiveTab("siswa")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "siswa" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Siswa</button>}
-          {hasAccessTo("guru") && <button onClick={() => setActiveTab("guru")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "guru" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Guru</button>}
+          {hasAccessTo("database") && <button onClick={() => setActiveTab("database")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "database" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Fitur Database</button>}
           {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Monev Mubaligh</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}
@@ -1709,6 +1708,45 @@ function SafetyView({ role }: { role: string }) {
       {safetyTab === "backup" && <BackupPanel userRole={role} />}
       {safetyTab === "audit" && <AuditPanel />}
       {safetyTab === "api" && <APIDocsPanel />}
+    </div>
+  );
+}
+
+// 16. Consolidated Database Panel View
+function DatabasePanelView({ role, canAccessSiswa, canAccessGuru }: { role: string; canAccessSiswa: boolean; canAccessGuru: boolean }) {
+  const [dbTab, setDbTab] = useState<"siswa" | "guru">(canAccessSiswa ? "siswa" : "guru");
+
+  // If role only has access to one, don't show tabs, just render the panel
+  if (canAccessSiswa && !canAccessGuru) {
+    return <SiswaPanel userRole={role} />;
+  }
+  if (!canAccessSiswa && canAccessGuru) {
+    return <GuruPanel userRole={role} />;
+  }
+
+  return (
+    <div className="space-y-6 text-left animate-fade-in">
+      <div className="bg-slate-100 p-1 rounded-2xl flex flex-wrap gap-1 max-w-fit shadow-sm">
+        <button 
+          onClick={() => setDbTab("siswa")} 
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+            dbTab === "siswa" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"
+          }`}
+        >
+          Database Jama'ah & Generus
+        </button>
+        <button 
+          onClick={() => setDbTab("guru")} 
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+            dbTab === "guru" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500 hover:bg-slate-200/50"
+          }`}
+        >
+          Mubaligh & Pengurus
+        </button>
+      </div>
+      <div>
+        {dbTab === "siswa" ? <SiswaPanel userRole={role} /> : <GuruPanel userRole={role} />}
+      </div>
     </div>
   );
 }

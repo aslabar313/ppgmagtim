@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { 
   Users, School, BookOpen, Star, Trophy, MapPin, Search, 
-  Award, Heart, Calendar, Image, Navigation, BarChart3, ShieldCheck, ClipboardList, Info
+  Award, Heart, Calendar, Image, Navigation, BarChart3, ShieldCheck, ClipboardList, Info,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,28 @@ export function DirektoriKelompok() {
   const [countMubaligh, setCountMubaligh] = useState(0);
   const [countKelas, setCountKelas] = useState(0);
   const [countKehadiran, setCountKehadiran] = useState(0);
+
+  // Carousel & Pagination States
+  const [cardsPerPage, setCardsPerPage] = useState(4);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // Adjust cards per page dynamically based on window width
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1280) {
+        setCardsPerPage(4);
+      } else if (window.innerWidth >= 1024) {
+        setCardsPerPage(3);
+      } else if (window.innerWidth >= 640) {
+        setCardsPerPage(2);
+      } else {
+        setCardsPerPage(1);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Animate counters on mount
   useEffect(() => {
@@ -134,6 +157,21 @@ export function DirektoriKelompok() {
     }
     return 0;
   });
+
+  const totalPages = Math.ceil(sortedKelompoks.length / cardsPerPage);
+
+  // Sync current page bounds when filter or screen layout changes
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, Math.max(0, totalPages - 1)));
+  }, [totalPages]);
+
+  const handlePrev = () => {
+    setCurrentPage((prev) => (prev > 0 ? prev - 1 : totalPages - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentPage((prev) => (prev < totalPages - 1 ? prev + 1 : 0));
+  };
 
   const getStatusIndicator = (status: string) => {
     switch (status) {
@@ -277,205 +315,251 @@ export function DirektoriKelompok() {
         </div>
       </div>
 
-      {/* 3. Redesigned Premium Glassmorphic Grid Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {sortedKelompoks.length > 0 ? (
-          sortedKelompoks.map((klp) => (
-            <Card 
-              key={klp.id} 
-              className="bg-white/[0.08] backdrop-blur-md border border-white/[0.15] rounded-[24px] overflow-hidden text-left flex flex-col justify-between shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(37,99,235,0.2)] hover:border-blue-500/40 group"
-            >
-              <div>
-                {/* Mosque Photo Container */}
-                <div className="h-44 w-full relative overflow-hidden bg-slate-950 border-b border-white/[0.06]">
-                  <img 
-                    src={klp.fotoUrl} 
-                    alt={klp.namaKelompok} 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Status Overlay Badge */}
-                  <div className="absolute top-3.5 left-3.5">
-                    <Badge className={`font-black rounded-lg text-[9px] uppercase border px-2.5 py-1 ${getStatusColor(klp.statusText)}`}>
-                      {getStatusIndicator(klp.statusText)}
-                    </Badge>
+      {/* 3. Slider/Carousel for Groups */}
+      <div className="relative space-y-6">
+        {/* Navigation Buttons (Top Right) */}
+        {sortedKelompoks.length > cardsPerPage && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
+              Halaman {currentPage + 1} dari {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePrev}
+                className="h-9 w-9 rounded-full border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleNext}
+                className="h-9 w-9 rounded-full border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                title="Halaman Selanjutnya"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Carousel Content */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-all duration-500 ease-in-out">
+          {sortedKelompoks.length > 0 ? (
+            sortedKelompoks
+              .slice(currentPage * cardsPerPage, (currentPage + 1) * cardsPerPage)
+              .map((klp) => (
+                <Card 
+                  key={klp.id} 
+                  className="bg-white/[0.08] backdrop-blur-md border border-white/[0.15] rounded-[24px] overflow-hidden text-left flex flex-col justify-between shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(37,99,235,0.2)] hover:border-blue-500/40 group"
+                >
+                  <div>
+                    {/* Mosque Photo Container */}
+                    <div className="h-44 w-full relative overflow-hidden bg-slate-950 border-b border-white/[0.06]">
+                      <img 
+                        src={klp.fotoUrl} 
+                        alt={klp.namaKelompok} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      {/* Status Overlay Badge */}
+                      <div className="absolute top-3.5 left-3.5">
+                        <Badge className={`font-black rounded-lg text-[9px] uppercase border px-2.5 py-1 ${getStatusColor(klp.statusText)}`}>
+                          {getStatusIndicator(klp.statusText)}
+                        </Badge>
+                      </div>
+
+                      {/* Achievement Stamp Badge */}
+                      {klp.badgeText && (
+                        <div className="absolute top-3.5 right-3.5">
+                          <Badge className="bg-slate-950/85 border border-amber-500/30 text-amber-400 font-black text-[9px] rounded-lg px-2.5 py-1">
+                            {klp.badgeText}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Group Details Content */}
+                    <div className="p-5 space-y-4">
+                      <div className="space-y-1">
+                        <h3 className="font-display text-base font-black text-white leading-snug group-hover:text-blue-400 transition-colors">
+                          {klp.namaKelompok}
+                        </h3>
+                        <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate block max-w-[190px]">{klp.alamat}</span>
+                        </div>
+                      </div>
+
+                      {/* 4 Details Info lists */}
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-black text-slate-350 bg-white/[0.02] border border-white/[0.05] rounded-xl p-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>{klp.jumlahGenerus} Santri</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-blue-500" />
+                          <span>{klp.mubalighCount} Mubaligh</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
+                          <span>{klp.kelasCount} Kelas</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-amber-500" />
+                          <span>{klp.desa}</span>
+                        </div>
+                      </div>
+
+                      {/* Dual progress bars */}
+                      <div className="space-y-3.5 pt-1.5">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <span>Kurikulum</span>
+                            <span className="text-blue-500">{klp.kurikulumProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/[0.04]">
+                            <div className="bg-blue-600 h-full rounded-full transition-all" style={{ width: `${klp.kurikulumProgress}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <span>Kehadiran</span>
+                            <span className="text-emerald-500">{klp.kehadiranProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/[0.04]">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${klp.kehadiranProgress}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mini Stats & Circular Health Score */}
+                      <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-2">
+                        
+                        {/* 4 Mini stats indicators */}
+                        <div className="flex gap-2.5 text-[9px] font-extrabold text-slate-400">
+                          <div className="flex items-center gap-0.5" title="Santri count">
+                            <Users className="h-3 w-3 text-slate-500" />
+                            <span>{klp.jumlahGenerus}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5" title="Mubaligh count">
+                            <Users className="h-3 w-3 text-slate-500" />
+                            <span>{klp.mubalighCount}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5" title="Prestasi count">
+                            <Trophy className="h-3 w-3 text-amber-500" />
+                            <span>{klp.prestasiCount}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5" title="Kehadiran percentage">
+                            <Star className="h-3 w-3 text-emerald-500" />
+                            <span>{klp.kehadiranProgress}%</span>
+                          </div>
+                        </div>
+
+                        {/* Circular Health Score gauge */}
+                        <div className="flex items-center gap-2 bg-slate-950/50 py-1.5 px-2 rounded-xl border border-white/[0.05] shadow-inner">
+                          <div className="relative h-6.5 w-6.5 flex items-center justify-center shrink-0">
+                            <svg className="absolute h-full w-full transform -rotate-90">
+                              <circle cx="13" cy="13" r="11" stroke="rgba(255,255,255,0.03)" strokeWidth="2" fill="transparent" />
+                              <circle 
+                                cx="13" 
+                                cy="13" 
+                                r="11" 
+                                stroke={getHealthStroke(klp.healthScore)} 
+                                strokeWidth="2.5" 
+                                fill="transparent" 
+                                strokeDasharray="69.1"
+                                strokeDashoffset={69.1 - (69.1 * klp.healthScore) / 100}
+                              />
+                            </svg>
+                            <span className="text-[8px] font-black text-white z-10">{klp.healthScore}</span>
+                          </div>
+                          <div className="text-[7.5px] text-left leading-none">
+                            <span className="text-slate-500 block uppercase font-extrabold">Health</span>
+                            <span className={`font-bold ${getHealthColor(klp.healthScore)}`}>
+                              {klp.healthScore >= 90 ? "Optimal" : klp.healthScore >= 80 ? "Sufisien" : "Kritis"}
+                            </span>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Achievement Stamp Badge */}
-                  {klp.badgeText && (
-                    <div className="absolute top-3.5 right-3.5">
-                      <Badge className="bg-slate-950/85 border border-amber-500/30 text-amber-400 font-black text-[9px] rounded-lg px-2.5 py-1">
-                        {klp.badgeText}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-
-                {/* Group Details Content */}
-                <div className="p-5 space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="font-display text-base font-black text-white leading-snug group-hover:text-blue-400 transition-colors">
-                      {klp.namaKelompok}
-                    </h3>
-                    <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                      <span className="truncate block max-w-[190px]">{klp.alamat}</span>
-                    </div>
-                  </div>
-
-                  {/* 4 Details Info lists */}
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-black text-slate-350 bg-white/[0.02] border border-white/[0.05] rounded-xl p-3.5">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>{klp.jumlahGenerus} Santri</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-blue-500" />
-                      <span>{klp.mubalighCount} Mubaligh</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
-                      <span>{klp.kelasCount} Kelas</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 text-amber-500" />
-                      <span>{klp.desa}</span>
-                    </div>
-                  </div>
-
-                  {/* Dual progress bars */}
-                  <div className="space-y-3.5 pt-1.5">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        <span>Kurikulum</span>
-                        <span className="text-blue-500">{klp.kurikulumProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/[0.04]">
-                        <div className="bg-blue-600 h-full rounded-full transition-all" style={{ width: `${klp.kurikulumProgress}%` }} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        <span>Kehadiran</span>
-                        <span className="text-emerald-500">{klp.kehadiranProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/[0.04]">
-                        <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${klp.kehadiranProgress}%` }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mini Stats & Circular Health Score */}
-                  <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-2">
+                  {/* Action Buttons footer */}
+                  <div className="p-4 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between">
+                    <span className="text-[9px] font-black text-slate-500 font-mono tracking-wider">{klp.id}</span>
                     
-                    {/* 4 Mini stats indicators */}
-                    <div className="flex gap-2.5 text-[9px] font-extrabold text-slate-400">
-                      <div className="flex items-center gap-0.5" title="Santri count">
-                        <Users className="h-3 w-3 text-slate-500" />
-                        <span>{klp.jumlahGenerus}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5" title="Mubaligh count">
-                        <Users className="h-3 w-3 text-slate-500" />
-                        <span>{klp.mubalighCount}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5" title="Prestasi count">
-                        <Trophy className="h-3 w-3 text-amber-500" />
-                        <span>{klp.prestasiCount}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5" title="Kehadiran percentage">
-                        <Star className="h-3 w-3 text-emerald-500" />
-                        <span>{klp.kehadiranProgress}%</span>
-                      </div>
+                    <div className="flex gap-1.5">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toast.info(`Detail Profil Kelompok: ${klp.namaKelompok}`)}
+                        className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
+                        title="Detail Laporan"
+                      >
+                        <ClipboardList className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toast.info(`Presensi Harian Santri: ${klp.namaKelompok}`)}
+                        className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
+                        title="Presensi Kelompok"
+                      >
+                        <Calendar className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toast.info(`Galeri Dokumentasi KBM: ${klp.namaKelompok}`)}
+                        className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
+                        title="Galeri Foto"
+                      >
+                        <Image className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toast.info(`Koordinat Maps Satelit: ${klp.koordinatMaps}`)}
+                        className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
+                        title="Navigasi Peta"
+                      >
+                        <Navigation className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toast.info(`Statistik Kemajuan KBM: ${klp.namaKelompok}`)}
+                        className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
+                        title="Analitik Kelompok"
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-
-                    {/* Circular Health Score gauge */}
-                    <div className="flex items-center gap-2 bg-slate-950/50 py-1.5 px-2 rounded-xl border border-white/[0.05] shadow-inner">
-                      <div className="relative h-6.5 w-6.5 flex items-center justify-center shrink-0">
-                        <svg className="absolute h-full w-full transform -rotate-90">
-                          <circle cx="13" cy="13" r="11" stroke="rgba(255,255,255,0.03)" strokeWidth="2" fill="transparent" />
-                          <circle 
-                            cx="13" 
-                            cy="13" 
-                            r="11" 
-                            stroke={getHealthStroke(klp.healthScore)} 
-                            strokeWidth="2.5" 
-                            fill="transparent" 
-                            strokeDasharray="69.1"
-                            strokeDashoffset={69.1 - (69.1 * klp.healthScore) / 100}
-                          />
-                        </svg>
-                        <span className="text-[8px] font-black text-white z-10">{klp.healthScore}</span>
-                      </div>
-                      <div className="text-[7.5px] text-left leading-none">
-                        <span className="text-slate-500 block uppercase font-extrabold">Health</span>
-                        <span className={`font-bold ${getHealthColor(klp.healthScore)}`}>
-                          {klp.healthScore >= 90 ? "Optimal" : klp.healthScore >= 80 ? "Sufisien" : "Kritis"}
-                        </span>
-                      </div>
-                    </div>
-
                   </div>
-                </div>
-              </div>
 
-              {/* Action Buttons footer */}
-              <div className="p-4 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-500 font-mono tracking-wider">{klp.id}</span>
-                
-                <div className="flex gap-1.5">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => toast.info(`Detail Profil Kelompok: ${klp.namaKelompok}`)}
-                    className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
-                    title="Detail Laporan"
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => toast.info(`Presensi Harian Santri: ${klp.namaKelompok}`)}
-                    className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
-                    title="Presensi Kelompok"
-                  >
-                    <Calendar className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => toast.info(`Galeri Dokumentasi KBM: ${klp.namaKelompok}`)}
-                    className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
-                    title="Galeri Foto"
-                  >
-                    <Image className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => toast.info(`Koordinat Maps Satelit: ${klp.koordinatMaps}`)}
-                    className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
-                    title="Navigasi Peta"
-                  >
-                    <Navigation className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => toast.info(`Statistik Kemajuan KBM: ${klp.namaKelompok}`)}
-                    className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/40 hover:bg-blue-600 hover:text-white transition-all text-slate-400"
-                    title="Analitik Kelompok"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
+                </Card>
+              ))
+          ) : (
+            <div className="col-span-full py-20 text-center text-slate-400 font-bold bg-white/[0.02] border border-white/5 rounded-3xl">
+              Tidak ditemukan kelompok binaan untuk kriteria pencarian ini.
+            </div>
+          )}
+        </div>
 
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full py-20 text-center text-slate-400 font-bold bg-white/[0.02] border border-white/5 rounded-3xl">
-            Tidak ditemukan kelompok binaan untuk kriteria pencarian ini.
+        {/* Pagination Dots Indicator */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentPage(idx)}
+                className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  currentPage === idx ? "w-8 bg-blue-600" : "w-2.5 bg-white/20 hover:bg-white/40"
+                }`}
+                aria-label={`Kembali ke halaman ${idx + 1}`}
+              />
+            ))}
           </div>
         )}
       </div>

@@ -256,6 +256,7 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
                       <div>Daerah: <code>daerah1</code></div>
                       <div>Desa: <code>desaselatan1</code></div>
                       <div>Kelompok: <code>adminkaras1</code></div>
+                      <div>Mubaligh: <code>mubalighkaras1</code></div>
                       <div>Pengajar: <code>pengajar1</code></div>
                       <div>Viewer: <code>viewer1</code></div>
                     </div>

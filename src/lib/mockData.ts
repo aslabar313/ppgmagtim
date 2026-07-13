@@ -294,7 +294,7 @@ export const getRoleFromUsername = (u: string): string => {
   }
   
   if (normalized.startsWith("admin")) return "Admin Kelompok";
-  if (normalized.startsWith("pengajar")) return "Pengajar";
+  if (normalized.startsWith("pengajar") || normalized.startsWith("mubaligh")) return "Pengajar";
   if (normalized.startsWith("viewer")) return "Viewer";
   return "Viewer";
 };
@@ -361,6 +361,15 @@ export const getUserDetails = (user: string): UserDetails | null => {
   // 5. Pengajar (pengajar1, pengajar2)
   if (u === "pengajar1" || u === "pengajar2") {
     return { username: u, role: "Pengajar", level: "kelompok", scope: "Kelompok Karas", adminNum: u === "pengajar2" ? 2 : 1 };
+  }
+
+  // 5b. Mubaligh Kelompok (mubaligh[kelompok]1, mubaligh[kelompok]2)
+  for (const k of kelompoks) {
+    const kNameOnly = k.namaKelompok.replace("Kelompok ", "");
+    const normalizedKName = kNameOnly.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (u === `mubaligh${normalizedKName}1` || u === `mubaligh${normalizedKName}2`) {
+      return { username: u, role: "Pengajar", level: "kelompok", scope: k.namaKelompok, adminNum: u.endsWith("2") ? 2 : 1 };
+    }
   }
 
   // 6. Viewer (viewer1, viewer2)
@@ -435,6 +444,15 @@ export const verifyCredentials = (user: string, pass: string): AuthResult | null
   // 5. Pengajar (pengajar1, pengajar2)
   if (u === "pengajar1" || u === "pengajar2") {
     return { success: true, role: "Pengajar", level: "kelompok", scope: "Kelompok Karas", adminNum: u === "pengajar2" ? 2 : 1 };
+  }
+
+  // 5b. Mubaligh Kelompok (mubaligh[kelompok]1, mubaligh[kelompok]2)
+  for (const k of kelompoks) {
+    const kNameOnly = k.namaKelompok.replace("Kelompok ", "");
+    const normalizedKName = kNameOnly.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (u === `mubaligh${normalizedKName}1` || u === `mubaligh${normalizedKName}2`) {
+      return { success: true, role: "Pengajar", level: "kelompok", scope: k.namaKelompok, adminNum: u.endsWith("2") ? 2 : 1 };
+    }
   }
 
   // 6. Viewer (viewer1, viewer2)

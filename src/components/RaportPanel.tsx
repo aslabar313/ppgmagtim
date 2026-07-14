@@ -95,6 +95,9 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
   });
 
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const loggedUser = typeof window !== "undefined" ? localStorage.getItem("sim_tpq_logged_user") : null;
+  const isAldi = loggedUser === "superadminaldi";
+  const [aldiConfirmCode, setAldiConfirmCode] = useState("");
 
   // Form states
   const [valTahsin, setValTahsin] = useState(80);
@@ -465,7 +468,12 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
       </div>
 
       {/* Subject Configuration Dialog (Super Admin only) */}
-      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+      <Dialog open={isConfigOpen} onOpenChange={(open) => {
+        setIsConfigOpen(open);
+        if (!open) {
+          setAldiConfirmCode("");
+        }
+      }}>
         <DialogContent className="sm:max-w-[450px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-display text-xl font-bold text-slate-900 text-left">
@@ -516,8 +524,53 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
               </div>
             </div>
 
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Otorisasi & Persetujuan Aldi</span>
+              
+              {isAldi ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-[11px] space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Check className="h-4 w-4" /> Persetujuan Terverifikasi
+                  </div>
+                  <p className="text-slate-500 text-[10px] leading-relaxed">
+                    Anda masuk sebagai <strong>superadminaldi</strong>. Perubahan ini disetujui secara otomatis.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-[11px] space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <Settings className="h-4 w-4 text-amber-600 animate-spin" /> Otorisasi superadminaldi Diperlukan
+                    </div>
+                    <p className="text-slate-500 text-[10px] leading-relaxed">
+                      Perubahan mapel raport harus disetujui oleh <strong>superadminaldi</strong>. Masukkan kode otorisasi untuk menyimpan.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+                    <Input 
+                      type="password"
+                      placeholder="Masukkan kode konfirmasi..." 
+                      value={aldiConfirmCode} 
+                      onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                      className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Button 
               onClick={() => {
+                const isValidConfirm = isAldi || 
+                  ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+
+                if (!isValidConfirm) {
+                  toast.error("Gagal Menyimpan: Kode konfirmasi dari superadminaldi tidak valid!");
+                  return;
+                }
+
                 localStorage.setItem("sim_tpq_subject_tahsin", lblTahsin);
                 localStorage.setItem("sim_tpq_subject_tahfidz", lblTahfidz);
                 localStorage.setItem("sim_tpq_subject_doaHarian", lblDoa);
@@ -525,8 +578,15 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
                 localStorage.setItem("sim_tpq_subject_akhlak", lblAkhlak);
                 localStorage.setItem("sim_tpq_subject_keaktifan", lblKeaktifan);
                 localStorage.setItem("sim_tpq_subject_kedisiplinan", lblKedisiplinan);
+                
+                // Simpan log konfirmasi persetujuan agar tidak bisa diubah tanpa Aldi
+                localStorage.setItem("sim_tpq_subject_confirmed_by", "superadminaldi");
+                localStorage.setItem("sim_tpq_subject_confirmed_at", new Date().toISOString());
+                localStorage.setItem("sim_tpq_subject_confirmed_method", isAldi ? "Direct (Aldi Logged In)" : "Authorization Code");
+
                 setIsConfigOpen(false);
-                toast.success("Mata pelajaran raport berhasil diperbarui secara global!");
+                setAldiConfirmCode("");
+                toast.success("Konfigurasi mapel berhasil diperbarui atas persetujuan superadminaldi!");
               }}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-xs font-bold shadow-sm"
             >

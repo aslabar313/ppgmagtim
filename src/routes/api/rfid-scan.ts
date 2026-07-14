@@ -86,6 +86,26 @@ export const Route = createFileRoute("/api/rfid-scan")({
                   topic: "realtime:rfid-scans",
                   event: "scan",
                   payload: { uid }
+                },
+                {
+                  topic: "rfid-scans-siswa",
+                  event: "scan",
+                  payload: { uid }
+                },
+                {
+                  topic: "realtime:rfid-scans-siswa",
+                  event: "scan",
+                  payload: { uid }
+                },
+                {
+                  topic: "rfid-scans-quick",
+                  event: "scan",
+                  payload: { uid }
+                },
+                {
+                  topic: "realtime:rfid-scans-quick",
+                  event: "scan",
+                  payload: { uid }
                 }
               ]
             })

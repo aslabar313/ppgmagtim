@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { 
   Plus, Calendar, UserCheck, QrCode, Upload, FileSpreadsheet, 
   Check, X, AlertTriangle, Play, Award, Sparkles, Search, Download,
-  Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot, CreditCard
+  Users, GraduationCap, ShieldAlert, CheckCircle2, CircleDot, CreditCard, Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -115,6 +115,12 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
   const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sesi Kegiatan Aktif States
+  const [sessionStartTime, setSessionStartTime] = useState("16:00");
+  const [sessionEndTime, setSessionEndTime] = useState("17:30");
+  const [sessionGracePeriod, setSessionGracePeriod] = useState(10);
+  const [showTimeSettings, setShowTimeSettings] = useState(false);
 
   const [qrSimOpen, setQrSimOpen] = useState(false);
   const [simName, setSimName] = useState((generusList && generusList[0]?.namaLengkap) || "");
@@ -228,6 +234,27 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
       return;
     }
 
+    const now = new Date();
+    const currentHourMin = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    
+    const getMinutes = (timeStr: string) => {
+      const parts = timeStr.split(":");
+      const h = Number(parts[0]) || 0;
+      const m = Number(parts[1]) || 0;
+      return h * 60 + m;
+    };
+
+    const currentMin = getMinutes(currentHourMin);
+    const startMin = getMinutes(sessionStartTime);
+    const graceMin = startMin + sessionGracePeriod;
+
+    let checkInKeterangan = "Tepat Waktu";
+    const isLate = currentMin > graceMin;
+    if (isLate) {
+      const minutesLate = currentMin - startMin;
+      checkInKeterangan = `Terlambat ${minutesLate} menit`;
+    }
+
     const existingIndex = presensiList.findIndex(
       p => p.generusId === student.id && p.tanggal === activeDate && (!p.jenisPengajian || p.jenisPengajian === jenisPengajian)
     );
@@ -240,7 +267,9 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
       namaKelompok: student.namaKelompok,
       tanggal: activeDate,
       statusKehadiran: "Hadir",
-      jenisPengajian: jenisPengajian
+      jenisPengajian: jenisPengajian,
+      waktuTap: currentHourMin,
+      keterangan: checkInKeterangan
     };
 
     if (existingIndex > -1) {
@@ -255,7 +284,11 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
     playBeep("success");
     setRfidStatus("success");
     setLastScannedStudent(student.namaLengkap);
-    toast.success(`${isRealtime ? "⚡ RFID IoT:" : "RFID Terdeteksi:"} ${student.namaLengkap} tercatat HADIR!`);
+    
+    const toastMsg = isLate 
+      ? `RFID Terdeteksi: ${student.namaLengkap} tercatat HADIR (Terlambat ${currentMin - startMin}m)!`
+      : `RFID Terdeteksi: ${student.namaLengkap} tercatat HADIR tepat waktu!`;
+    toast.success(isRealtime ? `⚡ RFID IoT: ${toastMsg}` : toastMsg);
 
     setRfidLogs(prev => [
       { time: logTime, uid: searchUid, name: student.namaLengkap, status: "success" },
@@ -649,6 +682,26 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
     );
 
     let updated = [...presensiList];
+    const now = new Date();
+    const currentHourMin = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    
+    const getMinutes = (timeStr: string) => {
+      const parts = timeStr.split(":");
+      const h = Number(parts[0]) || 0;
+      const m = Number(parts[1]) || 0;
+      return h * 60 + m;
+    };
+
+    const currentMin = getMinutes(currentHourMin);
+    const startMin = getMinutes(sessionStartTime);
+    const graceMin = startMin + sessionGracePeriod;
+
+    let checkInKeterangan = "Tepat Waktu";
+    if (status === "Hadir" && currentMin > graceMin) {
+      const minutesLate = currentMin - startMin;
+      checkInKeterangan = `Terlambat ${minutesLate} menit`;
+    }
+
     const presensiData: Presensi = {
       id: existingIndex > -1 ? updated[existingIndex].id : "pr-" + Date.now() + Math.random(),
       generusId: gen.id,
@@ -656,7 +709,9 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
       namaKelompok: gen.namaKelompok,
       tanggal: activeDate,
       statusKehadiran: status,
-      jenisPengajian: jenisPengajian
+      jenisPengajian: jenisPengajian,
+      waktuTap: status === "Hadir" ? currentHourMin : undefined,
+      keterangan: status === "Hadir" ? checkInKeterangan : undefined
     };
 
     if (existingIndex > -1) {
@@ -811,6 +866,59 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
   const csvTemplateHeaders = "NIS,Nama Lengkap,Tanggal,Status Kehadiran";
   const csvTemplateRow = "NIS-2026001,Muhammad Rizky,2026-07-07,Hadir";
   const csvTemplateUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvTemplateHeaders + "\n" + csvTemplateRow + "\n")}`;
+
+  const getMinutes = (timeStr: string) => {
+    const parts = timeStr.split(":");
+    const h = Number(parts[0]) || 0;
+    const m = Number(parts[1]) || 0;
+    return h * 60 + m;
+  };
+
+  const getSessionStatus = () => {
+    const now = new Date();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = getMinutes(sessionStartTime);
+    const endMin = getMinutes(sessionEndTime);
+
+    if (currentMin < startMin) {
+      return {
+        label: "Belum Mulai",
+        color: "bg-amber-50 text-amber-700 border-amber-200 font-extrabold",
+        pulse: false
+      };
+    } else if (currentMin > endMin) {
+      return {
+        label: "Sesi Selesai",
+        color: "bg-slate-100 text-slate-500 border-slate-200 font-extrabold",
+        pulse: false
+      };
+    } else {
+      return {
+        label: "Sesi Berlangsung",
+        color: "bg-emerald-50 text-emerald-750 border-emerald-250 font-extrabold",
+        pulse: true
+      };
+    }
+  };
+
+  const calculateProgress = () => {
+    const now = new Date();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = getMinutes(sessionStartTime);
+    const endMin = getMinutes(sessionEndTime);
+
+    if (currentMin < startMin) return 0;
+    if (currentMin > endMin) return 100;
+
+    const totalDuration = endMin - startMin;
+    if (totalDuration <= 0) return 0;
+
+    const elapsed = currentMin - startMin;
+    return Math.round((elapsed / totalDuration) * 100);
+  };
+
+  const sessionStatus = getSessionStatus();
+  const sessionProgress = calculateProgress();
 
   return (
     <div className="space-y-6 text-left">
@@ -1050,17 +1158,111 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
           </div>
         </div>
 
-        {/* Unified Activity Info Banner */}
-        <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-2">
-            <CircleDot className="h-4 w-4 text-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-slate-700">
-              Absensi Kegiatan: <span className="text-emerald-600 font-extrabold uppercase">{jenisPengajian}</span>
-            </span>
+        {/* Unified Activity Info Banner & Session Manager */}
+        <div className="border-b border-slate-100 px-6 py-5 bg-slate-50/50 space-y-4 text-left">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+            {/* Sesi Status & Title */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${sessionStatus.color}`}>
+                {sessionStatus.pulse && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                )}
+                {sessionStatus.label}
+              </span>
+              <span className="text-slate-350">|</span>
+              <span className="text-xs font-bold text-slate-700">
+                Kegiatan TPQ: <strong className="text-indigo-650 font-black uppercase">{jenisPengajian}</strong>
+              </span>
+            </div>
+
+            {/* Jam & Grace Info */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-500">
+                <Clock className="h-4 w-4 text-slate-450" />
+                Sesi: <span className="text-slate-800 font-mono font-black">{sessionStartTime} - {sessionEndTime}</span>
+              </div>
+              <span className="text-slate-300">|</span>
+              <div className="text-xs font-extrabold text-slate-500">
+                Toleransi: <span className="text-amber-600 font-black">{sessionGracePeriod} Menit</span>
+              </div>
+              {!isReadOnly && (
+                <Button
+                  onClick={() => setShowTimeSettings(!showTimeSettings)}
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-xl h-8 px-2.5 text-xs font-bold text-slate-500 hover:bg-slate-200/50 hover:text-slate-700 border border-slate-200 bg-white shadow-sm"
+                >
+                  {showTimeSettings ? "Tutup" : "Ubah Waktu"}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="text-xs font-bold text-slate-450">
-            Total Murid: <span className="text-slate-700 font-extrabold">{studentsInKelompok.length} Orang</span>
+
+          {/* Time Progress Bar */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] font-extrabold text-slate-450 uppercase tracking-wider">
+              <span>Mulai: {sessionStartTime}</span>
+              <span>Waktu Berjalan ({sessionProgress}%)</span>
+              <span>Selesai: {sessionEndTime}</span>
+            </div>
+            <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden relative shadow-inner">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  sessionStatus.label === "Sesi Selesai" 
+                    ? "bg-slate-400" 
+                    : sessionStatus.label === "Belum Mulai"
+                      ? "bg-amber-400"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                }`}
+                style={{ width: `${sessionProgress}%` }}
+              />
+            </div>
           </div>
+
+          {/* Show Settings Form */}
+          {showTimeSettings && (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-450 uppercase">Jam Mulai Kegiatan</label>
+                <input 
+                  type="time" 
+                  value={sessionStartTime}
+                  onChange={(e) => setSessionStartTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-xs font-bold focus:outline-none h-10 shadow-inner"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-450 uppercase">Jam Selesai Kegiatan</label>
+                <input 
+                  type="time" 
+                  value={sessionEndTime}
+                  onChange={(e) => setSessionEndTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-xs font-bold focus:outline-none h-10 shadow-inner"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-450 uppercase">Toleransi Keterlambatan</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={sessionGracePeriod}
+                      onChange={(e) => setSessionGracePeriod(Number(e.target.value) || 0)}
+                      className="w-full rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-xs font-bold focus:outline-none h-10 shadow-inner pr-12"
+                    />
+                    <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">menit</span>
+                  </div>
+                  <Button 
+                    onClick={() => setShowTimeSettings(false)}
+                    className="bg-slate-900 hover:bg-slate-850 text-white rounded-xl text-xs font-bold h-10 px-4 shadow-sm"
+                  >
+                    Simpan
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content Viewport */}
@@ -1102,12 +1304,28 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
 
                     return (
                       <div key={student.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30 px-2 rounded-xl transition-all">
-                        <div className="text-left space-y-1">
+                        <div className="text-left space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-extrabold text-slate-900 text-sm leading-none">{student.namaLengkap}</h4>
                             {getCategoryBadge(student.kategori)}
                           </div>
-                          <span className="font-mono text-[10px] text-slate-400 block font-semibold leading-none">{student.nisInternal}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[10px] text-slate-400 block font-semibold leading-none">{student.nisInternal}</span>
+                            {currentLog?.waktuTap && (
+                              <span className="font-mono text-[9px] text-indigo-650 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-black leading-none">
+                                🕒 {currentLog.waktuTap}
+                              </span>
+                            )}
+                            {currentLog?.keterangan && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-black border leading-none ${
+                                currentLog.keterangan === "Tepat Waktu"
+                                  ? "text-emerald-705 bg-emerald-50 border-emerald-100"
+                                  : "text-amber-705 bg-amber-55 border-amber-100 animate-pulse"
+                              }`}>
+                                {currentLog.keterangan}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         <div className="flex flex-wrap gap-1.5">
@@ -1419,6 +1637,8 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
                         <th className="px-6 py-4">Jenis Pengajian</th>
                         <th className="px-6 py-4">Kelompok TPQ</th>
                         <th className="px-6 py-4">Tanggal</th>
+                        <th className="px-6 py-4">Waktu Tap</th>
+                        <th className="px-6 py-4">Ket / Keterlambatan</th>
                         <th className="px-6 py-4">Status Kehadiran</th>
                       </tr>
                     </thead>
@@ -1432,6 +1652,20 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
                               <td className="px-6 py-4 text-xs font-bold text-slate-700">{p.jenisPengajian || student?.kategori || "Sambung Kelompok"}</td>
                               <td className="px-6 py-4 text-xs font-semibold text-slate-500">{p.namaKelompok}</td>
                               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-400">{p.tanggal}</td>
+                              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-550">{p.waktuTap || "-"}</td>
+                              <td className="px-6 py-4 text-xs">
+                                {p.keterangan ? (
+                                  <span className={`px-2.5 py-0.5 rounded-full font-extrabold border text-[9px] ${
+                                    p.keterangan === "Tepat Waktu"
+                                      ? "text-emerald-705 bg-emerald-50 border-emerald-100"
+                                      : "text-amber-705 bg-amber-55 border-amber-100 animate-pulse"
+                                  }`}>
+                                    {p.keterangan}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-semibold">-</span>
+                                )}
+                              </td>
                               <td className="px-6 py-4">
                                 <Badge className={`font-bold rounded-full text-[10px] px-2.5 py-0.5 border ${
                                   p.statusKehadiran === "Hadir" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :

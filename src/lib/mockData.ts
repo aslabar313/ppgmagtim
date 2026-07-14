@@ -143,6 +143,8 @@ export interface Presensi {
   tanggal: string;
   statusKehadiran: "Hadir" | "Izin" | "Sakit" | "Alfa";
   jenisPengajian?: string;
+  waktuTap?: string;
+  keterangan?: string;
 }
 
 export interface Raport {

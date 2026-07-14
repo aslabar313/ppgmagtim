@@ -2,8 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
 // Fetch env variables
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://lwtlxbtjngqtinzuyuiz.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable_xtp6n4jLb55cJ16MjZXGug_VWRx1yA5";
+const SUPABASE_URL = 
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_URL) || 
+  process.env.SUPABASE_URL || 
+  process.env.VITE_SUPABASE_URL || 
+  "https://lwtlxbtjngqtinzuyuiz.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY = 
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY) || 
+  process.env.SUPABASE_PUBLISHABLE_KEY || 
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  "sb_publishable_xtp6n4jLb55cJ16MjZXGug_VWRx1yA5";
+
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const RFID_SECRET_TOKEN = process.env.RFID_SECRET_TOKEN || "PintarYukRFIDToken2026";
 
 export const Route = createFileRoute("/api/rfid-scan")({
@@ -28,6 +39,8 @@ export const Route = createFileRoute("/api/rfid-scan")({
           const body = (await request.json()) as { uid: string; token?: string };
           const { uid, token } = body;
 
+          console.log("Processing RFID scan for UID:", uid);
+
           if (!uid) {
             return new Response(JSON.stringify({ success: false, error: "UID is required" }), {
               status: 400,
@@ -51,35 +64,39 @@ export const Route = createFileRoute("/api/rfid-scan")({
             });
           }
 
-          const serverSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+          const tokenToUse = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_PUBLISHABLE_KEY;
+          const broadcastUrl = `${SUPABASE_URL}/realtime/v1/api/broadcast`;
+          console.log("Broadcasting scan via REST:", broadcastUrl);
 
-          // We send the broadcast to the "rfid-scans" channel
-          const channel = serverSupabase.channel("rfid-scans");
-          
-          const sendPromise = new Promise<void>((resolve, reject) => {
-            channel.subscribe(async (status) => {
-              if (status === "SUBSCRIBED") {
-                try {
-                  await channel.send({
-                    type: "broadcast",
-                    event: "scan",
-                    payload: { uid }
-                  });
-                  // Give it a tiny moment to flush the websocket frame
-                  setTimeout(() => {
-                    serverSupabase.removeChannel(channel);
-                    resolve();
-                  }, 200);
-                } catch (err) {
-                  reject(err);
+          const response = await fetch(broadcastUrl, {
+            method: "POST",
+            headers: {
+              "apikey": tokenToUse,
+              "Authorization": `Bearer ${tokenToUse}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              messages: [
+                {
+                  topic: "rfid-scans",
+                  event: "scan",
+                  payload: { uid }
+                },
+                {
+                  topic: "realtime:rfid-scans",
+                  event: "scan",
+                  payload: { uid }
                 }
-              } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-                reject(new Error("Failed to subscribe to Supabase Realtime channel"));
-              }
-            });
+              ]
+            })
           });
 
-          await sendPromise;
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Supabase REST broadcast failed with status ${response.status}: ${errText}`);
+          }
+
+          console.log("REST broadcast request succeeded with status:", response.status);
 
           return new Response(
             JSON.stringify({ 

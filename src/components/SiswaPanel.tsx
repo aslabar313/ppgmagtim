@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getGenerus, saveGenerus, getKelompok, getDocuments, saveDocuments, Generus, Kelompok, DocumentRecord, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Plus, Search, Edit2, Trash2, UserPlus, 
-  QrCode, FileSpreadsheet, FileText, Printer, Upload, Info, Download, Sparkles 
+  QrCode, FileSpreadsheet, FileText, Printer, Upload, Info, Download, Sparkles, CreditCard 
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
 import * as XLSX from "xlsx";
@@ -178,6 +179,110 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
   const [formCatatan, setFormCatatan] = useState("");
   const [formKategori, setFormKategori] = useState<"Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Caberawit");
   const [formRfidUid, setFormRfidUid] = useState("");
+  const [isScanningRfid, setIsScanningRfid] = useState(false);
+
+  // Real-time RFID Scanner listener for student form
+  useEffect(() => {
+    if (!isScanningRfid) return;
+
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel("rfid-scans-siswa")
+        .on("broadcast", { event: "scan" }, (response: any) => {
+          const { uid } = response.payload;
+          if (uid) {
+            console.log("Realtime RFID scan for student form received:", uid);
+            setFormRfidUid(uid.trim());
+            setIsScanningRfid(false);
+            toast.success(`RFID Terbaca: ${uid.trim()}`);
+          }
+        })
+        .subscribe((status) => {
+          console.log("Supabase RFID student form channel status:", status);
+        });
+    } catch (err) {
+      console.warn("Failed to subscribe to Realtime RFID broadcast in form:", err);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn("Failed to unsubscribe Realtime channel in form:", err);
+        }
+      }
+    };
+  }, [isScanningRfid]);
+
+  // Quick Link RFID States
+  const [quickLinkStudent, setQuickLinkStudent] = useState<Generus | null>(null);
+  const [quickLinkRfid, setQuickLinkRfid] = useState("");
+  const [isQuickScanning, setIsQuickScanning] = useState(false);
+
+  // Real-time RFID Scanner listener for Quick Link
+  useEffect(() => {
+    if (!isQuickScanning) return;
+
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel("rfid-scans-quick")
+        .on("broadcast", { event: "scan" }, (response: any) => {
+          const { uid } = response.payload;
+          if (uid) {
+            console.log("Realtime RFID scan for quick link received:", uid);
+            setQuickLinkRfid(uid.trim());
+            setIsQuickScanning(false);
+            toast.success(`RFID Terbaca: ${uid.trim()}`);
+          }
+        })
+        .subscribe((status) => {
+          console.log("Supabase RFID quick link channel status:", status);
+        });
+    } catch (err) {
+      console.warn("Failed to subscribe to Realtime RFID broadcast for quick link:", err);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn("Failed to unsubscribe Realtime channel for quick link:", err);
+        }
+      }
+    };
+  }, [isQuickScanning]);
+
+  const handleSaveQuickLink = () => {
+    if (!quickLinkStudent || !quickLinkRfid) {
+      toast.error("Silakan pindai kartu RFID terlebih dahulu!");
+      return;
+    }
+
+    // Check if this UID is already used by another student
+    const alreadyUsed = generusList.find(g => g.rfidUid === quickLinkRfid && g.id !== quickLinkStudent.id);
+    if (alreadyUsed) {
+      toast.error(`UID kartu ini sudah digunakan oleh ${alreadyUsed.namaLengkap}!`);
+      return;
+    }
+
+    const updated = generusList.map(g => {
+      if (g.id === quickLinkStudent.id) {
+        return { ...g, rfidUid: quickLinkRfid };
+      }
+      return g;
+    });
+
+    setGenerusList(updated);
+    saveGenerus(updated);
+    toast.success(`Kartu RFID (UID: ${quickLinkRfid}) berhasil ditautkan ke ${quickLinkStudent.namaLengkap}!`);
+    setQuickLinkStudent(null);
+    setQuickLinkRfid("");
+    setIsQuickScanning(false);
+  };
 
   // QR & Document Viewer State
   const [qrOpen, setQrOpen] = useState(false);
@@ -864,6 +969,13 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
                       }} variant="ghost" size="icon" className="h-8 w-8 text-indigo-500 hover:bg-indigo-50 rounded-lg">
                         <QrCode className="h-4 w-4" />
                       </Button>
+                      <Button onClick={() => {
+                        setQuickLinkStudent(g);
+                        setQuickLinkRfid(g.rfidUid || "");
+                        setIsQuickScanning(false);
+                      }} variant="ghost" size="icon" className={`h-8 w-8 rounded-lg ${g.rfidUid ? "text-indigo-650 hover:bg-indigo-50" : "text-amber-500 hover:bg-amber-50 animate-pulse"}`} title={g.rfidUid ? "Ubah Tautan RFID" : "Tautkan RFID Baru"}>
+                        <CreditCard className="h-4 w-4" />
+                      </Button>
                       <Button onClick={() => handleOpenEdit(g)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-600 rounded-lg">
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -1155,13 +1267,38 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
               </div>
 
               <div className="col-span-2 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">UID RFID (Opsional)</label>
-                <Input
-                  placeholder="Masukkan UID RFID (contoh: 1020304001)"
-                  value={formRfidUid}
-                  onChange={(e) => setFormRfidUid(e.target.value)}
-                  className="rounded-xl border-slate-200 text-slate-900 text-sm font-mono"
-                />
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>UID RFID (Opsional)</span>
+                  {isScanningRfid && (
+                    <span className="text-[10px] text-indigo-650 animate-pulse font-extrabold flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 inline-block animate-ping"></span>
+                      Menunggu kartu RFID di-tap ke alat...
+                    </span>
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Masukkan UID RFID (contoh: 1020304001)"
+                    value={formRfidUid}
+                    onChange={(e) => setFormRfidUid(e.target.value)}
+                    className="rounded-xl border-slate-200 text-slate-900 text-sm font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant={isScanningRfid ? "destructive" : "outline"}
+                    onClick={() => setIsScanningRfid(!isScanningRfid)}
+                    className="rounded-xl px-3 shrink-0 flex items-center gap-1.5 text-xs font-bold h-10 border-slate-200 hover:bg-slate-50"
+                  >
+                    {isScanningRfid ? (
+                      <>Batal</>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 text-indigo-650" />
+                        Pindai Real-time
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="col-span-2 space-y-1.5">
@@ -1338,6 +1475,85 @@ export function SiswaPanel({ userRole }: SiswaPanelProps) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Link RFID Dialog */}
+      <Dialog open={!!quickLinkStudent} onOpenChange={(open) => {
+        if (!open) {
+          setQuickLinkStudent(null);
+          setQuickLinkRfid("");
+          setIsQuickScanning(false);
+        }
+      }}>
+        <DialogContent className="max-w-md rounded-2xl bg-white p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800 font-black">
+              <CreditCard className="h-5 w-5 text-indigo-650" /> Hubungkan RFID Santri
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 font-semibold text-xs">
+              Tautkan kartu RFID fisik secara langsung ke santri bernama <strong className="text-indigo-600 font-black">{quickLinkStudent?.namaLengkap}</strong> ({quickLinkStudent?.namaKelompok}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3 text-left">
+            <div className="space-y-2">
+              <label className="text-xs font-extrabold text-slate-700 flex items-center justify-between">
+                <span>UID RFID Kartu:</span>
+                {isQuickScanning && (
+                  <span className="text-[10px] text-indigo-650 animate-pulse font-extrabold flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 inline-block animate-ping"></span>
+                    Mendengarkan tap kartu...
+                  </span>
+                )}
+              </label>
+              
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Scan kartu RFID atau ketik di sini..."
+                  value={quickLinkRfid}
+                  onChange={(e) => setQuickLinkRfid(e.target.value)}
+                  className="rounded-xl border-slate-200 text-slate-900 text-sm font-mono flex-1 h-10"
+                />
+                <Button
+                  type="button"
+                  variant={isQuickScanning ? "destructive" : "outline"}
+                  onClick={() => setIsQuickScanning(!isQuickScanning)}
+                  className="rounded-xl px-3 shrink-0 flex items-center gap-1.5 text-xs font-bold h-10 border-slate-200 hover:bg-slate-50 bg-white"
+                >
+                  {isQuickScanning ? "Batal" : "Pindai IoT"}
+                </Button>
+              </div>
+            </div>
+
+            {quickLinkRfid && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-150 text-emerald-800 text-[10px] font-semibold leading-relaxed">
+                Kartu RFID terdeteksi / diisi: <strong className="font-mono">{quickLinkRfid}</strong>. Klik <strong>Simpan Tautan</strong> untuk mendaftarkan kartu ini.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setQuickLinkStudent(null);
+                  setQuickLinkRfid("");
+                  setIsQuickScanning(false);
+                }}
+                className="rounded-xl text-xs font-extrabold h-9"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveQuickLink}
+                className="rounded-xl bg-indigo-650 hover:bg-indigo-500 text-white text-xs font-extrabold h-9"
+              >
+                Simpan Tautan
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

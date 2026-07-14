@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getPresensi, savePresensi, getGenerus, getKelompok, Presensi, Generus, Kelompok, getUserDetails } from "@/lib/mockData";
+import { getPresensi, savePresensi, getGenerus, saveGenerus, getKelompok, Presensi, Generus, Kelompok, getUserDetails } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,7 @@ interface PresensiPanelProps {
 
 export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanelProps) {
   const [presensiList, setPresensiList] = useState<Presensi[]>(() => getPresensi() || []);
-  const [generusList] = useState<Generus[]>(() => getGenerus() || []);
+  const [generusList, setGenerusList] = useState<Generus[]>(() => getGenerus() || []);
   const [kelompokList] = useState<Kelompok[]>(() => getKelompok() || []);
   
   const isReadOnly = userRole === "Viewer";
@@ -147,6 +147,9 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
   // RFID Scanner States
   const [rfidDialogOpen, setRfidDialogOpen] = useState(false);
   const [rfidInputVal, setRfidInputVal] = useState("");
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [selectedUidToLink, setSelectedUidToLink] = useState("");
+  const [selectedStudentIdToLink, setSelectedStudentIdToLink] = useState("");
   const [lastScannedStudent, setLastScannedStudent] = useState<string | null>(null);
   const [rfidStatus, setRfidStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [rfidMode, setRfidMode] = useState<"local" | "standalone">("standalone");
@@ -262,6 +265,40 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
     rfidTimeoutRef.current = setTimeout(() => {
       setRfidStatus("idle");
     }, 1500);
+  };
+
+  const handleLinkRfidCard = () => {
+    if (!selectedUidToLink || !selectedStudentIdToLink) {
+      toast.error("Silakan pilih santri terlebih dahulu!");
+      return;
+    }
+
+    const studentToUpdate = generusList.find(g => g.id === selectedStudentIdToLink);
+    if (!studentToUpdate) {
+      toast.error("Santri tidak ditemukan!");
+      return;
+    }
+
+    // Check if this UID is already used by another student
+    const alreadyUsed = generusList.find(g => g.rfidUid === selectedUidToLink && g.id !== selectedStudentIdToLink);
+    if (alreadyUsed) {
+      toast.error(`UID kartu ini sudah digunakan oleh ${alreadyUsed.namaLengkap}!`);
+      return;
+    }
+
+    const updatedList = generusList.map(g => {
+      if (g.id === selectedStudentIdToLink) {
+        return { ...g, rfidUid: selectedUidToLink };
+      }
+      return g;
+    });
+
+    setGenerusList(updatedList);
+    saveGenerus(updatedList);
+    toast.success(`Kartu RFID (UID: ${selectedUidToLink}) berhasil ditautkan ke ${studentToUpdate.namaLengkap}!`);
+    setLinkDialogOpen(false);
+    setSelectedUidToLink("");
+    setSelectedStudentIdToLink("");
   };
 
   // Subscribe to real-time RFID scans via Supabase Realtime Broadcast
@@ -1756,7 +1793,21 @@ void loop() {
                           {log.name}
                         </span>
                       </div>
-                      <span className="font-mono text-slate-450">UID: {log.uid}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-slate-450">UID: {log.uid}</span>
+                        {log.status === "error" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedUidToLink(log.uid);
+                              setLinkDialogOpen(true);
+                            }}
+                            className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-150 text-indigo-750 px-1.5 py-0.5 rounded text-[8px] font-black hover:text-indigo-850 transition-colors cursor-pointer"
+                          >
+                            Tautkan ke Santri
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1794,6 +1845,64 @@ void loop() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* RFID Card Linking Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl bg-white p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800 font-black">
+              <CreditCard className="h-5 w-5 text-indigo-650" /> Tautkan Kartu RFID Baru
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 font-semibold text-xs">
+              Hubungkan kartu RFID dengan UID <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-650 font-mono select-all font-black">{selectedUidToLink}</code> ke data santri agar kartu dapat digunakan untuk presensi.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-extrabold text-slate-700 block">Pilih Santri (Generus):</label>
+              <select
+                value={selectedStudentIdToLink}
+                onChange={(e) => setSelectedStudentIdToLink(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-10 cursor-pointer"
+              >
+                <option value="">-- Pilih Santri --</option>
+                {generusList
+                  .filter(g => allowedKelompoks.includes(g.namaKelompok) || allowedKelompoks.includes("Semua"))
+                  .sort((a, b) => a.namaLengkap.localeCompare(b.namaLengkap))
+                  .map(std => (
+                    <option key={std.id} value={std.id}>
+                      {std.namaLengkap} ({std.namaKelompok}) {std.rfidUid ? `[UID: ${std.rfidUid}]` : ""}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setLinkDialogOpen(false);
+                  setSelectedUidToLink("");
+                  setSelectedStudentIdToLink("");
+                }}
+                className="rounded-xl text-xs font-extrabold h-9"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={handleLinkRfidCard}
+                className="rounded-xl bg-indigo-650 hover:bg-indigo-500 text-white text-xs font-extrabold h-9"
+              >
+                Simpan Tautan
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

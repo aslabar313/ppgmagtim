@@ -598,11 +598,10 @@ export const getGenerus = (): Generus[] => {
     updated = true;
   }
 
-  // 3. Ensure all loaded records have a unique sequential rfidUid field populated neatly
+  // 3. Ensure all loaded records have an rfidUid field populated if empty
   loaded = loaded.map((g, index) => {
-    const expectedUid = `102030${String(4001 + index).padStart(4, "0")}`;
-    if (g.rfidUid !== expectedUid) {
-      g.rfidUid = expectedUid;
+    if (!g.rfidUid) {
+      g.rfidUid = `102030${String(4001 + index).padStart(4, "0")}`;
       updated = true;
     }
     return g;

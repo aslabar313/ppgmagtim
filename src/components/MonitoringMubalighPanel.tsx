@@ -125,9 +125,12 @@ const MOCK_MUBALIGH_LIST = [
 ];
 
 const MOCK_ACTIVITIES = [
-  "Mengajar Iqro", "Mengajar Al-Qur'an", "Tahsin", "Tahfidz", "Tajwid", 
-  "Hafalan Doa", "Hafalan Hadits", "Akhlak", "Fiqih", "Sirah Nabawiyah", 
-  "Bahasa Arab", "Pendidikan Karakter", "Permainan Edukatif", "Evaluasi Santri", "Pendampingan Individu"
+  "Apakah Anda Sholat & Do'a 1/3 Malam Hari ini ?",
+  "Apakah anda Membersihkan Masjid, Kamar Mt, Kamar Mandi, Tempat Wudhu, Hari ini ?",
+  "Apakah Anda sudah melaksanakan Sholat 5 Waktu tepat Waktu Hari ini ?",
+  "Apakah Anda Menderes Materi yg Akan anda Sampaikan ke Pengajian Hari ini?",
+  "Apakah Anda Berkunjung ke Rumah Jama'ah Hari ini? (Min 3 x dalam Seminggu)",
+  "berapa Jam anda mengajar Hari ini ? (Sehari Minimal 3 Jam)"
 ];
 
 const generateMockReports = (): DailyActivityReport[] => {
@@ -152,14 +155,15 @@ const generateMockReports = (): DailyActivityReport[] => {
       // Aktivitas
       const aktivitas: DailyActivityReport["aktivitas"] = {};
       MOCK_ACTIVITIES.forEach((act, idx) => {
-        // randomly check 3-5 activities
-        const checked = (idx + i) % 4 === 0;
+        // Randomly check questions (high probability of being true)
+        const checked = (idx + i) % 5 !== 0;
+        const isHours = act.toLowerCase().includes("berapa jam");
         aktivitas[act] = {
           checked,
-          durasi: checked ? 20 + (idx * 5) % 30 : 0,
+          durasi: checked ? (isHours ? 3 + (i % 3) : 0) : 0,
           generusCount: checked ? 12 + (i % 3) : 0,
-          ketercapaian: checked ? 80 + (i * idx) % 21 : 0,
-          catatan: checked ? `Materi ke-${idx + 1} berjalan lancar.` : ""
+          ketercapaian: checked ? 100 : 0,
+          catatan: checked && !isHours && (idx === 4) ? "Berkunjung ke keluarga Budi & Ahmad" : ""
         };
       });
 
@@ -379,7 +383,8 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
   }>(() => {
     const actObj: any = {};
     MOCK_ACTIVITIES.forEach(act => {
-      actObj[act] = { checked: false, durasi: 15, generusCount: 10, ketercapaian: 80, catatan: "" };
+      const isHours = act.toLowerCase().includes("berapa jam");
+      actObj[act] = { checked: false, durasi: isHours ? 3 : 0, generusCount: 0, ketercapaian: 100, catatan: "" };
     });
     return actObj;
   });
@@ -1092,7 +1097,7 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
               <div className="text-center pb-6">
                 <h2 className="text-lg font-bold text-slate-800">
                   {currentStep === 1 && "Langkah 1: Identitas & Presensi Masuk (Check-In)"}
-                  {currentStep === 2 && "Langkah 2: Checklist Aktivitas & Durasi"}
+                  {currentStep === 2 && "Langkah 2: Monev Kegiatan Harian Mubaligh"}
                   {currentStep === 3 && "Langkah 3: Monitoring Materi & Generus"}
                   {currentStep === 4 && "Langkah 4: Penilaian Kelas & Dokumentasi"}
                   {currentStep === 5 && "Langkah 5: Catatan Harian & Simpan Laporan"}
@@ -1218,22 +1223,21 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
                       )}
                     </div>
                   </div>
-                )}
-
-                {/* STEP 2: CHECKLIST AKTIVITAS */}
+                )}                {/* STEP 2: CHECKLIST AKTIVITAS */}
                 {currentStep === 2 && (
                   <div className="space-y-4">
-                    <span className="text-xs font-bold text-slate-400 block pb-2">Silakan centang aktivitas mengajar hari ini & isi durasinya (menit):</span>
+                    <span className="text-xs font-bold text-slate-400 block pb-2">Silakan isi kuesioner monev harian Mubaligh di bawah ini:</span>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2">
                       {MOCK_ACTIVITIES.map((act) => {
                         const actState = formActivities[act];
+                        const isQuestionWithHours = act.toLowerCase().includes("berapa jam");
                         return (
                           <div 
                             key={act} 
                             className={`p-4 rounded-2xl border transition-all ${
                               actState.checked 
-                                ? "bg-emerald-50/50 border-emerald-305" 
+                                ? "bg-emerald-50/50 border-emerald-300" 
                                 : "bg-white border-slate-200"
                             }`}
                           >
@@ -1255,12 +1259,15 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
                             </div>
 
                             {/* Expanded options for checked activity */}
-                            {actState.checked && (
-                              <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-dashed border-slate-200 text-[10px]">
+                            {actState.checked && isQuestionWithHours && (
+                              <div className="mt-3 grid grid-cols-1 gap-3 pt-3 border-t border-dashed border-slate-200 text-[10px]">
                                 <div className="space-y-1">
-                                  <label className="font-bold text-slate-650">Durasi (Menit)</label>
+                                  <label className="font-bold text-slate-600">Jumlah Jam Mengajar</label>
                                   <input 
                                     type="number"
+                                    min="0"
+                                    max="24"
+                                    placeholder="Contoh: 3"
                                     value={actState.durasi}
                                     onChange={(e) => {
                                       setFormActivities(prev => ({
@@ -1268,30 +1275,20 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
                                         [act]: { ...prev[act], durasi: parseInt(e.target.value) || 0 }
                                       }));
                                     }}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none font-bold text-xs"
                                   />
                                 </div>
+                              </div>
+                            )}
 
+                            {/* Optional Catatan for other questions */}
+                            {actState.checked && !isQuestionWithHours && (
+                              <div className="mt-3 grid grid-cols-1 gap-3 pt-3 border-t border-dashed border-slate-200 text-[10px]">
                                 <div className="space-y-1">
-                                  <label className="font-bold text-slate-650">Santri Hadir</label>
-                                  <input 
-                                    type="number"
-                                    value={actState.generusCount}
-                                    onChange={(e) => {
-                                      setFormActivities(prev => ({
-                                        ...prev,
-                                        [act]: { ...prev[act], generusCount: parseInt(e.target.value) || 0 }
-                                      }));
-                                    }}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
-                                  />
-                                </div>
-
-                                <div className="col-span-2 space-y-1">
-                                  <label className="font-bold text-slate-650">Catatan Ringkas KBM</label>
+                                  <label className="font-bold text-slate-600">Catatan / Keterangan (Opsional)</label>
                                   <input 
                                     type="text"
-                                    placeholder="Contoh: Menghafal Surat Al-A'la ayat 1-5"
+                                    placeholder="Tambahkan catatan jika ada..."
                                     value={actState.catatan}
                                     onChange={(e) => {
                                       setFormActivities(prev => ({
@@ -2242,15 +2239,33 @@ export function MonitoringMubalighPanel({ userRole }: { userRole: string }) {
 
               {/* Aktivitas Checklist */}
               <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
-                <span className="font-bold text-slate-800 block">Aktivitas Mengajar Terlaksana:</span>
-                <div className="flex flex-wrap gap-2">
+                <span className="font-bold text-slate-800 block">Monev Harian Mubaligh Terlaksana:</span>
+                <div className="flex flex-col gap-2">
                   {Object.keys(selectedReportDetail.aktivitas)
                     .filter(key => selectedReportDetail.aktivitas[key].checked)
-                    .map(key => (
-                      <Badge key={key} className="bg-white border border-slate-200 text-slate-700 font-bold rounded-full px-2.5 py-1">
-                        {key} ({selectedReportDetail.aktivitas[key].durasi} menit)
-                      </Badge>
-                    ))}
+                    .map(key => {
+                      const act = selectedReportDetail.aktivitas[key];
+                      const isHours = key.toLowerCase().includes("berapa jam");
+                      return (
+                        <div key={key} className="bg-white p-2.5 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-700">{key}</span>
+                          <div className="flex items-center gap-2">
+                            {isHours ? (
+                              <Badge className="bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-full px-2.5 py-0.5">
+                                {act.durasi} Jam
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold rounded-full px-2.5 py-0.5">
+                                Ya
+                              </Badge>
+                            )}
+                            {act.catatan && (
+                              <span className="text-[10px] text-slate-400 italic">({act.catatan})</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
 

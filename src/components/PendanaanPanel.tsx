@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { 
   Wallet, Coins, Search, FileSpreadsheet, Printer, Edit, Plus, Save, 
   ChevronRight, Calendar, ArrowUpRight, CheckCircle2, Filter, RefreshCw,
-  ShieldCheck, Lock, AlertCircle, Info, Eye
+  ShieldCheck, Lock, AlertCircle, Info, Eye, Clock, CalendarDays
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -80,6 +80,14 @@ const BULAN_LIST = [
   { key: "desember", label: "Desember" }
 ] as const;
 
+const MINGGU_LIST = [
+  { key: "minggu1", label: "Minggu ke-1 (Sabtu I)" },
+  { key: "minggu2", label: "Minggu ke-2 (Sabtu II)" },
+  { key: "minggu3", label: "Minggu ke-3 (Sabtu III)" },
+  { key: "minggu4", label: "Minggu ke-4 (Sabtu IV)" },
+  { key: "minggu5", label: "Minggu ke-5 (Sabtu V)" }
+] as const;
+
 export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
   const [kelompokList] = useState<Kelompok[]>(getKelompok());
   const [activeSubCategory, setActiveSubCategory] = useState<"dana_ppg" | "siar_siar">("dana_ppg");
@@ -145,7 +153,6 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
       if (stored) return JSON.parse(stored);
     }
     
-    // Generate initial records from kelompokList
     const initial: DanaPPGRecord[] = getKelompok().map((k, idx) => ({
       id: `dppg-${k.id}`,
       no: idx + 1,
@@ -210,13 +217,31 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     return initial;
   });
 
-  // Modal State for Editing Dana PPG
+  // Full Row Editing Modals
   const [editingDanaPPG, setEditingDanaPPG] = useState<DanaPPGRecord | null>(null);
-
-  // Modal State for Editing Siar-siar
   const [editingSiarSiar, setEditingSiarSiar] = useState<{ record: SiarSiarRecord; bulanKey: keyof SiarSiarRecord["bulan"] } | null>(null);
 
-  // Save Dana PPG changes with RBAC validation & persistence
+  // Quick Action Input Modals
+  const [quickPPGOpen, setQuickPPGOpen] = useState(false);
+  const [quickSiarOpen, setQuickSiarOpen] = useState(false);
+
+  // Quick Input Form States
+  const [targetKelompokName, setTargetKelompokName] = useState(() => allowedKelompoks[0] || "Kelompok Karas");
+  const [inputMonthPPG, setInputMonthPPG] = useState<keyof DanaPPGRecord["bulanan"]>("juli");
+  const [inputNominalPPG, setInputNominalPPG] = useState<number>(0);
+
+  const [inputSiarMonth, setInputSiarMonth] = useState<keyof SiarSiarRecord["bulan"]>("juli");
+  const [inputSiarWeek, setInputSiarWeek] = useState<keyof WeeklySiarSiar>("minggu4");
+  const [inputNominalSiar, setInputNominalSiar] = useState<number>(0);
+
+  // Sync default targetKelompokName when allowedKelompoks changes
+  useEffect(() => {
+    if (allowedKelompoks.length > 0 && !allowedKelompoks.includes(targetKelompokName)) {
+      setTargetKelompokName(allowedKelompoks[0]);
+    }
+  }, [userRole, userScope]);
+
+  // Save Dana PPG full row
   const handleSaveDanaPPG = (updated: DanaPPGRecord) => {
     if (!canEditRecord(updated.namaKelompok, updated.desa)) {
       toast.error(`Akses ditolak: Otoritas Anda (${userRole}) tidak diizinkan mengubah data kelompok ${updated.namaKelompok}!`);
@@ -227,10 +252,10 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     setDanaPPGList(newList);
     localStorage.setItem("sim_tpq_dana_ppg", JSON.stringify(newList));
     setEditingDanaPPG(null);
-    toast.success(`Data Dana PPG ${updated.namaKelompok} (${updated.desa}) berhasil disimpan secara akurat dan tersimpan di sistem!`);
+    toast.success(`Data Dana PPG ${updated.namaKelompok} (${updated.desa}) berhasil disimpan secara akurat!`);
   };
 
-  // Save Siar-siar changes with RBAC validation & persistence
+  // Save Siar-siar full row
   const handleSaveSiarSiar = (updatedRecord: SiarSiarRecord) => {
     if (!canEditRecord(updatedRecord.namaKelompok, updatedRecord.desa)) {
       toast.error(`Akses ditolak: Otoritas Anda (${userRole}) tidak diizinkan mengubah data kelompok ${updatedRecord.namaKelompok}!`);
@@ -242,6 +267,56 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     localStorage.setItem("sim_tpq_siar_siar", JSON.stringify(newList));
     setEditingSiarSiar(null);
     toast.success(`Data Siar-siar ${updatedRecord.namaKelompok} (${updatedRecord.desa}) berhasil disimpan secara akurat!`);
+  };
+
+  // Submit Quick Laporan Dana PPG (1x per bulan)
+  const handleQuickSubmitPPG = (e: React.FormEvent) => {
+    e.preventDefault();
+    const record = danaPPGList.find(d => d.namaKelompok === targetKelompokName);
+    if (!record) {
+      toast.error("Kelompok target tidak ditemukan!");
+      return;
+    }
+    if (!canEditRecord(record.namaKelompok, record.desa)) {
+      toast.error(`Akses ditolak untuk kelompok ${record.namaKelompok}!`);
+      return;
+    }
+
+    const updatedBulanan = { ...record.bulanan, [inputMonthPPG]: inputNominalPPG };
+    const updatedRecord = { ...record, bulanan: updatedBulanan };
+
+    const newList = danaPPGList.map(d => d.id === record.id ? updatedRecord : d);
+    setDanaPPGList(newList);
+    localStorage.setItem("sim_tpq_dana_ppg", JSON.stringify(newList));
+    setQuickPPGOpen(false);
+    setInputNominalPPG(0);
+    toast.success(`Laporan Dana PPG Bulan ${BULAN_LIST.find(b => b.key === inputMonthPPG)?.label} untuk ${record.namaKelompok} berhasil diinput (Rp ${inputNominalPPG.toLocaleString("id-ID")})!`);
+  };
+
+  // Submit Quick Laporan Siar-siar (1x per minggu / Sabtu)
+  const handleQuickSubmitSiar = (e: React.FormEvent) => {
+    e.preventDefault();
+    const record = siarSiarList.find(s => s.namaKelompok === targetKelompokName);
+    if (!record) {
+      toast.error("Kelompok target tidak ditemukan!");
+      return;
+    }
+    if (!canEditRecord(record.namaKelompok, record.desa)) {
+      toast.error(`Akses ditolak untuk kelompok ${record.namaKelompok}!`);
+      return;
+    }
+
+    const currentWeekly = record.bulan[inputSiarMonth] || { minggu1: 0, minggu2: 0, minggu3: 0, minggu4: 0, minggu5: 0 };
+    const updatedWeekly = { ...currentWeekly, [inputSiarWeek]: inputNominalSiar };
+    const updatedBulan = { ...record.bulan, [inputSiarMonth]: updatedWeekly };
+    const updatedRecord = { ...record, bulan: updatedBulan };
+
+    const newList = siarSiarList.map(s => s.id === record.id ? updatedRecord : s);
+    setSiarSiarList(newList);
+    localStorage.setItem("sim_tpq_siar_siar", JSON.stringify(newList));
+    setQuickSiarOpen(false);
+    setInputNominalSiar(0);
+    toast.success(`Laporan Siar-siar ${MINGGU_LIST.find(m => m.key === inputSiarWeek)?.label} Bulan ${BULAN_LIST.find(b => b.key === inputSiarMonth)?.label} untuk ${record.namaKelompok} berhasil diinput (Rp ${inputNominalSiar.toLocaleString("id-ID")})!`);
   };
 
   // Unique Desas list for filter dropdown
@@ -287,8 +362,8 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
 
   return (
     <div className="space-y-6 text-left animate-fade-in">
-      {/* Header Title & Quick Export */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Header Title & Quick Input Action Buttons */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-display text-2xl font-bold text-slate-800">Fitur Pendanaan Wilayah</h2>
@@ -297,33 +372,53 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             </Badge>
           </div>
           <p className="text-slate-500 text-sm mt-1">
-            Manajemen dan rekapitulasi perolehan Dana PPG dan Siar-siar bulanan & mingguan per kelompok dan desa.
+            Manajemen dan rekapitulasi perolehan Dana PPG (Bulanan) & Siar-siar (Mingguan / Setiap Sabtu) per kelompok dan desa.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        {/* Action Buttons: Quick Inputs for Admin Kelompok & Export */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {!isReadOnly && (
+            <>
+              <Button 
+                onClick={() => setQuickPPGOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl py-2.5 px-4 gap-2 shadow-md shadow-emerald-600/20"
+              >
+                <Plus className="h-4 w-4" /> Input Dana PPG (1x / Bulan)
+              </Button>
+
+              <Button 
+                onClick={() => setQuickSiarOpen(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl py-2.5 px-4 gap-2 shadow-md shadow-amber-600/20"
+              >
+                <CalendarDays className="h-4 w-4" /> Input Siar-siar (Sabtu)
+              </Button>
+            </>
+          )}
+
           <Button 
             onClick={() => {
               toast.success("Mengekspor rekapitulasi data pendanaan ke Excel...");
             }} 
             variant="outline" 
-            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3"
+            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2.5 px-3"
           >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Ekspor Rekap Excel
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Ekspor Excel
           </Button>
           <Button 
             onClick={() => {
               window.print();
             }} 
             variant="outline" 
-            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3"
+            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2.5 px-3"
           >
-            <Printer className="h-4 w-4 text-slate-600" /> Cetak Laporan
+            <Printer className="h-4 w-4 text-slate-600" /> Cetak
           </Button>
         </div>
       </div>
 
-      {/* RBAC Scope & Permission Banner */}
-      <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-3 shadow-sm ${
+      {/* RBAC Scope & Input Rules Banner */}
+      <div className={`p-4 rounded-2xl border text-xs font-semibold flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm ${
         userRole === "Super Admin" || userRole === "Admin Daerah"
           ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
           : userRole === "Admin Desa"
@@ -344,65 +439,77 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
           }`} />
           <div>
             <span className="font-bold block">
-              Status RBAC Otoritas Peran: <span className="font-black uppercase">{userRole}</span>
+              Aturan Otoritas Laporan ({userRole}): <span className="font-black uppercase">{userScope}</span>
             </span>
             <span className="text-[11px] opacity-90 block mt-0.5">
-              {userRole === "Super Admin" || userRole === "Admin Daerah" && "🟢 Akses Full Daerah: Anda dapat mengisi, mengedit, meninjau, dan memantau seluruh data pendanaan di semua Desa & Kelompok se-Daerah."}
-              {userRole === "Admin Desa" && `🔵 Akses Tingkat Desa (${userScope}): Anda dapat mengisi, mengedit, dan memantau data pendanaan seluruh kelompok di ${userScope}.`}
-              {(userRole === "Admin Kelompok" || userRole === "Pengajar") && `🟡 Akses Tingkat Kelompok (${userScope}): Anda khusus berwenang mengisi & mengedit data perolehan kelompok ${userScope}.`}
-              {isReadOnly && "🔒 Akses Mode Lihat (Read-Only): Anda dapat memantau dan meninjau data perolehan pendanaan."}
+              📅 <strong>Rule Pengisian</strong>: 1. <b>Dana PPG</b> diisi 1x dalam 1 Bulan. 2. <b>Siar-siar</b> diisi 1x seminggu (Rutin setiap hari Sabtu).
+              {userRole === "Admin Kelompok" && ` (Anda berwenang khusus mengisi kelompok ${userScope}).`}
+              {userRole === "Admin Desa" && ` (Anda dapat meninjau & mengelola kelompok se-Desa ${userScope}).`}
+              {(userRole === "Super Admin" || userRole === "Admin Daerah") && " (Anda berhak memantau & meninjau seluruh Daerah)."}
             </span>
           </div>
         </div>
 
-        <Badge className={`font-bold px-3 py-1 rounded-xl text-[10px] shrink-0 ${
-          userRole === "Super Admin" || userRole === "Admin Daerah"
-            ? "bg-emerald-600 text-white"
-            : userRole === "Admin Desa"
-            ? "bg-blue-600 text-white"
-            : userRole === "Admin Kelompok" || userRole === "Pengajar"
-            ? "bg-amber-600 text-white"
-            : "bg-slate-700 text-white"
-        }`}>
-          Scope: {userScope}
-        </Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge className={`font-bold px-3 py-1 rounded-xl text-[10px] ${
+            userRole === "Super Admin" || userRole === "Admin Daerah"
+              ? "bg-emerald-600 text-white"
+              : userRole === "Admin Desa"
+              ? "bg-blue-600 text-white"
+              : userRole === "Admin Kelompok" || userRole === "Pengajar"
+              ? "bg-amber-600 text-white"
+              : "bg-slate-700 text-white"
+          }`}>
+            Scope: {userScope}
+          </Badge>
+        </div>
       </div>
 
       {/* Sub-Category Nav Tabs */}
-      <div className="bg-slate-100 p-1.5 rounded-2xl flex flex-wrap gap-2 max-w-fit shadow-sm border border-slate-200/60">
-        <button 
-          onClick={() => setActiveSubCategory("dana_ppg")}
-          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-            activeSubCategory === "dana_ppg" 
-              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" 
-              : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
-          }`}
-        >
-          <Wallet className="h-4 w-4" /> 
-          <span>1. Dana PPG</span>
-          <Badge className={`ml-1 text-[10px] font-black rounded-full ${
-            activeSubCategory === "dana_ppg" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-          }`}>
-            Bulanan
-          </Badge>
-        </button>
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm border border-slate-200/60">
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={() => setActiveSubCategory("dana_ppg")}
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+              activeSubCategory === "dana_ppg" 
+                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" 
+                : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
+            }`}
+          >
+            <Wallet className="h-4 w-4" /> 
+            <span>1. Dana PPG</span>
+            <Badge className={`ml-1 text-[10px] font-black rounded-full ${
+              activeSubCategory === "dana_ppg" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+            }`}>
+              1x / Bulan
+            </Badge>
+          </button>
 
-        <button 
-          onClick={() => setActiveSubCategory("siar_siar")}
-          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-            activeSubCategory === "siar_siar" 
-              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" 
-              : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
-          }`}
-        >
-          <Coins className="h-4 w-4" /> 
-          <span>2. Siar-siar</span>
-          <Badge className={`ml-1 text-[10px] font-black rounded-full ${
-            activeSubCategory === "siar_siar" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-          }`}>
-            Mingguan (M1-M5)
-          </Badge>
-        </button>
+          <button 
+            onClick={() => setActiveSubCategory("siar_siar")}
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+              activeSubCategory === "siar_siar" 
+                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" 
+                : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
+            }`}
+          >
+            <Coins className="h-4 w-4" /> 
+            <span>2. Siar-siar</span>
+            <Badge className={`ml-1 text-[10px] font-black rounded-full ${
+              activeSubCategory === "siar_siar" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+            }`}>
+              Sabtu (Mingguan)
+            </Badge>
+          </button>
+        </div>
+
+        {/* Quick input modal trigger badge */}
+        {!isReadOnly && (
+          <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2 px-3 py-1">
+            <Clock className="h-3.5 w-3.5 text-amber-500" />
+            <span>Pengisian aktif bulan <strong>Juli 2026</strong></span>
+          </div>
+        )}
       </div>
 
       {/* Summary KPI Widgets */}
@@ -425,7 +532,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Perolehan Bulan Ini (Juli)</span>
                 <span className="font-display text-2xl font-black text-blue-600">Rp {totalDanaPPGBulanIni.toLocaleString("id-ID")}</span>
                 <span className="text-[10px] text-emerald-600 font-bold block flex items-center gap-1">
-                  <ArrowUpRight className="h-3 w-3" /> Rekapitutasi Aktif
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Laporan Bulanan Terbuka
                 </span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
@@ -436,8 +543,8 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex items-center justify-between hover:border-purple-200 transition-colors">
               <div className="space-y-1">
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Scope Kelompok Terbuka</span>
-                <span className="font-display text-2xl font-black text-slate-900">{filteredDanaPPG.length}</span>
-                <span className="text-[10px] text-slate-400 font-semibold block">Sesuai Hak Otoritas {userRole}</span>
+                <span className="font-display text-2xl font-black text-slate-900">{filteredDanaPPG.length} Kelompok</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Sesuai Otoritas Peran {userRole}</span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-inner">
                 <CheckCircle2 className="h-6 w-6" />
@@ -461,10 +568,10 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
               <div className="space-y-1">
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Siar-siar Bulan {BULAN_LIST.find(b => b.key === selectedBulan)?.label}</span>
                 <span className="font-display text-2xl font-black text-teal-600">Rp {totalSiarSiarBulanTerpilih.toLocaleString("id-ID")}</span>
-                <span className="text-[10px] text-slate-400 font-semibold block">Total 5 Minggu Bulan Terpilih</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Pengisian Rutin Setiap Sabtu</span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shadow-inner">
-                <Calendar className="h-6 w-6" />
+                <CalendarDays className="h-6 w-6" />
               </div>
             </Card>
 
@@ -539,10 +646,10 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             <div>
               <CardTitle className="font-display text-base font-bold text-slate-800 flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-600" />
-                Format Data Perolehan Dana PPG Bulanan
+                Format Data Perolehan Dana PPG Bulanan (Format: No . Desa . Nama Kelompok . Perolehan Bulan)
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Format: No | Desa | Nama Kelompok | Perolehan Dana PPG Bulan (Januari - Desember)
+                Pengisian wajib diisi 1x dalam 1 bulan oleh Admin Kelompok.
               </CardDescription>
             </div>
             <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold px-3 py-1">
@@ -561,7 +668,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                     <th key={b.key} className="px-3 py-3.5 text-right font-mono">{b.label}</th>
                   ))}
                   <th className="px-4 py-3.5 text-right bg-emerald-50/70 text-emerald-900 font-bold">Total Dana PPG</th>
-                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20">Aksi Edit</th>}
+                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20">Input / Edit</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -614,7 +721,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
-                                title="Edit / Input Dana PPG"
+                                title="Input / Edit Laporan Dana PPG"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -665,10 +772,10 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             <div>
               <CardTitle className="font-display text-base font-bold text-slate-800 flex items-center gap-2">
                 <Coins className="h-5 w-5 text-amber-600" />
-                Format Data Perolehan Siar-siar (Minggu 1 s/d Minggu 5)
+                Format Data Perolehan Siar-siar Kelompok (Format: No . Desa . Nama Kelompok . Minggu ke 1 - Minggu ke 5)
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Format: No | Desa | Nama Kelompok | Bulan ({BULAN_LIST.find(b => b.key === selectedBulan)?.label}): Minggu ke 1, Minggu ke 2, Minggu ke 3, Minggu ke 4, Minggu ke 5
+                Pengisian wajib rutin diisi seminggu sekali pada hari Sabtu oleh Admin Kelompok.
               </CardDescription>
             </div>
 
@@ -698,11 +805,11 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                   <th className="px-4 py-3.5" rowSpan={2}>Desa</th>
                   <th className="px-4 py-3.5" rowSpan={2}>Nama Kelompok</th>
                   <th colSpan={5} className="px-4 py-2 text-center bg-amber-50/70 text-amber-900 font-black border-b border-amber-200">
-                    Perolehan Siar-siar Bulan {BULAN_LIST.find(b => b.key === selectedBulan)?.label}
+                    Perolehan Siar-siar Bulan {BULAN_LIST.find(b => b.key === selectedBulan)?.label} (Rutinitas Setiap Sabtu)
                   </th>
                   <th className="px-4 py-3.5 text-right bg-teal-50/70 text-teal-900 font-bold" rowSpan={2}>Total Bulan Ini</th>
                   <th className="px-4 py-3.5 text-right bg-slate-200/60 text-slate-900 font-bold" rowSpan={2}>Total Setahun (Jan-Des)</th>
-                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20" rowSpan={2}>Aksi Edit</th>}
+                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20" rowSpan={2}>Input / Edit</th>}
                 </tr>
                 <tr className="bg-amber-50/40 text-amber-950 font-bold text-[10px]">
                   <th className="px-3 py-2 text-right">Minggu ke 1</th>
@@ -761,7 +868,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
-                                title="Edit / Input Siar-siar"
+                                title="Input / Edit Laporan Siar-siar Minggu Ini"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -814,11 +921,208 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL EDIT DANA PPG */}
+      {/* QUICK MODAL 1: INPUT LAPORAN DANA PPG (1X / BULAN) */}
+      {/* ========================================================================= */}
+      {quickPPGOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-emerald-600" />
+                  Form Laporan Dana PPG Bulanan
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Aturan: Laporan diisi 1x setiap 1 bulan.
+                </p>
+              </div>
+              <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px]">
+                Bulanan
+              </Badge>
+            </div>
+
+            <form onSubmit={handleQuickSubmitPPG} className="space-y-4">
+              {/* Select Kelompok Target */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Nama Kelompok</label>
+                <select
+                  value={targetKelompokName}
+                  onChange={(e) => setTargetKelompokName(e.target.value)}
+                  disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 text-slate-900 px-3 py-2.5 text-xs font-bold focus:ring-emerald-500"
+                >
+                  {allowedKelompoks.map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Select Bulan */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Bulan Laporan</label>
+                <select
+                  value={inputMonthPPG}
+                  onChange={(e) => setInputMonthPPG(e.target.value as any)}
+                  className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2.5 text-xs font-bold focus:ring-emerald-500 cursor-pointer"
+                >
+                  {BULAN_LIST.map((b) => (
+                    <option key={b.key} value={b.key}>Bulan {b.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Input Nominal */}
+              <div className="space-y-1 bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                  <label>Nominal Perolehan Dana PPG (Rp)</label>
+                  <span className="font-mono text-emerald-700 font-extrabold">
+                    Rp {inputNominalPPG.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="Masukkan nominal perolehan..."
+                  value={inputNominalPPG === 0 ? "" : inputNominalPPG}
+                  onChange={(e) => setInputNominalPPG(Math.max(0, Number(e.target.value) || 0))}
+                  className="rounded-xl font-mono text-sm border-slate-200 focus:ring-emerald-500 bg-white"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setQuickPPGOpen(false)}
+                  variant="outline"
+                  className="rounded-xl border-slate-200 font-semibold text-xs py-2 px-4"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-5 gap-1.5 shadow-md shadow-emerald-600/20"
+                >
+                  <Save className="h-4 w-4" /> Simpan Laporan
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* QUICK MODAL 2: INPUT LAPORAN SIAR-SIAR (1X / MINGGU - HARI SABTU) */}
+      {/* ========================================================================= */}
+      {quickSiarOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-amber-600" />
+                  Form Laporan Siar-siar Mingguan
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Aturan: Laporan diisi 1x seminggu (Rutin hari Sabtu).
+                </p>
+              </div>
+              <Badge className="bg-amber-100 text-amber-900 border-none font-bold text-[10px]">
+                Hari Sabtu
+              </Badge>
+            </div>
+
+            <form onSubmit={handleQuickSubmitSiar} className="space-y-4">
+              {/* Select Kelompok Target */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Nama Kelompok</label>
+                <select
+                  value={targetKelompokName}
+                  onChange={(e) => setTargetKelompokName(e.target.value)}
+                  disabled={userRole === "Admin Kelompok" || userRole === "Pengajar"}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 text-slate-900 px-3 py-2.5 text-xs font-bold focus:ring-amber-500"
+                >
+                  {allowedKelompoks.map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Select Bulan & Minggu */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Bulan Laporan</label>
+                  <select
+                    value={inputSiarMonth}
+                    onChange={(e) => setInputSiarMonth(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2.5 text-xs font-bold focus:ring-amber-500 cursor-pointer"
+                  >
+                    {BULAN_LIST.map((b) => (
+                      <option key={b.key} value={b.key}>{b.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Minggu Ke (Sabtu)</label>
+                  <select
+                    value={inputSiarWeek}
+                    onChange={(e) => setInputSiarWeek(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2.5 text-xs font-bold focus:ring-amber-500 cursor-pointer"
+                  >
+                    {MINGGU_LIST.map((m) => (
+                      <option key={m.key} value={m.key}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Input Nominal */}
+              <div className="space-y-1 bg-amber-50/60 p-3 rounded-2xl border border-amber-100">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                  <label>Nominal Siar-siar Sabtu Ini (Rp)</label>
+                  <span className="font-mono text-amber-700 font-extrabold">
+                    Rp {inputNominalSiar.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="Masukkan perolehan Siar-siar..."
+                  value={inputNominalSiar === 0 ? "" : inputNominalSiar}
+                  onChange={(e) => setInputNominalSiar(Math.max(0, Number(e.target.value) || 0))}
+                  className="rounded-xl font-mono text-sm border-slate-200 focus:ring-amber-500 bg-white"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setQuickSiarOpen(false)}
+                  variant="outline"
+                  className="rounded-xl border-slate-200 font-semibold text-xs py-2 px-4"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 px-5 gap-1.5 shadow-md shadow-amber-600/20"
+                >
+                  <Save className="h-4 w-4" /> Simpan Laporan Sabtu
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL FULL EDIT DANA PPG */}
       {/* ========================================================================= */}
       {editingDanaPPG && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto animate-scale-up">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto animate-scale-up text-left">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="font-display text-lg font-bold text-slate-800">
@@ -891,11 +1195,11 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL EDIT SIAR-SIAR */}
+      {/* MODAL FULL EDIT SIAR-SIAR */}
       {/* ========================================================================= */}
       {editingSiarSiar && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up text-left">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="font-display text-lg font-bold text-slate-800">
@@ -917,7 +1221,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                   <div key={mKey} className="flex items-center justify-between gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div className="space-y-0.5">
                       <label className="text-xs font-bold text-slate-700 block">
-                        Minggu ke {idx + 1}
+                        Minggu ke {idx + 1} (Pengisian Sabtu)
                       </label>
                       <span className="font-mono text-[11px] text-amber-700 font-bold block">
                         Rp {currentVal.toLocaleString("id-ID")}

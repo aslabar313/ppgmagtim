@@ -1,10 +1,10 @@
-# PintarYuk - Panduan Utama
+# ppgmagtim-354 - Panduan Utama
 
-Selamat datang di project **PintarYuk**. Ini adalah file panduan utama yang akan mendokumentasikan arsitektur, fitur, dan alur pengembangan aplikasi.
+Selamat datang di project **ppgmagtim-354**. Ini adalah file panduan utama yang akan mendokumentasikan arsitektur, fitur, dan alur pengembangan aplikasi.
 
 ## Visi Project
 
-[Deskripsi singkat tentang apa itu PintarYuk]
+[Deskripsi singkat tentang apa itu ppgmagtim-354]
 
 ## Struktur Folder (Rencana)
 

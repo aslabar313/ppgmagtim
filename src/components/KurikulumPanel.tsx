@@ -19,6 +19,12 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
   const isReadOnly = userRole === "Viewer";
   const isSuperAdmin = userRole === "Super Admin";
 
+  const loggedUser = typeof window !== "undefined" ? localStorage.getItem("sim_tpq_logged_user") : null;
+  const isAldi = loggedUser === "superadminaldi";
+  const [aldiConfirmCode, setAldiConfirmCode] = useState("");
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: string; payload: any } | null>(null);
+
   // Dynamic calendar events state
   const [calendarEvents, setCalendarEvents] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
@@ -63,6 +69,15 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
       toast.error("Hanya akun Super Admin yang diizinkan memutakhirkan progres checklist kurikulum!");
       return;
     }
+    if (isAldi) {
+      performToggleChecklist(id);
+    } else {
+      setConfirmAction({ type: "toggle_checklist", payload: id });
+      setIsConfirmDialogOpen(true);
+    }
+  };
+
+  const performToggleChecklist = (id: string) => {
     const updated = materiList.map(m => {
       if (m.id === id) {
         const nextVal = !m.checklistPenyelesaian;
@@ -90,6 +105,14 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
       return;
     }
 
+    const isValidConfirm = isAldi || 
+      ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+
+    if (!isValidConfirm) {
+      toast.error("Gagal Menyimpan: Kode konfirmasi dari superadminaldi tidak valid!");
+      return;
+    }
+
     const newItem: Kurikulum = {
       id: "cur-" + Date.now(),
       materi: formMateri,
@@ -106,6 +129,7 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
     saveKurikulum(updated);
     toast.success("Materi kurikulum baru berhasil ditambahkan!");
     setIsOpen(false);
+    setAldiConfirmCode("");
   };
 
   // Calendar Event operations
@@ -119,6 +143,15 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
       toast.error("Harap isi semua kolom wajib!");
       return;
     }
+
+    const isValidConfirm = isAldi || 
+      ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+
+    if (!isValidConfirm) {
+      toast.error("Gagal Menyimpan: Kode konfirmasi dari superadminaldi tidak valid!");
+      return;
+    }
+
     const newEvent = {
       id: "cal-" + Date.now(),
       type: formCalType,
@@ -133,6 +166,7 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
     setIsCalOpen(false);
     setFormCalTitle("");
     setFormCalDate("");
+    setAldiConfirmCode("");
   };
 
   const handleDeleteCalendarEvent = (id: string) => {
@@ -140,6 +174,15 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
       toast.error("Hanya Super Admin yang dapat menghapus agenda kalender!");
       return;
     }
+    if (isAldi) {
+      performDeleteCalendarEvent(id);
+    } else {
+      setConfirmAction({ type: "delete_calendar", payload: id });
+      setIsConfirmDialogOpen(true);
+    }
+  };
+
+  const performDeleteCalendarEvent = (id: string) => {
     const updated = calendarEvents.filter((item) => item.id !== id);
     setCalendarEvents(updated);
     localStorage.setItem("sim_tpq_calendar", JSON.stringify(updated));
@@ -222,6 +265,14 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
   };
 
   const handleConfirmImport = () => {
+    const isValidConfirm = isAldi || 
+      ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+
+    if (!isValidConfirm) {
+      toast.error("Gagal Menyimpan: Kode konfirmasi dari superadminaldi tidak valid!");
+      return;
+    }
+
     if (importType === "kurikulum") {
       const updated = [...materiList, ...importedItems];
       setMateriList(updated);
@@ -234,6 +285,7 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
     setIsImportOpen(false);
     setImportedItems([]);
     setImportStep(0);
+    setAldiConfirmCode("");
     toast.success(`Berhasil mengimpor ${importedItems.length} data valid baru melalui AI!`);
   };
 
@@ -488,6 +540,44 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
               />
             </div>
 
+            {/* Otorisasi & Persetujuan Aldi */}
+            <div className="space-y-3 border-t border-slate-100 pt-3 text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Otorisasi & Persetujuan Aldi</span>
+              
+              {isAldi ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-[11px] space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Check className="h-4 w-4" /> Persetujuan Terverifikasi
+                  </div>
+                  <p className="text-slate-500 text-[10px] leading-relaxed">
+                    Anda masuk sebagai <strong>superadminaldi</strong>. Perubahan ini disetujui secara otomatis.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-[11px] space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <ShieldAlert className="h-4 w-4 text-amber-600 animate-pulse" /> Otorisasi superadminaldi Diperlukan
+                    </div>
+                    <p className="text-slate-500 text-[10px] leading-relaxed">
+                      Penambahan materi kurikulum harus disetujui oleh <strong>superadminaldi</strong>. Masukkan kode otorisasi untuk menyimpan.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+                    <Input 
+                      type="password"
+                      placeholder="Masukkan kode konfirmasi..." 
+                      value={aldiConfirmCode} 
+                      onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                      className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-semibold mt-4">
               Tambahkan Materi Kurikulum
             </Button>
@@ -555,6 +645,44 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
                 onChange={(e) => setFormCalDate(e.target.value)}
                 className="rounded-xl border-slate-200 text-slate-900 text-sm"
               />
+            </div>
+
+            {/* Otorisasi & Persetujuan Aldi */}
+            <div className="space-y-3 border-t border-slate-100 pt-3 text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Otorisasi & Persetujuan Aldi</span>
+              
+              {isAldi ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-[11px] space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Check className="h-4 w-4" /> Persetujuan Terverifikasi
+                  </div>
+                  <p className="text-slate-500 text-[10px] leading-relaxed">
+                    Anda masuk sebagai <strong>superadminaldi</strong>. Perubahan ini disetujui secara otomatis.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-[11px] space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <ShieldAlert className="h-4 w-4 text-amber-600 animate-pulse" /> Otorisasi superadminaldi Diperlukan
+                    </div>
+                    <p className="text-slate-500 text-[10px] leading-relaxed">
+                      Penambahan agenda akademik harus disetujui oleh <strong>superadminaldi</strong>. Masukkan kode otorisasi untuk menyimpan.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+                    <Input 
+                      type="password"
+                      placeholder="Masukkan kode konfirmasi..." 
+                      value={aldiConfirmCode} 
+                      onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                      className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-semibold mt-4">
@@ -639,25 +767,122 @@ export function KurikulumPanel({ userRole }: KurikulumPanelProps) {
             </div>
 
             {importStep === 4 && (
-              <div className="flex gap-2 pt-2">
-                <Button 
-                  onClick={() => {
-                    setImportStep(0);
-                    setImportedItems([]);
-                  }} 
-                  variant="outline" 
-                  className="flex-1 rounded-xl text-xs font-semibold"
-                >
-                  Ulangi
-                </Button>
-                <Button 
-                  onClick={handleConfirmImport} 
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm"
-                >
-                  Konfirmasi & Simpan
-                </Button>
+              <div className="space-y-4 pt-2">
+                {/* Otorisasi & Persetujuan Aldi */}
+                <div className="space-y-3 border-t border-slate-100 pt-3 text-left">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Otorisasi & Persetujuan Aldi</span>
+                  
+                  {isAldi ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-[11px] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Check className="h-4 w-4" /> Persetujuan Terverifikasi
+                      </div>
+                      <p className="text-slate-500 text-[10px] leading-relaxed">
+                        Anda masuk sebagai <strong>superadminaldi</strong>. Perubahan ini disetujui secara otomatis.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-[11px] space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <ShieldAlert className="h-4 w-4 text-amber-600 animate-pulse" /> Otorisasi superadminaldi Diperlukan
+                        </div>
+                        <p className="text-slate-500 text-[10px] leading-relaxed">
+                          Impor data melalui AI harus disetujui oleh <strong>superadminaldi</strong>. Masukkan kode otorisasi untuk menyimpan.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+                        <Input 
+                          type="password"
+                          placeholder="Masukkan kode konfirmasi..." 
+                          value={aldiConfirmCode} 
+                          onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                          className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      setImportStep(0);
+                      setImportedItems([]);
+                      setAldiConfirmCode("");
+                    }} 
+                    variant="outline" 
+                    className="flex-1 rounded-xl text-xs font-semibold"
+                  >
+                    Ulangi
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmImport} 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                  >
+                    Konfirmasi & Simpan
+                  </Button>
+                </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reusable Aldi Approval Confirmation Dialog for Direct Actions */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={(open) => {
+        setIsConfirmDialogOpen(open);
+        if (!open) {
+          setAldiConfirmCode("");
+          setConfirmAction(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-bold text-slate-900 flex items-center gap-1.5 text-left">
+              <ShieldAlert className="h-5 w-5 text-amber-600 animate-pulse" /> Persetujuan superadminaldi Diperlukan
+            </DialogTitle>
+            <DialogDescription className="text-xs text-left">
+              Tindakan ini memerlukan otorisasi dari <strong>superadminaldi</strong>. Silakan masukkan kode konfirmasi untuk melanjutkan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-3 text-left">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+              <Input 
+                type="password"
+                placeholder="Masukkan kode konfirmasi..." 
+                value={aldiConfirmCode} 
+                onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+              />
+            </div>
+            <Button 
+              onClick={() => {
+                const isValidConfirm = ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+                if (!isValidConfirm) {
+                  toast.error("Gagal: Kode konfirmasi dari superadminaldi tidak valid!");
+                  return;
+                }
+                
+                if (confirmAction) {
+                  if (confirmAction.type === "toggle_checklist") {
+                    performToggleChecklist(confirmAction.payload);
+                  } else if (confirmAction.type === "delete_calendar") {
+                    performDeleteCalendarEvent(confirmAction.payload);
+                  }
+                }
+                
+                setIsConfirmDialogOpen(false);
+                setConfirmAction(null);
+                setAldiConfirmCode("");
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-xs font-bold shadow-sm"
+            >
+              Verifikasi & Lanjutkan
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -51,12 +51,18 @@ export function KeuanganPanel({ userRole }: KeuanganPanelProps) {
   const isReadOnly = userRole === "Viewer";
 
   // Mock Transactions Database
-  const [transactions, setTransactions] = useState<any[]>([
-    { id: "tx-1", tanggal: "2026-07-06", nama: "Ahmad Bagus Pratama", namaKelompok: "Kelompok Karas", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_ahmad.png" },
-    { id: "tx-2", tanggal: "2026-07-06", nama: "H. Joko Susilo", namaKelompok: "Kelompok Karas", kategori: "Donasi", tipe: "Pemasukan", jumlah: 1000000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_joko.png" },
-    { id: "tx-3", tanggal: "2026-07-05", nama: "Usth. Fatmawati", namaKelompok: "Kelompok Patihan", kategori: "Kas Desa", tipe: "Pengeluaran", jumlah: 350000, metode: "Manual", status: "Lunas", bukti: "" },
-    { id: "tx-4", tanggal: "2026-07-04", nama: "Siti Rahmawati", namaKelompok: "Kelompok Patihan", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Digital", status: "Menunggu Verifikasi", bukti: "bukti_siti.jpg" }
-  ]);
+  const [transactions, setTransactions] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sim_tpq_transactions");
+      if (stored) return JSON.parse(stored);
+    }
+    return [
+      { id: "tx-1", tanggal: "2026-07-06", nama: "Ahmad Bagus Pratama", namaKelompok: "Kelompok Karas", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_ahmad.png" },
+      { id: "tx-2", tanggal: "2026-07-06", nama: "H. Joko Susilo", namaKelompok: "Kelompok Karas", kategori: "Donasi", tipe: "Pemasukan", jumlah: 1000000, metode: "Transfer Bank", status: "Lunas", bukti: "bukti_joko.png" },
+      { id: "tx-3", tanggal: "2026-07-05", nama: "Usth. Fatmawati", namaKelompok: "Kelompok Patihan", kategori: "Kas Desa", tipe: "Pengeluaran", jumlah: 350000, metode: "Manual", status: "Lunas", bukti: "" },
+      { id: "tx-4", tanggal: "2026-07-04", nama: "Siti Rahmawati", namaKelompok: "Kelompok Patihan", kategori: "SPP", tipe: "Pemasukan", jumlah: 150000, metode: "Digital", status: "Menunggu Verifikasi", bukti: "bukti_siti.jpg" }
+    ];
+  });
 
   // SPP Arrears Mock database
   const sppList = [
@@ -91,7 +97,9 @@ export function KeuanganPanel({ userRole }: KeuanganPanelProps) {
       toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
       return;
     }
-    setTransactions(transactions.map(t => t.id === id ? { ...t, status: "Lunas" } : t));
+    const updated = transactions.map(t => t.id === id ? { ...t, status: "Lunas" } : t);
+    setTransactions(updated);
+    localStorage.setItem("sim_tpq_transactions", JSON.stringify(updated));
     toast.success("Pembayaran digital sukses diverifikasi!");
   };
 

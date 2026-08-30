@@ -25,24 +25,38 @@ export function InventarisPanel({ userRole }: InventarisPanelProps) {
   const isReadOnly = userRole === "Viewer";
 
   // Mock Assets Database
-  const [assets, setAssets] = useState<any[]>([
-    { id: "ast-1", kode: "AST-TKR-001", nama: "Proyektor Epson X41", kategori: "Proyektor", lokasi: "Ruang Utama", kelompok: kelompokList[0]?.namaKelompok, tglBeli: "2024-05-10", harga: 5500000, kondisi: "Layak Pakai", foto: "" },
-    { id: "ast-2", kode: "AST-TKR-002", nama: "Karpet Sajadah Bulu", kategori: "Karpet", lokasi: "Masjid Utama", kelompok: kelompokList[0]?.namaKelompok, tglBeli: "2025-02-12", harga: 1200000, kondisi: "Layak Pakai", foto: "" },
-    { id: "ast-3", kode: "AST-KWD-003", nama: "Sound System Portable Baretone", kategori: "Sound System", lokasi: "Gudang Alat", kelompok: kelompokList[1]?.namaKelompok, tglBeli: "2023-11-20", harga: 3800000, kondisi: "Perlu Perawatan", foto: "" },
-    { id: "ast-4", kode: "AST-SKM-004", nama: "Laptop ASUS Core i3", kategori: "Laptop", lokasi: "Sekretariat", kelompok: kelompokList[2]?.namaKelompok, tglBeli: "2024-09-05", harga: 6800000, kondisi: "Rusak", foto: "" }
-  ]);
+  const [assets, setAssets] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sim_tpq_assets");
+      if (stored) return JSON.parse(stored);
+    }
+    return [
+      { id: "ast-1", kode: "AST-TKR-001", nama: "Proyektor Epson X41", kategori: "Proyektor", lokasi: "Ruang Utama", kelompok: kelompokList[0]?.namaKelompok, tglBeli: "2024-05-10", harga: 5500000, kondisi: "Layak Pakai", foto: "" },
+      { id: "ast-2", kode: "AST-TKR-002", nama: "Karpet Sajadah Bulu", kategori: "Karpet", lokasi: "Masjid Utama", kelompok: kelompokList[0]?.namaKelompok, tglBeli: "2025-02-12", harga: 1200000, kondisi: "Layak Pakai", foto: "" },
+      { id: "ast-3", kode: "AST-KWD-003", nama: "Sound System Portable Baretone", kategori: "Sound System", lokasi: "Gudang Alat", kelompok: kelompokList[1]?.namaKelompok, tglBeli: "2023-11-20", harga: 3800000, kondisi: "Perlu Perawatan", foto: "" },
+      { id: "ast-4", kode: "AST-SKM-004", nama: "Laptop ASUS Core i3", kategori: "Laptop", lokasi: "Sekretariat", kelompok: kelompokList[2]?.namaKelompok, tglBeli: "2024-09-05", harga: 6800000, kondisi: "Rusak", foto: "" }
+    ];
+  });
 
   // Checkout/Peminjaman Mock log
-  const [loanLogs, setLoanLogs] = useState<any[]>([
-    { id: "ln-1", aset: "Proyektor Epson X41", peminjam: "Ust. Heri Susanto", tglPinjam: "2026-07-06", tglKembali: "2026-07-06", status: "Sudah Dikembalikan" }
-  ]);
+  const [loanLogs, setLoanLogs] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sim_tpq_loan_logs");
+      if (stored) return JSON.parse(stored);
+    }
+    return [
+      { id: "ln-1", aset: "Proyektor Epson X41", peminjam: "Ust. Heri Susanto", tglPinjam: "2026-07-06", tglKembali: "2026-07-06", status: "Sudah Dikembalikan" }
+    ];
+  });
 
   const handleMaintenance = (id: string) => {
     if (isReadOnly) {
       toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
       return;
     }
-    setAssets(assets.map(a => a.id === id ? { ...a, kondisi: "Layak Pakai" } : a));
+    const updatedAssets = assets.map(a => a.id === id ? { ...a, kondisi: "Layak Pakai" } : a);
+    setAssets(updatedAssets);
+    localStorage.setItem("sim_tpq_assets", JSON.stringify(updatedAssets));
     toast.success("Perawatan aset selesai dilakukan! Kondisi diperbarui ke Layak Pakai.");
   };
 
@@ -59,7 +73,9 @@ export function InventarisPanel({ userRole }: InventarisPanelProps) {
       tglKembali: "-",
       status: "Dipinjam"
     };
-    setLoanLogs([newLog, ...loanLogs]);
+    const updatedLogs = [newLog, ...loanLogs];
+    setLoanLogs(updatedLogs);
+    localStorage.setItem("sim_tpq_loan_logs", JSON.stringify(updatedLogs));
     toast.success(`Aset "${asetNama}" berhasil dipinjam!`);
   };
 
@@ -68,7 +84,9 @@ export function InventarisPanel({ userRole }: InventarisPanelProps) {
       toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
       return;
     }
-    setLoanLogs(loanLogs.map(l => l.id === id ? { ...l, status: "Sudah Dikembalikan", tglKembali: new Date().toISOString().split("T")[0] } : l));
+    const updatedLogs = loanLogs.map(l => l.id === id ? { ...l, status: "Sudah Dikembalikan", tglKembali: new Date().toISOString().split("T")[0] } : l);
+    setLoanLogs(updatedLogs);
+    localStorage.setItem("sim_tpq_loan_logs", JSON.stringify(updatedLogs));
     toast.success("Aset berhasil dikembalikan ke inventaris!");
   };
 

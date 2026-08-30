@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  BookOpen, FileText, Printer, Save, Award, Star, PenTool, Check, Sparkles, Settings 
+  BookOpen, FileText, Printer, Save, Award, Star, PenTool, Check, Sparkles, Settings, ShieldAlert, Upload 
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -95,9 +95,45 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
   });
 
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isImportFormatOpen, setIsImportFormatOpen] = useState(false);
+  const [importingFormat, setImportingFormat] = useState(false);
+  const [importFormatStep, setImportFormatStep] = useState(0);
+  const [detectedParameters, setDetectedParameters] = useState<any[]>([]);
+
   const loggedUser = typeof window !== "undefined" ? localStorage.getItem("sim_tpq_logged_user") : null;
   const isAldi = loggedUser === "superadminaldi";
   const [aldiConfirmCode, setAldiConfirmCode] = useState("");
+
+  const handleRunAiFormatAnalysis = () => {
+    setImportingFormat(true);
+    setImportFormatStep(1);
+    toast.info("AI sedang membaca berkas format...");
+
+    setTimeout(() => {
+      setImportFormatStep(2);
+      toast.info("AI menganalisis parameter & kompetensi baru...");
+      
+      setTimeout(() => {
+        setImportFormatStep(3);
+        toast.info("AI memetakan indikator dan batas kelulusan...");
+        
+        setTimeout(() => {
+          setDetectedParameters([
+            { key: "tahsin", labelSebelum: lblTahsin, labelBaru: "Tajwid & Fashohah Al-Qur'an" },
+            { key: "tahfidz", labelSebelum: lblTahfidz, labelBaru: "Tahfidz Juz 30 (Lancar)" },
+            { key: "doaHarian", labelSebelum: lblDoa, labelBaru: "Adab & Hafalan Doa Harian" },
+            { key: "ibadah", labelSebelum: lblIbadah, labelBaru: "Praktik Shalat & Wudhu" },
+            { key: "akhlak", labelSebelum: lblAkhlak, labelBaru: "Karakter Luhur & Budi Pekerti" },
+            { key: "keaktifan", labelSebelum: lblKeaktifan, labelBaru: "Keaktifan Diskusi Kelas" },
+            { key: "kedisiplinan", labelSebelum: lblKedisiplinan, labelBaru: "Kedisiplinan Seragam & Kehadiran" }
+          ]);
+          setImportingFormat(false);
+          setImportFormatStep(4);
+          toast.success("AI berhasil menganalisis format baru!");
+        }, 1200);
+      }, 1200);
+    }, 1200);
+  };
 
   // Form states
   const [valTahsin, setValTahsin] = useState(80);
@@ -309,13 +345,22 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
                   />
                 </div>
                 {userRole === "Super Admin" && (
-                  <Button
-                    onClick={() => setIsConfigOpen(true)}
-                    variant="outline"
-                    className="rounded-xl border-slate-200 hover:bg-slate-100 font-semibold text-xs h-9 gap-1.5"
-                  >
-                    <Settings className="h-3.5 w-3.5 text-slate-500" /> Konfigurasi Mapel
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <Button
+                      onClick={() => setIsConfigOpen(true)}
+                      variant="outline"
+                      className="rounded-xl border-slate-200 hover:bg-slate-100 font-semibold text-xs h-9 gap-1.5"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-slate-500" /> Konfigurasi Mapel
+                    </Button>
+                    <Button
+                      onClick={() => setIsImportFormatOpen(true)}
+                      variant="outline"
+                      className="rounded-xl border-purple-250 hover:bg-purple-50/50 text-purple-700 font-semibold text-xs h-9 gap-1.5"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600 animate-pulse" /> Kustom Format (AI)
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -592,6 +637,180 @@ export function RaportPanel({ userRole }: RaportPanelProps) {
             >
               Simpan Konfigurasi Mapel
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Custom Report Format Dialog */}
+      <Dialog open={isImportFormatOpen} onOpenChange={(open) => {
+        setIsImportFormatOpen(open);
+        if (!open) {
+          setImportFormatStep(0);
+          setDetectedParameters([]);
+          setAldiConfirmCode("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-[480px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl font-bold text-slate-900 flex items-center gap-1.5 text-left">
+              <Sparkles className="h-5 w-5 text-purple-650 animate-pulse" /> Asisten AI Kustom Parameter Raport
+            </DialogTitle>
+            <DialogDescription className="text-left text-xs">
+              Unggah berkas Excel format raport baru atau PDF panduan penilaian, AI akan secara otomatis memetakan parameter penilaian raport.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4 text-left">
+            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50 flex flex-col items-center justify-center min-h-[140px] text-center relative group">
+              {importFormatStep === 0 && (
+                <>
+                  <Upload className="h-8 w-8 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-bold text-slate-700">Pilih berkas PDF format penilaian atau Excel</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Ukuran berkas maksimum 5MB (.pdf, .xlsx, .xls)</span>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.xlsx,.xls" 
+                    onChange={handleRunAiFormatAnalysis} 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </>
+              )}
+
+              {importingFormat && (
+                <div className="space-y-3 flex flex-col items-center">
+                  <div className="h-8 w-8 rounded-full border-4 border-t-purple-600 border-purple-100 animate-spin" />
+                  <span className="text-xs font-bold text-purple-700 animate-pulse">
+                    {importFormatStep === 1 ? "Membaca berkas format raport..." :
+                     importFormatStep === 2 ? "AI menganalisis parameter & kompetensi baru..." :
+                     "Memetakan indikator dan batas kelulusan..."}
+                  </span>
+                </div>
+              )}
+
+              {importFormatStep === 4 && (
+                <div className="space-y-2 text-center w-full">
+                  <Award className="h-8 w-8 text-emerald-600 mx-auto" />
+                  <span className="text-xs font-bold text-slate-900 block">AI Berhasil Memetakan Parameter Baru!</span>
+                  <div className="max-h-[160px] overflow-y-auto border border-slate-100 rounded-xl bg-white p-3 text-[10px] space-y-1.5 text-left text-slate-500 font-medium">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Perbandingan Mapel Penilaian:</span>
+                    <table className="w-full text-[10px] text-left text-slate-650">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-slate-400 uppercase text-[8px] font-bold">
+                          <th className="pb-1">Parameter Asal</th>
+                          <th className="pb-1">Parameter Baru (AI)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {detectedParameters.map((param, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="py-1.5 pr-2 line-through text-slate-400">{param.labelSebelum}</td>
+                            <td className="py-1.5 font-bold text-slate-700">{param.labelBaru}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {importFormatStep === 4 && (
+              <div className="space-y-4 pt-2">
+                {/* Otorisasi & Persetujuan Aldi */}
+                <div className="space-y-3 border-t border-slate-100 pt-3 text-left">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Otorisasi & Persetujuan Aldi</span>
+                  
+                  {isAldi ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-[11px] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Check className="h-4 w-4" /> Persetujuan Terverifikasi
+                      </div>
+                      <p className="text-slate-500 text-[10px] leading-relaxed">
+                        Anda masuk sebagai <strong>superadminaldi</strong>. Perubahan ini disetujui secara otomatis.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-[11px] space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <ShieldAlert className="h-4 w-4 text-amber-600 animate-pulse" /> Otorisasi superadminaldi Diperlukan
+                        </div>
+                        <p className="text-slate-500 text-[10px] leading-relaxed">
+                          Pengubahan format parameter raport harus disetujui oleh <strong>superadminaldi</strong>. Masukkan kode otorisasi untuk menyimpan.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-650">Kode Konfirmasi (dari superadminaldi)</label>
+                        <Input 
+                          type="password"
+                          placeholder="Masukkan kode konfirmasi..." 
+                          value={aldiConfirmCode} 
+                          onChange={(e) => setAldiConfirmCode(e.target.value)} 
+                          className="rounded-xl border-slate-200 text-xs h-9 font-mono" 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      setImportFormatStep(0);
+                      setDetectedParameters([]);
+                      setAldiConfirmCode("");
+                    }} 
+                    variant="outline" 
+                    className="flex-1 rounded-xl text-xs font-semibold"
+                  >
+                    Ulangi
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      const isValidConfirm = isAldi || 
+                        ["ALDI354", "ALDI-SETUJU", "SUPERADMINALDI"].includes(aldiConfirmCode.trim().toUpperCase());
+
+                      if (!isValidConfirm) {
+                        toast.error("Gagal Menyimpan: Kode konfirmasi dari superadminaldi tidak valid!");
+                        return;
+                      }
+
+                      // Apply new labels
+                      localStorage.setItem("sim_tpq_subject_tahsin", "Tajwid & Fashohah Al-Qur'an");
+                      localStorage.setItem("sim_tpq_subject_tahfidz", "Tahfidz Juz 30 (Lancar)");
+                      localStorage.setItem("sim_tpq_subject_doaHarian", "Adab & Hafalan Doa Harian");
+                      localStorage.setItem("sim_tpq_subject_ibadah", "Praktik Shalat & Wudhu");
+                      localStorage.setItem("sim_tpq_subject_akhlak", "Karakter Luhur & Budi Pekerti");
+                      localStorage.setItem("sim_tpq_subject_keaktifan", "Keaktifan Diskusi Kelas");
+                      localStorage.setItem("sim_tpq_subject_kedisiplinan", "Kedisiplinan Seragam & Kehadiran");
+
+                      // Update local states
+                      setLblTahsin("Tajwid & Fashohah Al-Qur'an");
+                      setLblTahfidz("Tahfidz Juz 30 (Lancar)");
+                      setLblDoa("Adab & Hafalan Doa Harian");
+                      setLblIbadah("Praktik Shalat & Wudhu");
+                      setLblAkhlak("Karakter Luhur & Budi Pekerti");
+                      setLblKeaktifan("Keaktifan Diskusi Kelas");
+                      setLblKedisiplinan("Kedisiplinan Seragam & Kehadiran");
+
+                      // Save audit verification
+                      localStorage.setItem("sim_tpq_subject_confirmed_by", "superadminaldi");
+                      localStorage.setItem("sim_tpq_subject_confirmed_at", new Date().toISOString());
+
+                      setIsImportFormatOpen(false);
+                      setDetectedParameters([]);
+                      setImportFormatStep(0);
+                      setAldiConfirmCode("");
+                      toast.success("Parameter penilaian raport berhasil diperbarui secara otomatis menggunakan AI!");
+                    }} 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                  >
+                    Konfirmasi & Terapkan
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

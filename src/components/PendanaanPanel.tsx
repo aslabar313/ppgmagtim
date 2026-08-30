@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { 
   Wallet, Coins, Search, FileSpreadsheet, Printer, Edit, Plus, Save, 
   ChevronRight, Calendar, ArrowUpRight, CheckCircle2, Filter, RefreshCw,
-  ShieldCheck, Lock, AlertCircle, Info, Eye, Clock, CalendarDays
+  ShieldCheck, Lock, AlertCircle, Info, Eye, Clock, CalendarDays, Download
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -241,6 +241,151 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     }
   }, [userRole, userScope]);
 
+  // Unique Desas list for filter dropdown
+  const desas = Array.from(new Set(kelompokList.map(k => k.desa)));
+
+  // Filtered Dana PPG list
+  const filteredDanaPPG = danaPPGList.filter(item => {
+    if (!allowedKelompoks.includes(item.namaKelompok)) return false;
+    const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
+    const matchesSearch = item.namaKelompok.toLowerCase().includes(search.toLowerCase()) ||
+                          item.desa.toLowerCase().includes(search.toLowerCase());
+    return matchesDesa && matchesSearch;
+  });
+
+  // Filtered Siar-siar list
+  const filteredSiarSiar = siarSiarList.filter(item => {
+    if (!allowedKelompoks.includes(item.namaKelompok)) return false;
+    const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
+    const matchesSearch = item.namaKelompok.toLowerCase().includes(search.toLowerCase()) ||
+                          item.desa.toLowerCase().includes(search.toLowerCase());
+    return matchesDesa && matchesSearch;
+  });
+
+  // Calculate totals Dana PPG
+  const calculateTotalDanaPPGKelompok = (item: DanaPPGRecord) => {
+    return Object.values(item.bulanan).reduce((a, b) => a + b, 0);
+  };
+
+  const totalDanaPPGGrand = filteredDanaPPG.reduce((acc, item) => acc + calculateTotalDanaPPGKelompok(item), 0);
+  const totalDanaPPGBulanIni = filteredDanaPPG.reduce((acc, item) => acc + item.bulanan.juli, 0);
+
+  // Calculate totals Siar-siar
+  const calculateTotalSiarSiarBulan = (weekly: WeeklySiarSiar) => {
+    return (weekly.minggu1 || 0) + (weekly.minggu2 || 0) + (weekly.minggu3 || 0) + (weekly.minggu4 || 0) + (weekly.minggu5 || 0);
+  };
+
+  const calculateTotalSiarSiarTahunanKelompok = (item: SiarSiarRecord) => {
+    return Object.values(item.bulan).reduce((acc, weekly) => acc + calculateTotalSiarSiarBulan(weekly), 0);
+  };
+
+  const totalSiarSiarGrand = filteredSiarSiar.reduce((acc, item) => acc + calculateTotalSiarSiarTahunanKelompok(item), 0);
+  const totalSiarSiarBulanTerpilih = filteredSiarSiar.reduce((acc, item) => acc + calculateTotalSiarSiarBulan(item.bulan[selectedBulan]), 0);
+
+  // DOWNLOAD LOGIC DANA PPG (CSV / EXCEL FORMATTED)
+  const downloadDanaPPGReport = () => {
+    const headers = [
+      "No", "Desa", "Nama Kelompok", 
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember", 
+      "Total Dana PPG (Rp)"
+    ];
+
+    const rows = filteredDanaPPG.map((item, idx) => [
+      idx + 1,
+      `"${item.desa}"`,
+      `"${item.namaKelompok}"`,
+      item.bulanan.januari,
+      item.bulanan.februari,
+      item.bulanan.maret,
+      item.bulanan.april,
+      item.bulanan.mei,
+      item.bulanan.juni,
+      item.bulanan.juli,
+      item.bulanan.agustus,
+      item.bulanan.september,
+      item.bulanan.oktober,
+      item.bulanan.november,
+      item.bulanan.desember,
+      calculateTotalDanaPPGKelompok(item)
+    ]);
+
+    const totalRow = [
+      "TOTAL KESELURUHAN", "-", "-",
+      ...BULAN_LIST.map(b => filteredDanaPPG.reduce((sum, item) => sum + item.bulanan[b.key], 0)),
+      totalDanaPPGGrand
+    ];
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Laporan_Dana_PPG_Magetan_Timur_${desaFilter === "Semua" ? "All_Desa" : desaFilter}_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("File Laporan Dana PPG (Excel/CSV) berhasil di-download!");
+  };
+
+  // DOWNLOAD LOGIC SIAR-SIAR (CSV / EXCEL FORMATTED)
+  const downloadSiarSiarReport = () => {
+    const bulanLabel = BULAN_LIST.find(b => b.key === selectedBulan)?.label || selectedBulan;
+    const headers = [
+      "No", "Desa", "Nama Kelompok", 
+      `Minggu 1 (Sabtu I - ${bulanLabel})`, 
+      `Minggu 2 (Sabtu II - ${bulanLabel})`, 
+      `Minggu 3 (Sabtu III - ${bulanLabel})`, 
+      `Minggu 4 (Sabtu IV - ${bulanLabel})`, 
+      `Minggu 5 (Sabtu V - ${bulanLabel})`, 
+      `Total Bulan ${bulanLabel} (Rp)`, 
+      "Total Setahun (Jan-Des)"
+    ];
+
+    const rows = filteredSiarSiar.map((item, idx) => {
+      const weekly = item.bulan[selectedBulan] || { minggu1: 0, minggu2: 0, minggu3: 0, minggu4: 0, minggu5: 0 };
+      const totBulan = calculateTotalSiarSiarBulan(weekly);
+      const totTahunan = calculateTotalSiarSiarTahunanKelompok(item);
+
+      return [
+        idx + 1,
+        `"${item.desa}"`,
+        `"${item.namaKelompok}"`,
+        weekly.minggu1,
+        weekly.minggu2,
+        weekly.minggu3,
+        weekly.minggu4,
+        weekly.minggu5,
+        totBulan,
+        totTahunan
+      ];
+    });
+
+    const sumM1 = filteredSiarSiar.reduce((acc, r) => acc + (r.bulan[selectedBulan]?.minggu1 || 0), 0);
+    const sumM2 = filteredSiarSiar.reduce((acc, r) => acc + (r.bulan[selectedBulan]?.minggu2 || 0), 0);
+    const sumM3 = filteredSiarSiar.reduce((acc, r) => acc + (r.bulan[selectedBulan]?.minggu3 || 0), 0);
+    const sumM4 = filteredSiarSiar.reduce((acc, r) => acc + (r.bulan[selectedBulan]?.minggu4 || 0), 0);
+    const sumM5 = filteredSiarSiar.reduce((acc, r) => acc + (r.bulan[selectedBulan]?.minggu5 || 0), 0);
+
+    const totalRow = [
+      "TOTAL KESELURUHAN", "-", "-",
+      sumM1, sumM2, sumM3, sumM4, sumM5,
+      totalSiarSiarBulanTerpilih,
+      totalSiarSiarGrand
+    ];
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Laporan_Siar_Siar_Bulan_${bulanLabel}_Magetan_Timur_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`File Laporan Siar-siar Bulan ${bulanLabel} (Excel/CSV) berhasil di-download!`);
+  };
+
   // Save Dana PPG full row
   const handleSaveDanaPPG = (updated: DanaPPGRecord) => {
     if (!canEditRecord(updated.namaKelompok, updated.desa)) {
@@ -319,50 +464,9 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     toast.success(`Laporan Siar-siar ${MINGGU_LIST.find(m => m.key === inputSiarWeek)?.label} Bulan ${BULAN_LIST.find(b => b.key === inputSiarMonth)?.label} untuk ${record.namaKelompok} berhasil diinput (Rp ${inputNominalSiar.toLocaleString("id-ID")})!`);
   };
 
-  // Unique Desas list for filter dropdown
-  const desas = Array.from(new Set(kelompokList.map(k => k.desa)));
-
-  // Filtered Dana PPG list
-  const filteredDanaPPG = danaPPGList.filter(item => {
-    if (!allowedKelompoks.includes(item.namaKelompok)) return false;
-    const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
-    const matchesSearch = item.namaKelompok.toLowerCase().includes(search.toLowerCase()) ||
-                          item.desa.toLowerCase().includes(search.toLowerCase());
-    return matchesDesa && matchesSearch;
-  });
-
-  // Filtered Siar-siar list
-  const filteredSiarSiar = siarSiarList.filter(item => {
-    if (!allowedKelompoks.includes(item.namaKelompok)) return false;
-    const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
-    const matchesSearch = item.namaKelompok.toLowerCase().includes(search.toLowerCase()) ||
-                          item.desa.toLowerCase().includes(search.toLowerCase());
-    return matchesDesa && matchesSearch;
-  });
-
-  // Calculate totals Dana PPG
-  const calculateTotalDanaPPGKelompok = (item: DanaPPGRecord) => {
-    return Object.values(item.bulanan).reduce((a, b) => a + b, 0);
-  };
-
-  const totalDanaPPGGrand = filteredDanaPPG.reduce((acc, item) => acc + calculateTotalDanaPPGKelompok(item), 0);
-  const totalDanaPPGBulanIni = filteredDanaPPG.reduce((acc, item) => acc + item.bulanan.juli, 0);
-
-  // Calculate totals Siar-siar
-  const calculateTotalSiarSiarBulan = (weekly: WeeklySiarSiar) => {
-    return (weekly.minggu1 || 0) + (weekly.minggu2 || 0) + (weekly.minggu3 || 0) + (weekly.minggu4 || 0) + (weekly.minggu5 || 0);
-  };
-
-  const calculateTotalSiarSiarTahunanKelompok = (item: SiarSiarRecord) => {
-    return Object.values(item.bulan).reduce((acc, weekly) => acc + calculateTotalSiarSiarBulan(weekly), 0);
-  };
-
-  const totalSiarSiarGrand = filteredSiarSiar.reduce((acc, item) => acc + calculateTotalSiarSiarTahunanKelompok(item), 0);
-  const totalSiarSiarBulanTerpilih = filteredSiarSiar.reduce((acc, item) => acc + calculateTotalSiarSiarBulan(item.bulan[selectedBulan]), 0);
-
   return (
     <div className="space-y-6 text-left animate-fade-in">
-      {/* Header Title & Quick Input Action Buttons */}
+      {/* Header Title & Quick Action Buttons */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -372,24 +476,24 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             </Badge>
           </div>
           <p className="text-slate-500 text-sm mt-1">
-            Manajemen dan rekapitulasi perolehan Dana PPG (Bulanan) & Siar-siar (Mingguan / Setiap Sabtu) per kelompok dan desa.
+            Manajemen, download laporan, dan rekapitulasi perolehan Dana PPG (Bulanan) & Siar-siar (Mingguan / Sabtu).
           </p>
         </div>
 
-        {/* Action Buttons: Quick Inputs for Admin Kelompok & Export */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Action Buttons: Quick Inputs & Download Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
           {!isReadOnly && (
             <>
               <Button 
                 onClick={() => setQuickPPGOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl py-2.5 px-4 gap-2 shadow-md shadow-emerald-600/20"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl py-2.5 px-3.5 gap-1.5 shadow-md shadow-emerald-600/20"
               >
                 <Plus className="h-4 w-4" /> Input Dana PPG (1x / Bulan)
               </Button>
 
               <Button 
                 onClick={() => setQuickSiarOpen(true)}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl py-2.5 px-4 gap-2 shadow-md shadow-amber-600/20"
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl py-2.5 px-3.5 gap-1.5 shadow-md shadow-amber-600/20"
               >
                 <CalendarDays className="h-4 w-4" /> Input Siar-siar (Sabtu)
               </Button>
@@ -397,20 +501,19 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
           )}
 
           <Button 
-            onClick={() => {
-              toast.success("Mengekspor rekapitulasi data pendanaan ke Excel...");
-            }} 
-            variant="outline" 
-            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2.5 px-3"
+            onClick={activeSubCategory === "dana_ppg" ? downloadDanaPPGReport : downloadSiarSiarReport}
+            className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl py-2.5 px-3.5 gap-1.5 shadow-md"
           >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Ekspor Excel
+            <Download className="h-4 w-4 text-emerald-400" /> 
+            Download {activeSubCategory === "dana_ppg" ? "Dana PPG" : `Siar-siar (${BULAN_LIST.find(b => b.key === selectedBulan)?.label})`}
           </Button>
+
           <Button 
             onClick={() => {
               window.print();
             }} 
             variant="outline" 
-            className="gap-2 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2.5 px-3"
+            className="gap-1.5 border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2.5 px-3"
           >
             <Printer className="h-4 w-4 text-slate-600" /> Cetak
           </Button>
@@ -465,7 +568,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
         </div>
       </div>
 
-      {/* Sub-Category Nav Tabs */}
+      {/* Sub-Category Nav Tabs & Direct Download Shortcuts */}
       <div className="bg-slate-100 p-1.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm border border-slate-200/60">
         <div className="flex flex-wrap gap-2">
           <button 
@@ -503,13 +606,26 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
           </button>
         </div>
 
-        {/* Quick input modal trigger badge */}
-        {!isReadOnly && (
-          <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2 px-3 py-1">
-            <Clock className="h-3.5 w-3.5 text-amber-500" />
-            <span>Pengisian aktif bulan <strong>Juli 2026</strong></span>
-          </div>
-        )}
+        {/* Dedicated Download Buttons per Category */}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={downloadDanaPPGReport}
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs gap-1.5 py-1.5 px-3"
+          >
+            <Download className="h-3.5 w-3.5 text-emerald-600" /> Download Laporan Dana PPG (Excel)
+          </Button>
+
+          <Button
+            onClick={downloadSiarSiarReport}
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs gap-1.5 py-1.5 px-3"
+          >
+            <Download className="h-3.5 w-3.5 text-amber-600" /> Download Laporan Siar-siar (Excel)
+          </Button>
+        </div>
       </div>
 
       {/* Summary KPI Widgets */}
@@ -642,7 +758,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
       {/* ========================================================================= */}
       {activeSubCategory === "dana_ppg" && (
         <Card className="bg-white border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="bg-slate-50/80 border-b border-slate-100 p-5 flex flex-row items-center justify-between">
+          <CardHeader className="bg-slate-50/80 border-b border-slate-100 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="font-display text-base font-bold text-slate-800 flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-600" />
@@ -652,9 +768,15 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                 Pengisian wajib diisi 1x dalam 1 bulan oleh Admin Kelompok.
               </CardDescription>
             </div>
-            <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold px-3 py-1">
-              Tahun 2026
-            </Badge>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={downloadDanaPPGReport}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl py-2 px-4 gap-1.5 shadow-sm"
+              >
+                <Download className="h-4 w-4" /> Download Laporan Dana PPG (Excel)
+              </Button>
+            </div>
           </CardHeader>
 
           <div className="overflow-x-auto">
@@ -779,21 +901,30 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
               </CardDescription>
             </div>
 
-            {/* Quick Month Switcher Chips */}
-            <div className="flex flex-wrap gap-1">
-              {BULAN_LIST.map((b) => (
-                <button
-                  key={b.key}
-                  onClick={() => setSelectedBulan(b.key)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    selectedBulan === b.key
-                      ? "bg-amber-500 text-white shadow-sm"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={downloadSiarSiarReport}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl py-2 px-4 gap-1.5 shadow-sm"
+              >
+                <Download className="h-4 w-4" /> Download Laporan Siar-siar ({BULAN_LIST.find(b => b.key === selectedBulan)?.label})
+              </Button>
+
+              {/* Quick Month Switcher Chips */}
+              <div className="flex flex-wrap gap-1">
+                {BULAN_LIST.map((b) => (
+                  <button
+                    key={b.key}
+                    onClick={() => setSelectedBulan(b.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                      selectedBulan === b.key
+                        ? "bg-amber-500 text-white shadow-sm"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardHeader>
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { 
   School, Lock, Search, BookOpen, Star, Sparkles, ShieldCheck, 
-  MapPin, Calendar, Users, Eye, HelpCircle, ArrowRight, Info
+  MapPin, Calendar, Users, Eye, HelpCircle, ArrowRight, Info, Wallet, Coins
 } from "lucide-react";
 import { getKelompok, verifyCredentials, Kelompok } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { DirektoriKelompok } from "./DirektoriKelompok";
+import { PendanaanPanel } from "./PendanaanPanel";
 
 interface PortalPublicProps {
   onEnterAdmin: (role: string) => void;
@@ -294,6 +295,9 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               <Button onClick={() => setLoginOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-emerald-500/15 transition-all text-xs flex items-center gap-2">
                 Akses Dashboard Monitor <ShieldCheck className="h-4.5 w-4.5" />
               </Button>
+              <a href="#pendanaan" className="inline-flex items-center justify-center border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-8 py-3 rounded-xl font-bold text-xs transition-all flex items-center gap-2">
+                <Wallet className="h-4 w-4" /> Fitur Pendanaan
+              </a>
               <a href="#direktori" className="inline-flex items-center justify-center border border-slate-800 hover:bg-slate-900 text-slate-300 px-8 py-3 rounded-xl font-bold text-xs transition-all">
                 Direktori 30 Kelompok
               </a>
@@ -369,6 +373,15 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               </CardDescription>
             </CardHeader>
           </Card>
+        </div>
+      </section>
+
+      {/* Fitur Pendanaan Section */}
+      <section id="pendanaan" className="py-16 border-t border-slate-900/60 relative z-10 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto px-6 relative z-10 text-slate-900">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100">
+            <PendanaanPanel userRole="Viewer" />
+          </div>
         </div>
       </section>
 

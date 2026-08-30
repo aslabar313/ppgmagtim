@@ -383,7 +383,17 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           <div className="space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
-              <div className="flex gap-4 min-w-max md:grid md:grid-cols-4 md:min-w-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+                <button 
+                  onClick={() => setActiveTab("pendanaan")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-gradient-to-b from-emerald-50/50 to-white hover:bg-emerald-50 border border-emerald-200/80 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-emerald-600 text-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-emerald-600/20">
+                    <Wallet className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-extrabold text-xs text-emerald-800 mt-3 group-hover:text-emerald-900 transition-colors">💸 Fitur Pendanaan</span>
+                </button>
+
                 <button 
                   onClick={() => setActiveTab("database")} 
                   className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"

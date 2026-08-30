@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Wallet, Coins, Search, FileSpreadsheet, Printer, Edit, Plus, Save, 
-  ChevronRight, Calendar, ArrowUpRight, CheckCircle2, Filter, RefreshCw
+  ChevronRight, Calendar, ArrowUpRight, CheckCircle2, Filter, RefreshCw,
+  ShieldCheck, Lock, AlertCircle, Info, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -86,8 +87,8 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
   const [desaFilter, setDesaFilter] = useState("Semua");
   const [selectedBulan, setSelectedBulan] = useState<keyof SiarSiarRecord["bulan"]>("juli");
 
-  // User scope check
-  const [userScope] = useState(() => {
+  // User scope check (Kelompok or Desa scope)
+  const [userScope, setUserScope] = useState(() => {
     if (typeof window !== "undefined") {
       const loggedUser = localStorage.getItem("sim_tpq_logged_user");
       if (loggedUser) {
@@ -101,6 +102,22 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     return "Semua";
   });
 
+  // Re-sync scope when role or localStorage changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const loggedUser = localStorage.getItem("sim_tpq_logged_user");
+      if (loggedUser) {
+        const details = getUserDetails(loggedUser);
+        if (details && (details.level === "kelompok" || details.level === "desa")) {
+          setUserScope(details.scope);
+          return;
+        }
+      }
+      setUserScope(localStorage.getItem("sim_tpq_active_scope") || "Semua");
+    }
+  }, [userRole]);
+
+  // Determine allowed kelompoks by RBAC rules
   const allowedKelompoks = kelompokList
     .filter(k => {
       if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
@@ -112,7 +129,16 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
 
   const isReadOnly = userRole === "Viewer";
 
-  // Initial Mock Data Dana PPG
+  // Check specific row edit authorization
+  const canEditRecord = (namaKelompok: string, desa: string): boolean => {
+    if (isReadOnly) return false;
+    if (userRole === "Super Admin" || userRole === "Admin Daerah") return true;
+    if (userRole === "Admin Desa") return desa === userScope || allowedKelompoks.includes(namaKelompok);
+    if (userRole === "Admin Kelompok" || userRole === "Pengajar") return namaKelompok === userScope;
+    return true;
+  };
+
+  // Initial Data Dana PPG
   const [danaPPGList, setDanaPPGList] = useState<DanaPPGRecord[]>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("sim_tpq_dana_ppg");
@@ -143,7 +169,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     return initial;
   });
 
-  // Initial Mock Data Siar-siar
+  // Initial Data Siar-siar
   const [siarSiarList, setSiarSiarList] = useState<SiarSiarRecord[]>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("sim_tpq_siar_siar");
@@ -190,27 +216,38 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
   // Modal State for Editing Siar-siar
   const [editingSiarSiar, setEditingSiarSiar] = useState<{ record: SiarSiarRecord; bulanKey: keyof SiarSiarRecord["bulan"] } | null>(null);
 
-  // Save Dana PPG changes
+  // Save Dana PPG changes with RBAC validation & persistence
   const handleSaveDanaPPG = (updated: DanaPPGRecord) => {
+    if (!canEditRecord(updated.namaKelompok, updated.desa)) {
+      toast.error(`Akses ditolak: Otoritas Anda (${userRole}) tidak diizinkan mengubah data kelompok ${updated.namaKelompok}!`);
+      return;
+    }
+
     const newList = danaPPGList.map(item => item.id === updated.id ? updated : item);
     setDanaPPGList(newList);
     localStorage.setItem("sim_tpq_dana_ppg", JSON.stringify(newList));
     setEditingDanaPPG(null);
-    toast.success(`Data Dana PPG ${updated.namaKelompok} (${updated.desa}) berhasil diperbarui!`);
+    toast.success(`Data Dana PPG ${updated.namaKelompok} (${updated.desa}) berhasil disimpan secara akurat dan tersimpan di sistem!`);
   };
 
-  // Save Siar-siar changes
+  // Save Siar-siar changes with RBAC validation & persistence
   const handleSaveSiarSiar = (updatedRecord: SiarSiarRecord) => {
+    if (!canEditRecord(updatedRecord.namaKelompok, updatedRecord.desa)) {
+      toast.error(`Akses ditolak: Otoritas Anda (${userRole}) tidak diizinkan mengubah data kelompok ${updatedRecord.namaKelompok}!`);
+      return;
+    }
+
     const newList = siarSiarList.map(item => item.id === updatedRecord.id ? updatedRecord : item);
     setSiarSiarList(newList);
     localStorage.setItem("sim_tpq_siar_siar", JSON.stringify(newList));
     setEditingSiarSiar(null);
-    toast.success(`Data Siar-siar ${updatedRecord.namaKelompok} (${updatedRecord.desa}) berhasil diperbarui!`);
+    toast.success(`Data Siar-siar ${updatedRecord.namaKelompok} (${updatedRecord.desa}) berhasil disimpan secara akurat!`);
   };
 
-  // Filtered lists
+  // Unique Desas list for filter dropdown
   const desas = Array.from(new Set(kelompokList.map(k => k.desa)));
 
+  // Filtered Dana PPG list
   const filteredDanaPPG = danaPPGList.filter(item => {
     if (!allowedKelompoks.includes(item.namaKelompok)) return false;
     const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
@@ -219,6 +256,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
     return matchesDesa && matchesSearch;
   });
 
+  // Filtered Siar-siar list
   const filteredSiarSiar = siarSiarList.filter(item => {
     if (!allowedKelompoks.includes(item.namaKelompok)) return false;
     const matchesDesa = desaFilter === "Semua" || item.desa === desaFilter;
@@ -237,7 +275,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
 
   // Calculate totals Siar-siar
   const calculateTotalSiarSiarBulan = (weekly: WeeklySiarSiar) => {
-    return weekly.minggu1 + weekly.minggu2 + weekly.minggu3 + weekly.minggu4 + weekly.minggu5;
+    return (weekly.minggu1 || 0) + (weekly.minggu2 || 0) + (weekly.minggu3 || 0) + (weekly.minggu4 || 0) + (weekly.minggu5 || 0);
   };
 
   const calculateTotalSiarSiarTahunanKelompok = (item: SiarSiarRecord) => {
@@ -282,6 +320,52 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             <Printer className="h-4 w-4 text-slate-600" /> Cetak Laporan
           </Button>
         </div>
+      </div>
+
+      {/* RBAC Scope & Permission Banner */}
+      <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-3 shadow-sm ${
+        userRole === "Super Admin" || userRole === "Admin Daerah"
+          ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+          : userRole === "Admin Desa"
+          ? "bg-blue-50/80 border-blue-200 text-blue-900"
+          : userRole === "Admin Kelompok" || userRole === "Pengajar"
+          ? "bg-amber-50/80 border-amber-200 text-amber-900"
+          : "bg-slate-100 border-slate-200 text-slate-700"
+      }`}>
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className={`h-5 w-5 shrink-0 ${
+            userRole === "Super Admin" || userRole === "Admin Daerah"
+              ? "text-emerald-600"
+              : userRole === "Admin Desa"
+              ? "text-blue-600"
+              : userRole === "Admin Kelompok" || userRole === "Pengajar"
+              ? "text-amber-600"
+              : "text-slate-500"
+          }`} />
+          <div>
+            <span className="font-bold block">
+              Status RBAC Otoritas Peran: <span className="font-black uppercase">{userRole}</span>
+            </span>
+            <span className="text-[11px] opacity-90 block mt-0.5">
+              {userRole === "Super Admin" || userRole === "Admin Daerah" && "🟢 Akses Full Daerah: Anda dapat mengisi, mengedit, meninjau, dan memantau seluruh data pendanaan di semua Desa & Kelompok se-Daerah."}
+              {userRole === "Admin Desa" && `🔵 Akses Tingkat Desa (${userScope}): Anda dapat mengisi, mengedit, dan memantau data pendanaan seluruh kelompok di ${userScope}.`}
+              {(userRole === "Admin Kelompok" || userRole === "Pengajar") && `🟡 Akses Tingkat Kelompok (${userScope}): Anda khusus berwenang mengisi & mengedit data perolehan kelompok ${userScope}.`}
+              {isReadOnly && "🔒 Akses Mode Lihat (Read-Only): Anda dapat memantau dan meninjau data perolehan pendanaan."}
+            </span>
+          </div>
+        </div>
+
+        <Badge className={`font-bold px-3 py-1 rounded-xl text-[10px] shrink-0 ${
+          userRole === "Super Admin" || userRole === "Admin Daerah"
+            ? "bg-emerald-600 text-white"
+            : userRole === "Admin Desa"
+            ? "bg-blue-600 text-white"
+            : userRole === "Admin Kelompok" || userRole === "Pengajar"
+            ? "bg-amber-600 text-white"
+            : "bg-slate-700 text-white"
+        }`}>
+          Scope: {userScope}
+        </Badge>
       </div>
 
       {/* Sub-Category Nav Tabs */}
@@ -329,7 +413,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
               <div className="space-y-1">
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Total Dana PPG Terkumpul</span>
                 <span className="font-display text-2xl font-black text-emerald-600">Rp {totalDanaPPGGrand.toLocaleString("id-ID")}</span>
-                <span className="text-[10px] text-slate-400 font-semibold block">Akumulasi Tahun 2026</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Akumulasi Tahun 2026 ({filteredDanaPPG.length} Kelompok)</span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
                 <Wallet className="h-6 w-6" />
@@ -341,7 +425,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Perolehan Bulan Ini (Juli)</span>
                 <span className="font-display text-2xl font-black text-blue-600">Rp {totalDanaPPGBulanIni.toLocaleString("id-ID")}</span>
                 <span className="text-[10px] text-emerald-600 font-bold block flex items-center gap-1">
-                  <ArrowUpRight className="h-3 w-3" /> Stabil & Terbuka
+                  <ArrowUpRight className="h-3 w-3" /> Rekapitutasi Aktif
                 </span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
@@ -351,9 +435,9 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
 
             <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex items-center justify-between hover:border-purple-200 transition-colors">
               <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Total Kelompok Binaan</span>
+                <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Scope Kelompok Terbuka</span>
                 <span className="font-display text-2xl font-black text-slate-900">{filteredDanaPPG.length}</span>
-                <span className="text-[10px] text-slate-400 font-semibold block">Tercatat aktif di 4 Desa</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Sesuai Hak Otoritas {userRole}</span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-inner">
                 <CheckCircle2 className="h-6 w-6" />
@@ -386,8 +470,8 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
 
             <Card className="bg-white border-slate-200 shadow-sm rounded-2xl p-6 flex items-center justify-between hover:border-indigo-200 transition-colors">
               <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Desa Terdaftar</span>
-                <span className="font-display text-2xl font-black text-indigo-600">{desas.length} Desa</span>
+                <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Kelompok Terbuka</span>
+                <span className="font-display text-2xl font-black text-indigo-600">{filteredSiarSiar.length} Kelompok</span>
                 <span className="text-[10px] text-slate-400 font-semibold block">Wilayah Magetan Timur</span>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
@@ -412,23 +496,25 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Desa:</span>
-              <select
-                value={desaFilter}
-                onChange={(e) => setDesaFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-xs focus:outline-none h-10 font-bold cursor-pointer"
-              >
-                <option value="Semua">Semua Desa</option>
-                {desas.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
+            {userRole === "Super Admin" || userRole === "Admin Daerah" ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Desa:</span>
+                <select
+                  value={desaFilter}
+                  onChange={(e) => setDesaFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white text-slate-800 px-3 py-2 text-xs focus:outline-none h-10 font-bold cursor-pointer"
+                >
+                  <option value="Semua">Semua Desa (4 Wilayah)</option>
+                  {desas.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             {activeSubCategory === "siar_siar" && (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Bulan View:</span>
+                <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Pilih Bulan:</span>
                 <select
                   value={selectedBulan}
                   onChange={(e) => setSelectedBulan(e.target.value as any)}
@@ -475,58 +561,81 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                     <th key={b.key} className="px-3 py-3.5 text-right font-mono">{b.label}</th>
                   ))}
                   <th className="px-4 py-3.5 text-right bg-emerald-50/70 text-emerald-900 font-bold">Total Dana PPG</th>
-                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20">Aksi</th>}
+                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20">Aksi Edit</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredDanaPPG.map((row, index) => {
-                  const totalKelompok = calculateTotalDanaPPGKelompok(row);
-                  return (
-                    <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-4 py-3.5 text-center font-bold text-slate-400">{index + 1}</td>
-                      <td className="px-4 py-3.5 font-bold text-slate-800">{row.desa}</td>
-                      <td className="px-4 py-3.5 font-extrabold text-slate-900">{row.namaKelompok}</td>
-                      
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.januari.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.februari.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.maret.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.april.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.mei.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.juni.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.juli.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.agustus.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.september.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.oktober.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.november.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.desember.toLocaleString("id-ID")}</td>
+                {filteredDanaPPG.length === 0 ? (
+                  <tr>
+                    <td colSpan={17} className="text-center py-8 text-slate-400 font-bold">
+                      Tidak ada data Dana PPG yang sesuai dengan filter/akses Anda.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDanaPPG.map((row, index) => {
+                    const totalKelompok = calculateTotalDanaPPGKelompok(row);
+                    const editable = canEditRecord(row.namaKelompok, row.desa);
 
-                      <td className="px-4 py-3.5 text-right font-mono font-black text-emerald-700 bg-emerald-50/50">
-                        Rp {totalKelompok.toLocaleString("id-ID")}
-                      </td>
-
-                      {!isReadOnly && (
-                        <td className="px-4 py-3.5 text-center">
-                          <Button
-                            onClick={() => setEditingDanaPPG({ ...row })}
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
-                            title="Edit Dana PPG"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-4 py-3.5 text-center font-bold text-slate-400">{index + 1}</td>
+                        <td className="px-4 py-3.5 font-bold text-slate-800">{row.desa}</td>
+                        <td className="px-4 py-3.5 font-extrabold text-slate-900 flex items-center gap-2">
+                          {row.namaKelompok}
+                          {row.namaKelompok === userScope && (
+                            <Badge className="bg-amber-100 text-amber-900 border-none font-bold text-[9px] px-1.5 py-0.5">
+                              Kelompok Anda
+                            </Badge>
+                          )}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                        
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.januari.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.februari.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.maret.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.april.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.mei.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.juni.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {row.bulanan.juli.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.agustus.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.september.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.oktober.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.november.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-400">Rp {row.bulanan.desember.toLocaleString("id-ID")}</td>
+
+                        <td className="px-4 py-3.5 text-right font-mono font-black text-emerald-700 bg-emerald-50/50">
+                          Rp {totalKelompok.toLocaleString("id-ID")}
+                        </td>
+
+                        {!isReadOnly && (
+                          <td className="px-4 py-3.5 text-center">
+                            {editable ? (
+                              <Button
+                                onClick={() => setEditingDanaPPG({ ...row })}
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
+                                title="Edit / Input Dana PPG"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-bold italic flex items-center justify-center gap-1">
+                                <Lock className="h-3 w-3 text-slate-300" /> Kunci
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
 
               {/* Total Summary Row */}
               <tfoot className="bg-slate-100 font-extrabold text-slate-800 text-xs border-t-2 border-slate-200">
                 <tr>
                   <td colSpan={3} className="px-4 py-4 text-right uppercase tracking-wider">
-                    Total Keseluruhan Dana PPG:
+                    Total Keseluruhan Dana PPG ({filteredDanaPPG.length} Kelompok):
                   </td>
                   {BULAN_LIST.map((b) => {
                     const sumMonth = filteredDanaPPG.reduce((sum, item) => sum + item.bulanan[b.key], 0);
@@ -593,7 +702,7 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                   </th>
                   <th className="px-4 py-3.5 text-right bg-teal-50/70 text-teal-900 font-bold" rowSpan={2}>Total Bulan Ini</th>
                   <th className="px-4 py-3.5 text-right bg-slate-200/60 text-slate-900 font-bold" rowSpan={2}>Total Setahun (Jan-Des)</th>
-                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20" rowSpan={2}>Aksi</th>}
+                  {!isReadOnly && <th className="px-4 py-3.5 text-center w-20" rowSpan={2}>Aksi Edit</th>}
                 </tr>
                 <tr className="bg-amber-50/40 text-amber-950 font-bold text-[10px]">
                   <th className="px-3 py-2 text-right">Minggu ke 1</th>
@@ -604,47 +713,69 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredSiarSiar.map((row, index) => {
-                  const weeklyData = row.bulan[selectedBulan];
-                  const totalBulan = calculateTotalSiarSiarBulan(weeklyData);
-                  const totalTahunan = calculateTotalSiarSiarTahunanKelompok(row);
+                {filteredSiarSiar.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="text-center py-8 text-slate-400 font-bold">
+                      Tidak ada data Siar-siar yang sesuai dengan filter/akses Anda.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSiarSiar.map((row, index) => {
+                    const weeklyData = row.bulan[selectedBulan] || { minggu1: 0, minggu2: 0, minggu3: 0, minggu4: 0, minggu5: 0 };
+                    const totalBulan = calculateTotalSiarSiarBulan(weeklyData);
+                    const totalTahunan = calculateTotalSiarSiarTahunanKelompok(row);
+                    const editable = canEditRecord(row.namaKelompok, row.desa);
 
-                  return (
-                    <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-4 py-3.5 text-center font-bold text-slate-400">{index + 1}</td>
-                      <td className="px-4 py-3.5 font-bold text-slate-800">{row.desa}</td>
-                      <td className="px-4 py-3.5 font-extrabold text-slate-900">{row.namaKelompok}</td>
-                      
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu1.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu2.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu3.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu4.toLocaleString("id-ID")}</td>
-                      <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu5.toLocaleString("id-ID")}</td>
-
-                      <td className="px-4 py-3.5 text-right font-mono font-black text-teal-700 bg-teal-50/40">
-                        Rp {totalBulan.toLocaleString("id-ID")}
-                      </td>
-
-                      <td className="px-4 py-3.5 text-right font-mono font-black text-slate-900 bg-slate-50">
-                        Rp {totalTahunan.toLocaleString("id-ID")}
-                      </td>
-
-                      {!isReadOnly && (
-                        <td className="px-4 py-3.5 text-center">
-                          <Button
-                            onClick={() => setEditingSiarSiar({ record: { ...row }, bulanKey: selectedBulan })}
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
-                            title="Edit Siar-siar"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-4 py-3.5 text-center font-bold text-slate-400">{index + 1}</td>
+                        <td className="px-4 py-3.5 font-bold text-slate-800">{row.desa}</td>
+                        <td className="px-4 py-3.5 font-extrabold text-slate-900 flex items-center gap-2">
+                          {row.namaKelompok}
+                          {row.namaKelompok === userScope && (
+                            <Badge className="bg-amber-100 text-amber-900 border-none font-bold text-[9px] px-1.5 py-0.5">
+                              Kelompok Anda
+                            </Badge>
+                          )}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                        
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu1.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu2.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu3.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu4.toLocaleString("id-ID")}</td>
+                        <td className="px-3 py-3.5 text-right font-mono text-slate-700">Rp {weeklyData.minggu5.toLocaleString("id-ID")}</td>
+
+                        <td className="px-4 py-3.5 text-right font-mono font-black text-teal-700 bg-teal-50/40">
+                          Rp {totalBulan.toLocaleString("id-ID")}
+                        </td>
+
+                        <td className="px-4 py-3.5 text-right font-mono font-black text-slate-900 bg-slate-50">
+                          Rp {totalTahunan.toLocaleString("id-ID")}
+                        </td>
+
+                        {!isReadOnly && (
+                          <td className="px-4 py-3.5 text-center">
+                            {editable ? (
+                              <Button
+                                onClick={() => setEditingSiarSiar({ record: { ...row }, bulanKey: selectedBulan })}
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
+                                title="Edit / Input Siar-siar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-bold italic flex items-center justify-center gap-1">
+                                <Lock className="h-3 w-3 text-slate-300" /> Kunci
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
 
               {/* Total Summary Row */}
@@ -654,19 +785,19 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                     Total Siar-siar Bulan {BULAN_LIST.find(b => b.key === selectedBulan)?.label}:
                   </td>
                   <td className="px-3 py-4 text-right font-mono">
-                    Rp {filteredSiarSiar.reduce((acc, row) => acc + row.bulan[selectedBulan].minggu1, 0).toLocaleString("id-ID")}
+                    Rp {filteredSiarSiar.reduce((acc, row) => acc + (row.bulan[selectedBulan]?.minggu1 || 0), 0).toLocaleString("id-ID")}
                   </td>
                   <td className="px-3 py-4 text-right font-mono">
-                    Rp {filteredSiarSiar.reduce((acc, row) => acc + row.bulan[selectedBulan].minggu2, 0).toLocaleString("id-ID")}
+                    Rp {filteredSiarSiar.reduce((acc, row) => acc + (row.bulan[selectedBulan]?.minggu2 || 0), 0).toLocaleString("id-ID")}
                   </td>
                   <td className="px-3 py-4 text-right font-mono">
-                    Rp {filteredSiarSiar.reduce((acc, row) => acc + row.bulan[selectedBulan].minggu3, 0).toLocaleString("id-ID")}
+                    Rp {filteredSiarSiar.reduce((acc, row) => acc + (row.bulan[selectedBulan]?.minggu3 || 0), 0).toLocaleString("id-ID")}
                   </td>
                   <td className="px-3 py-4 text-right font-mono">
-                    Rp {filteredSiarSiar.reduce((acc, row) => acc + row.bulan[selectedBulan].minggu4, 0).toLocaleString("id-ID")}
+                    Rp {filteredSiarSiar.reduce((acc, row) => acc + (row.bulan[selectedBulan]?.minggu4 || 0), 0).toLocaleString("id-ID")}
                   </td>
                   <td className="px-3 py-4 text-right font-mono">
-                    Rp {filteredSiarSiar.reduce((acc, row) => acc + row.bulan[selectedBulan].minggu5, 0).toLocaleString("id-ID")}
+                    Rp {filteredSiarSiar.reduce((acc, row) => acc + (row.bulan[selectedBulan]?.minggu5 || 0), 0).toLocaleString("id-ID")}
                   </td>
                   <td className="px-4 py-4 text-right font-mono text-teal-800 bg-teal-100/80 text-sm font-black">
                     Rp {totalSiarSiarBulanTerpilih.toLocaleString("id-ID")}
@@ -703,33 +834,41 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {BULAN_LIST.map((b) => (
-                <div key={b.key} className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 capitalize">
-                    Perolehan Bulan {b.label} (Rp)
-                  </label>
-                  <Input
-                    type="number"
-                    value={editingDanaPPG.bulanan[b.key]}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 0;
-                      setEditingDanaPPG({
-                        ...editingDanaPPG,
-                        bulanan: {
-                          ...editingDanaPPG.bulanan,
-                          [b.key]: val
-                        }
-                      });
-                    }}
-                    className="rounded-xl font-mono text-sm border-slate-200 focus:ring-emerald-500"
-                  />
-                </div>
-              ))}
+              {BULAN_LIST.map((b) => {
+                const currentVal = editingDanaPPG.bulanan[b.key] || 0;
+                return (
+                  <div key={b.key} className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                      <label className="capitalize">Perolehan Bulan {b.label}</label>
+                      <span className="font-mono text-emerald-700 font-extrabold text-[11px]">
+                        Rp {currentVal.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={currentVal === 0 ? "" : currentVal}
+                      placeholder="Masukkan nominal (Rp)..."
+                      onChange={(e) => {
+                        const val = Math.max(0, Number(e.target.value) || 0);
+                        setEditingDanaPPG({
+                          ...editingDanaPPG,
+                          bulanan: {
+                            ...editingDanaPPG.bulanan,
+                            [b.key]: val
+                          }
+                        });
+                      }}
+                      className="rounded-xl font-mono text-sm border-slate-200 focus:ring-emerald-500 bg-white"
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <div className="text-xs font-bold text-slate-500">
-                Total Perolehan: <span className="font-mono text-emerald-700 font-black text-sm">Rp {calculateTotalDanaPPGKelompok(editingDanaPPG).toLocaleString("id-ID")}</span>
+                Total Perolehan Dana PPG: <span className="font-mono text-emerald-700 font-black text-sm">Rp {calculateTotalDanaPPGKelompok(editingDanaPPG).toLocaleString("id-ID")}</span>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -767,40 +906,50 @@ export function PendanaanPanel({ userRole }: PendanaanPanelProps) {
                 </p>
               </div>
               <Badge className="bg-amber-100 text-amber-900 border-none font-bold capitalize">
-                {editingSiarSiar.bulanKey}
+                Bulan {BULAN_LIST.find(b => b.key === editingSiarSiar.bulanKey)?.label}
               </Badge>
             </div>
 
             <div className="space-y-3">
-              {(["minggu1", "minggu2", "minggu3", "minggu4", "minggu5"] as const).map((mKey, idx) => (
-                <div key={mKey} className="flex items-center justify-between gap-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <label className="text-xs font-bold text-slate-700 w-32">
-                    Minggu ke {idx + 1} (Rp)
-                  </label>
-                  <Input
-                    type="number"
-                    value={editingSiarSiar.record.bulan[editingSiarSiar.bulanKey][mKey]}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 0;
-                      const currentWeekly = editingSiarSiar.record.bulan[editingSiarSiar.bulanKey];
-                      setEditingSiarSiar({
-                        ...editingSiarSiar,
-                        record: {
-                          ...editingSiarSiar.record,
-                          bulan: {
-                            ...editingSiarSiar.record.bulan,
-                            [editingSiarSiar.bulanKey]: {
-                              ...currentWeekly,
-                              [mKey]: val
+              {(["minggu1", "minggu2", "minggu3", "minggu4", "minggu5"] as const).map((mKey, idx) => {
+                const currentVal = editingSiarSiar.record.bulan[editingSiarSiar.bulanKey][mKey] || 0;
+                return (
+                  <div key={mKey} className="flex items-center justify-between gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Minggu ke {idx + 1}
+                      </label>
+                      <span className="font-mono text-[11px] text-amber-700 font-bold block">
+                        Rp {currentVal.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={currentVal === 0 ? "" : currentVal}
+                      placeholder="Nominal Rp..."
+                      onChange={(e) => {
+                        const val = Math.max(0, Number(e.target.value) || 0);
+                        const currentWeekly = editingSiarSiar.record.bulan[editingSiarSiar.bulanKey];
+                        setEditingSiarSiar({
+                          ...editingSiarSiar,
+                          record: {
+                            ...editingSiarSiar.record,
+                            bulan: {
+                              ...editingSiarSiar.record.bulan,
+                              [editingSiarSiar.bulanKey]: {
+                                ...currentWeekly,
+                                [mKey]: val
+                              }
                             }
                           }
-                        }
-                      });
-                    }}
-                    className="rounded-xl font-mono text-sm border-slate-200 focus:ring-amber-500 max-w-[220px]"
-                  />
-                </div>
-              ))}
+                        });
+                      }}
+                      className="rounded-xl font-mono text-sm border-slate-200 focus:ring-amber-500 max-w-[200px] bg-white"
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">

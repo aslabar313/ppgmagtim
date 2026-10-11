@@ -13,6 +13,10 @@ import {
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
+import { FaceAttendanceScanner } from "@/components/FaceAttendance/FaceAttendanceScanner";
+import { FaceEnrollmentDialog } from "@/components/FaceAttendance/FaceEnrollmentDialog";
+import { FaceAttendanceDashboard } from "@/components/FaceAttendance/FaceAttendanceDashboard";
+import { ScanFace } from "lucide-react";
 
 function parseCSV(text: string): string[][] {
   const lines: string[][] = [];
@@ -67,7 +71,7 @@ function mapPresensiHeaders(headers: string[]): { [key: string]: number } {
 
 interface PresensiPanelProps {
   userRole: string;
-  initialMode?: "log" | "input" | "rfid";
+  initialMode?: "log" | "input" | "rfid" | "face" | "face_manage";
 }
 
 export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanelProps) {
@@ -111,10 +115,14 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
 
   const [selectedKelompok, setSelectedKelompok] = useState(allowedKelompoks[0] || "");
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendanceMode, setAttendanceMode] = useState<"log" | "input" | "rfid">(initialMode);
+  const [attendanceMode, setAttendanceMode] = useState<"log" | "input" | "rfid" | "face" | "face_manage">(initialMode);
   const [activeCategory, setActiveCategory] = useState<"Semua" | "Caberawit" | "Muda-Mudi" | "Jama'ah Dewasa">("Semua");
   const [jenisPengajian, setJenisPengajian] = useState("Sambung Kelompok");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Face Attendance Enrollment Modal States
+  const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
+  const [selectedStudentForEnrollment, setSelectedStudentForEnrollment] = useState<Generus | null>(null);
 
   // Sesi Kegiatan Aktif States
   const [sessionStartTime, setSessionStartTime] = useState("16:00");
@@ -1059,6 +1067,23 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
               >
                 Scan RFID
               </button>
+              <button 
+                onClick={() => setAttendanceMode("face")} 
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  attendanceMode === "face" ? "bg-indigo-600 text-white shadow-sm" : "text-indigo-600 hover:text-indigo-800"
+                }`}
+              >
+                <ScanFace className="w-3.5 h-3.5" />
+                Scan Wajah
+              </button>
+              <button 
+                onClick={() => setAttendanceMode("face_manage")} 
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  attendanceMode === "face_manage" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-850"
+                }`}
+              >
+                Data Face ID
+              </button>
             </div>
 
             {/* Date Picker */}
@@ -1369,6 +1394,17 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
                           >
                             Alfa
                           </button>
+                          <button
+                            type="button"
+                            title="Daftarkan / Perbarui Wajah"
+                            onClick={() => {
+                              setSelectedStudentForEnrollment(student);
+                              setEnrollmentDialogOpen(true);
+                            }}
+                            className="rounded-xl px-2.5 py-2 font-bold text-xs h-9 shadow-sm transition-all border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 text-indigo-700 flex items-center gap-1"
+                          >
+                            <ScanFace className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1579,6 +1615,50 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Mode: Scan Wajah (Face Attendance Realtime) */}
+          {attendanceMode === "face" && (
+            <div className="space-y-6 animate-fade-in">
+              <FaceAttendanceScanner
+                selectedKelompok={selectedKelompok}
+                activeDate={activeDate}
+                jenisPengajian={jenisPengajian}
+                generusList={generusList}
+                presensiList={presensiList}
+                currentUser={userScope || "Petugas"}
+                onRecordAttendance={(studentId, status, method) => {
+                  const student = generusList.find(g => g.id === studentId);
+                  if (student) {
+                    handlePresensiChange(student, status);
+                  }
+                }}
+                onOpenManualModal={(student) => {
+                  handlePresensiChange(student, "Hadir");
+                }}
+                onOpenEnrollmentModal={(student) => {
+                  setSelectedStudentForEnrollment(student);
+                  setEnrollmentDialogOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Mode: Kelola Template Face ID */}
+          {attendanceMode === "face_manage" && (
+            <div className="space-y-6 animate-fade-in">
+              <FaceAttendanceDashboard
+                selectedKelompok={selectedKelompok}
+                activeDate={activeDate}
+                jenisPengajian={jenisPengajian}
+                generusList={generusList}
+                presensiList={presensiList}
+                onOpenEnrollmentModal={(student) => {
+                  setSelectedStudentForEnrollment(student);
+                  setEnrollmentDialogOpen(true);
+                }}
+              />
             </div>
           )}
 
@@ -2139,6 +2219,21 @@ void loop() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Face Enrollment Dialog */}
+      <FaceEnrollmentDialog
+        isOpen={enrollmentDialogOpen}
+        onClose={() => {
+          setEnrollmentDialogOpen(false);
+          setSelectedStudentForEnrollment(null);
+        }}
+        generus={selectedStudentForEnrollment}
+        currentUser={userScope || "Petugas"}
+        onEnrolled={() => {
+          // Trigger refresh state
+          setGenerusList([...getGenerus()]);
+        }}
+      />
     </div>
   );
 }

@@ -35,7 +35,8 @@ import {
   LayoutDashboard, Users, UserCheck, Calendar, MapPin, LogOut, 
   TrendingUp, BookOpen, MessageSquare, Wrench, FileText, ChevronRight,
   Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History, ClipboardList,
-  AlertCircle, BarChart3, Star, Map, CheckCircle2, GraduationCap, Clock, Database, CreditCard, Wallet, Coins
+  AlertCircle, BarChart3, Star, Map, CheckCircle2, GraduationCap, Clock, Database, CreditCard, Wallet, Coins,
+  ScanFace
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -207,6 +208,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <PendanaanPanel userRole={role} />;
       case "presensi":
         return <PresensiPanel userRole={role} initialMode="input" />;
+      case "face_attendance":
+        return <PresensiPanel userRole={role} initialMode="face" />;
       case "raport":
         return <RaportPanel userRole={role} />;
       case "kurikulum":
@@ -1518,6 +1521,11 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <Calendar className="h-4.5 w-4.5" /> Presensi Kehadiran
               </button>
             )}
+            {hasAccessTo("presensi") && (
+              <button onClick={() => setActiveTab("face_attendance")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "face_attendance" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "hover:bg-slate-900 text-indigo-400 hover:text-indigo-200"}`}>
+                <ScanFace className="h-4.5 w-4.5" /> Presensi Wajah (Magtim)
+              </button>
+            )}
             {hasAccessTo("raport") && (
               <button onClick={() => setActiveTab("raport")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "raport" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <FileText className="h-4.5 w-4.5" /> Raport Kurikulum
@@ -1658,6 +1666,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("pendanaan") && <button onClick={() => setActiveTab("pendanaan")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pendanaan" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pendanaan</button>}
           {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Monev Mubaligh</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
+          {hasAccessTo("presensi") && <button onClick={() => setActiveTab("face_attendance")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "face_attendance" ? "bg-indigo-600 text-white" : "hover:bg-slate-900 text-indigo-400"}`}>Presensi Wajah</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}
           {hasAccessTo("kurikulum") && <button onClick={() => setActiveTab("kurikulum")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "kurikulum" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Kurikulum</button>}
           {hasAccessTo("map") && <button onClick={() => setActiveTab("map")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "map" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Peta</button>}

@@ -22,7 +22,7 @@ import { RankingPanel } from "./RankingPanel";
 import { EnterpriseModuleLoader } from "./EnterpriseModuleLoader";
 import { APIDocsPanel } from "./APIDocsPanel";
 import { LaporanPerubahanPanel } from "./LaporanPerubahanPanel";
-import { MonitoringMubalighPanel } from "./MonitoringMubalighPanel";
+import { MonevPPGContainer } from "./MonevPPGContainer";
 import { PendanaanPanel } from "./PendanaanPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -203,7 +203,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
       case "guru":
         return <GuruPanel userRole={role} />;
       case "monitoring_mubaligh":
-        return <MonitoringMubalighPanel userRole={role} />;
+        return <MonevPPGContainer userRole={role} />;
       case "pendanaan":
         return <PendanaanPanel userRole={role} />;
       case "presensi":
@@ -414,7 +414,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                   <div className="h-11 w-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                     <UserCheck className="h-5.5 w-5.5" />
                   </div>
-                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📋 Monitor Mubaligh</span>
+                  <span className="font-display font-bold text-xs text-slate-800 mt-3 group-hover:text-emerald-700 transition-colors">📊 MONEV PPG</span>
                 </button>
 
                 <button 
@@ -1513,7 +1513,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             )}
             {hasAccessTo("monitoring_mubaligh") && (
               <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
-                <ClipboardList className="h-4.5 w-4.5" /> Monev Harian Mubaligh
+                <ClipboardList className="h-4.5 w-4.5" /> MONEV PPG
               </button>
             )}
             {hasAccessTo("presensi") && (
@@ -1664,7 +1664,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("dashboard") && <button onClick={() => setActiveTab("dashboard")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "dashboard" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Dashboard</button>}
           {hasAccessTo("database") && <button onClick={() => setActiveTab("database")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "database" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Fitur Database</button>}
           {hasAccessTo("pendanaan") && <button onClick={() => setActiveTab("pendanaan")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pendanaan" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pendanaan</button>}
-          {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Monev Mubaligh</button>}
+          {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>MONEV PPG</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("face_attendance")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "face_attendance" ? "bg-indigo-600 text-white" : "hover:bg-slate-900 text-indigo-400"}`}>Presensi Wajah</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}

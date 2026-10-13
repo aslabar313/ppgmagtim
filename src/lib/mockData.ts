@@ -677,3 +677,131 @@ const INITIAL_KEGIATAN: Kegiatan[] = [
 
 export const getKegiatan = (): Kegiatan[] => loadData("sim_tpq_kegiatan", INITIAL_KEGIATAN);
 export const saveKegiatan = (data: Kegiatan[]): void => saveData("sim_tpq_kegiatan", data);
+
+export interface AgendaBulananPPG {
+  id: string;
+  bulan: string; // YYYY-MM
+  judulAgenda: string;
+  kategori: "Kurikulum" | "Evaluasi" | "Pembinaan Mubaligh" | "KBM Caberawit" | "Muda-Mudi" | "Musyawarah 5 Unsur" | "Lainnya";
+  tingkat: "Daerah" | "Desa" | "Kelompok";
+  desa?: string;
+  kelompok?: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  penanggungJawab: string;
+  targetKetercapaian: string; // Deskripsi target
+  targetPersen: number; // 0 - 100
+  realisasiPersen: number; // 0 - 100
+  status: "Belum Dimulai" | "Sedang Berjalan" | "Selesai" | "Ditunda" | "Perlu Perhatian";
+  catatanEvaluasi?: string;
+  kendala?: string;
+  tindakLanjut?: string;
+  dokumenLaporanUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const INITIAL_AGENDA_BULANAN: AgendaBulananPPG[] = [
+  {
+    id: "ag-1",
+    bulan: "2026-10",
+    judulAgenda: "Monev Ketercapaian Target Kurikulum Tahfidz Juz 30 Semester Ganjil",
+    kategori: "Kurikulum",
+    tingkat: "Daerah",
+    desa: "Semua",
+    tanggalMulai: "2026-10-01",
+    tanggalSelesai: "2026-10-25",
+    penanggungJawab: "Biro Pendidikan PPG Magetan Timur",
+    targetKetercapaian: "85% santri Caberawit Kelas 3 tuntas hafalan An-Naba s.d Al-Muthaffifin",
+    targetPersen: 85,
+    realisasiPersen: 82,
+    status: "Sedang Berjalan",
+    catatanEvaluasi: "Progres berjalan sangat baik di Desa Takeran dan Bendo, Kawedanan perlu pendampingan makhraj.",
+    kendala: "Beberapa santri izin karena ujian sekolah umum.",
+    tindakLanjut: "Mengadakan kelas bimbingan tambahan (muroja'ah mandiri) tiap Ahad sore.",
+    createdAt: "2026-10-01T08:00:00Z",
+    updatedAt: "2026-10-12T10:00:00Z"
+  },
+  {
+    id: "ag-2",
+    bulan: "2026-10",
+    judulAgenda: "Pembinaan & Evaluasi Kinerja Mubaligh Setempat & Tugasan Bulanan",
+    kategori: "Pembinaan Mubaligh",
+    tingkat: "Daerah",
+    desa: "Semua",
+    tanggalMulai: "2026-10-05",
+    tanggalSelesai: "2026-10-15",
+    penanggungJawab: "Ketua PPG & Tim Monev Mubaligh",
+    targetKetercapaian: "100% Mubaligh mengisi Jurnal Harian Digital & Tingkat kehadiran KBM >= 90%",
+    targetPersen: 100,
+    realisasiPersen: 95,
+    status: "Selesai",
+    catatanEvaluasi: "Sebanyak 24 mubaligh aktif telah menyelesaikan check-in dan pelaporan harian tepat waktu.",
+    kendala: "Kendala sinyal di desa pinggiran pada jam malam.",
+    tindakLanjut: "Fitur offline sync di aplikasi telah dimaksimalkan untuk menampung data tanpa sinyal.",
+    createdAt: "2026-10-02T09:00:00Z",
+    updatedAt: "2026-10-16T14:30:00Z"
+  },
+  {
+    id: "ag-3",
+    bulan: "2026-10",
+    judulAgenda: "Musyawarah 5 Unsur Koordinasi Pembinaan Karakter Remaja",
+    kategori: "Musyawarah 5 Unsur",
+    tingkat: "Desa",
+    desa: "Desa Selatan",
+    tanggalMulai: "2026-10-12",
+    tanggalSelesai: "2026-10-12",
+    penanggungJawab: "Pengurus PPG Desa Selatan",
+    targetKetercapaian: "Penyelarasan peran orang tua, guru, dan pengurus untuk program akhlaqul karimah",
+    targetPersen: 100,
+    realisasiPersen: 100,
+    status: "Selesai",
+    catatanEvaluasi: "Dihadiri 45 peserta perwakilan 5 unsur dengan komitmen pembinaan serentak.",
+    kendala: "Ruang aula TPQ terbatas.",
+    tindakLanjut: "Musyawarah bulan berikutnya diagendakan di Masjid Baitul Makmur.",
+    createdAt: "2026-10-03T10:00:00Z",
+    updatedAt: "2026-10-12T21:00:00Z"
+  },
+  {
+    id: "ag-4",
+    bulan: "2026-10",
+    judulAgenda: "Monitoring Sarana Sanitasi & Kebersihan TPQ Seluruh Kelompok",
+    kategori: "Evaluasi",
+    tingkat: "Daerah",
+    desa: "Semua",
+    tanggalMulai: "2026-10-18",
+    tanggalSelesai: "2026-10-28",
+    penanggungJawab: "Biro Sarpras PPG Daerah",
+    targetKetercapaian: "Inspeksi kelayakan tempat wudhu, toilet, dan karpet ruang belajar di 15 kelompok",
+    targetPersen: 100,
+    realisasiPersen: 40,
+    status: "Sedang Berjalan",
+    catatanEvaluasi: "6 kelompok sudah disurvei, sanitasi dalam kondisi terawat.",
+    kendala: "Jadwal tim survei berbarengan dengan agenda kerja bakti daerah.",
+    tindakLanjut: "Lanjutan inspeksi 9 kelompok dijadwalkan akhir pekan ini.",
+    createdAt: "2026-10-05T08:00:00Z",
+    updatedAt: "2026-10-13T06:00:00Z"
+  },
+  {
+    id: "ag-5",
+    bulan: "2026-11",
+    judulAgenda: "Simulasi Ujian Munaqosyah Santri Caberawit & Persiapan Raport",
+    kategori: "KBM Caberawit",
+    tingkat: "Daerah",
+    desa: "Semua",
+    tanggalMulai: "2026-11-10",
+    tanggalSelesai: "2026-11-20",
+    penanggungJawab: "Biro Kurikulum PPG Magetan Timur",
+    targetKetercapaian: "Kesiapan materi bacaan tilawati, pegon, dan tes tulis sholat",
+    targetPersen: 90,
+    realisasiPersen: 0,
+    status: "Belum Dimulai",
+    catatanEvaluasi: "Soal munaqosyah sedang tahap finalisasi oleh tim kurikulum.",
+    createdAt: "2026-10-10T08:00:00Z",
+    updatedAt: "2026-10-10T08:00:00Z"
+  }
+];
+
+export const getAgendaBulanan = (): AgendaBulananPPG[] => loadData("sim_tpq_agenda_bulanan_ppg", INITIAL_AGENDA_BULANAN);
+export const saveAgendaBulanan = (data: AgendaBulananPPG[]): void => saveData("sim_tpq_agenda_bulanan_ppg", data);
+

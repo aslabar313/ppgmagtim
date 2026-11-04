@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRfidScanRouteImport } from './routes/api/rfid-scan'
+import { Route as ApiMonevSyncRouteImport } from './routes/api/monev-sync'
+import { Route as ApiFestivalSyncRouteImport } from './routes/api/festival-sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +24,53 @@ const ApiRfidScanRoute = ApiRfidScanRouteImport.update({
   path: '/api/rfid-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMonevSyncRoute = ApiMonevSyncRouteImport.update({
+  id: '/api/monev-sync',
+  path: '/api/monev-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFestivalSyncRoute = ApiFestivalSyncRouteImport.update({
+  id: '/api/festival-sync',
+  path: '/api/festival-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/festival-sync': typeof ApiFestivalSyncRoute
+  '/api/monev-sync': typeof ApiMonevSyncRoute
   '/api/rfid-scan': typeof ApiRfidScanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/festival-sync': typeof ApiFestivalSyncRoute
+  '/api/monev-sync': typeof ApiMonevSyncRoute
   '/api/rfid-scan': typeof ApiRfidScanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/festival-sync': typeof ApiFestivalSyncRoute
+  '/api/monev-sync': typeof ApiMonevSyncRoute
   '/api/rfid-scan': typeof ApiRfidScanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/rfid-scan'
+  fullPaths: '/' | '/api/festival-sync' | '/api/monev-sync' | '/api/rfid-scan'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/rfid-scan'
-  id: '__root__' | '/' | '/api/rfid-scan'
+  to: '/' | '/api/festival-sync' | '/api/monev-sync' | '/api/rfid-scan'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/festival-sync'
+    | '/api/monev-sync'
+    | '/api/rfid-scan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiFestivalSyncRoute: typeof ApiFestivalSyncRoute
+  ApiMonevSyncRoute: typeof ApiMonevSyncRoute
   ApiRfidScanRoute: typeof ApiRfidScanRoute
 }
 
@@ -65,11 +90,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRfidScanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/monev-sync': {
+      id: '/api/monev-sync'
+      path: '/api/monev-sync'
+      fullPath: '/api/monev-sync'
+      preLoaderRoute: typeof ApiMonevSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/festival-sync': {
+      id: '/api/festival-sync'
+      path: '/api/festival-sync'
+      fullPath: '/api/festival-sync'
+      preLoaderRoute: typeof ApiFestivalSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiFestivalSyncRoute: ApiFestivalSyncRoute,
+  ApiMonevSyncRoute: ApiMonevSyncRoute,
   ApiRfidScanRoute: ApiRfidScanRoute,
 }
 export const routeTree = rootRouteImport

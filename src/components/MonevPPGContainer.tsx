@@ -40,6 +40,9 @@ export function MonevPPGContainer({ userRole, initialSubTab = "agenda_bulanan" }
         >
           <UserCheck className="h-4 w-4" />
           2. Monev Harian Mubaligh
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-200/80 text-slate-700">
+            Fitur Masa Depan
+          </span>
         </button>
       </div>
 
@@ -49,7 +52,13 @@ export function MonevPPGContainer({ userRole, initialSubTab = "agenda_bulanan" }
           <MonevAgendaBulananPanel userRole={userRole} />
         </div>
       ) : (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in space-y-4">
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs font-medium flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <strong>Informasi Pengembangan:</strong> Modul 2 (Monev Harian Mubaligh) merupakan roadmap pengembangan masa depan. Saat ini fokus utama adalah pelaksanaan <strong>Monev Agenda Bulanan PPG</strong>.
+            </div>
+          </div>
           <MonitoringMubalighPanel userRole={userRole} />
         </div>
       )}

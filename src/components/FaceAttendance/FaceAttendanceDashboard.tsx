@@ -1,12 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   Users, CheckCircle2, AlertTriangle, ShieldCheck, 
-  History, Camera, Trash2, Filter
+  History, Camera, Trash2, Filter, RefreshCw, CloudCheck, Cloud
 } from "lucide-react";
-import { getFaceEnrollments, getFaceScanEvents, getFaceTemplates, deleteFaceEnrollment } from "@/lib/faceStorage";
+import { 
+  getFaceEnrollments, 
+  getFaceScanEvents, 
+  getFaceTemplates, 
+  deleteFaceEnrollment, 
+  syncFaceDataFromCloud 
+} from "@/lib/faceStorage";
 import { Generus, Presensi } from "@/lib/mockData";
 import { toast } from "sonner";
 
@@ -31,6 +37,7 @@ export function FaceAttendanceDashboard({
   const [events, setEvents] = useState(() => getFaceScanEvents());
   const [enrollments, setEnrollments] = useState(() => getFaceEnrollments());
   const [templates, setTemplates] = useState(() => getFaceTemplates());
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const groupStudents = generusList.filter(g => g.namaKelompok === selectedKelompok);
   const enrolledStudentIds = new Set(templates.filter(t => t.isActive).map(t => t.generusId));
@@ -41,11 +48,32 @@ export function FaceAttendanceDashboard({
     setTemplates(getFaceTemplates());
   };
 
+  useEffect(() => {
+    refreshData();
+  }, [selectedKelompok]);
+
+  const handleCloudSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncFaceDataFromCloud();
+      refreshData();
+      if (res.success) {
+        toast.success(`Data biometrik tersinkronisasi (${res.count} template aktif).`);
+      } else {
+        toast.info("Mode Offline aktif: Menggunakan database biometrik lokal.");
+      }
+    } catch (e) {
+      toast.error("Gagal melakukan sinkronisasi cloud.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleDelete = (student: Generus) => {
-    if (confirm(`Hapus template wajah ${student.namaLengkap}?`)) {
+    if (confirm(`Hapus template wajah ${student.namaLengkap}? Jamaah ini perlu didaftarkan ulang jika ingin scan wajah.`)) {
       deleteFaceEnrollment(student.id);
       refreshData();
-      toast.success(`Template ${student.namaLengkap} berhasil dihapus.`);
+      toast.success(`Template biometrik ${student.namaLengkap} berhasil dihapus.`);
     }
   };
 
@@ -62,6 +90,31 @@ export function FaceAttendanceDashboard({
 
   return (
     <div className="space-y-6">
+      {/* Top Bar Action */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div>
+          <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-indigo-600" />
+            Manajemen Biometrik & Face ID ({selectedKelompok})
+          </h4>
+          <p className="text-[11px] text-slate-400">
+            Standar FaceNet 128-D descriptor • Terenkripsi • Kepatuhan UU Perlindungan Data Pribadi
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isSyncing}
+          onClick={handleCloudSync}
+          className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+          {isSyncing ? "Sinkronisasi..." : "Sinkron Cloud Supabase"}
+        </Button>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="rounded-2xl border-slate-100 shadow-sm p-4">
@@ -74,7 +127,7 @@ export function FaceAttendanceDashboard({
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 mt-2">Target jamaah {selectedKelompok}</p>
+          <p className="text-[10px] text-slate-400 mt-2 font-medium">Target jamaah {selectedKelompok}</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-100 shadow-sm p-4">
@@ -91,7 +144,7 @@ export function FaceAttendanceDashboard({
           </div>
           <p className="text-[10px] text-indigo-600 mt-2 font-bold">
             {groupStudents.length > 0
-              ? `${Math.round((groupStudents.filter(s => enrolledStudentIds.has(s.id)).length / groupStudents.length) * 100)}% ter-enroll`
+              ? `${Math.round((groupStudents.filter(s => enrolledStudentIds.has(s.id)).length / groupStudents.length) * 100)}% ter-enroll biometrik`
               : "0%"}
           </p>
         </Card>
@@ -107,7 +160,7 @@ export function FaceAttendanceDashboard({
             </div>
           </div>
           <p className="text-[10px] text-emerald-600 mt-2 font-bold">
-            {hadirViaWajah} via Face Scan
+            {hadirViaWajah} via Scan Wajah Otomatis
           </p>
         </Card>
 
@@ -121,7 +174,7 @@ export function FaceAttendanceDashboard({
               <History className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 mt-2 font-medium">Recorded events</p>
+          <p className="text-[10px] text-slate-400 mt-2 font-medium">Jejak audit tersimpan</p>
         </Card>
       </div>
 
@@ -188,7 +241,7 @@ export function FaceAttendanceDashboard({
                           className="h-7 text-[11px] px-2.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
                           onClick={() => onOpenEnrollmentModal(student)}
                         >
-                          {hasTemplate ? "Re-enroll" : "Daftarkan"}
+                          {hasTemplate ? "Perbarui" : "Daftarkan"}
                         </Button>
                         {hasTemplate && (
                           <Button

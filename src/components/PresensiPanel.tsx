@@ -679,7 +679,11 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
   const attendanceRate = totalLogs > 0 ? Math.round((totalHadir / totalLogs) * 100) : 0;
 
   // Handle single attendance click
-  const handleMarkAttendance = (gen: Generus, status: "Hadir" | "Izin" | "Sakit" | "Alfa") => {
+  const handleMarkAttendance = (
+    gen: Generus, 
+    status: "Hadir" | "Izin" | "Sakit" | "Alfa",
+    customKeterangan?: string
+  ) => {
     if (isReadOnly) {
       toast.error("Akun Anda hanya memiliki hak akses lihat (Viewer)!");
       return;
@@ -704,8 +708,8 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
     const startMin = getMinutes(sessionStartTime);
     const graceMin = startMin + sessionGracePeriod;
 
-    let checkInKeterangan = "Tepat Waktu";
-    if (status === "Hadir" && currentMin > graceMin) {
+    let checkInKeterangan = customKeterangan || "Tepat Waktu";
+    if (status === "Hadir" && !customKeterangan && currentMin > graceMin) {
       const minutesLate = currentMin - startMin;
       checkInKeterangan = `Terlambat ${minutesLate} menit`;
     }
@@ -1631,11 +1635,11 @@ export function PresensiPanel({ userRole, initialMode = "input" }: PresensiPanel
                 onRecordAttendance={(studentId, status, method) => {
                   const student = generusList.find(g => g.id === studentId);
                   if (student) {
-                    handlePresensiChange(student, status);
+                    handleMarkAttendance(student, status, method || "Scan Wajah (Magtim Center)");
                   }
                 }}
                 onOpenManualModal={(student) => {
-                  handlePresensiChange(student, "Hadir");
+                  handleMarkAttendance(student, "Hadir", "Manual Fallback (Petugas)");
                 }}
                 onOpenEnrollmentModal={(student) => {
                   setSelectedStudentForEnrollment(student);

@@ -24,6 +24,7 @@ import { APIDocsPanel } from "./APIDocsPanel";
 import { LaporanPerubahanPanel } from "./LaporanPerubahanPanel";
 import { MonevPPGContainer } from "./MonevPPGContainer";
 import { PendanaanPanel } from "./PendanaanPanel";
+import { FestivalGenerusContainer } from "./FestivalGenerus/FestivalGenerusContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ import {
   TrendingUp, BookOpen, MessageSquare, Wrench, FileText, ChevronRight,
   Shield, Download, Eye, Award, Settings, Layers, Wifi, Bell, History, ClipboardList,
   AlertCircle, BarChart3, Star, Map, CheckCircle2, GraduationCap, Clock, Database, CreditCard, Wallet, Coins,
-  ScanFace
+  ScanFace, Trophy
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -180,16 +181,16 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
     const currentRole = allowedRoles.includes(role) ? role : actualMaxRole;
 
     if (currentRole === "Viewer") {
-      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "monitoring_mubaligh", "pendanaan"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "kurikulum", "map", "galeri", "ranking", "monitoring_mubaligh", "pendanaan", "festival_generus"].includes(tabName);
     }
     if (currentRole === "Pengajar") {
-      return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh", "pendanaan"].includes(tabName);
+      return ["dashboard", "siswa", "presensi", "raport", "kurikulum", "sertifikat", "monitoring_mubaligh", "pendanaan", "festival_generus"].includes(tabName);
     }
     if (currentRole === "Admin Kelompok") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik", "pendanaan"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik", "pendanaan", "festival_generus"].includes(tabName);
     }
     if (currentRole === "Admin Desa") {
-      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik", "pendanaan"].includes(tabName);
+      return ["dashboard", "siswa", "guru", "presensi", "raport", "kurikulum", "map", "sarpras", "galeri", "ranking", "inventaris", "sertifikat", "feedback", "ai_assistant", "monitoring_mubaligh", "analitik", "pendanaan", "festival_generus"].includes(tabName);
     }
     return true; // Super Admin & Admin Daerah see everything
   };
@@ -204,6 +205,8 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         return <GuruPanel userRole={role} />;
       case "monitoring_mubaligh":
         return <MonevPPGContainer userRole={role} />;
+      case "festival_generus":
+        return <FestivalGenerusContainer userRole={role} />;
       case "pendanaan":
         return <PendanaanPanel userRole={role} />;
       case "presensi":
@@ -1516,6 +1519,11 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <ClipboardList className="h-4.5 w-4.5" /> MONEV PPG
               </button>
             )}
+            {hasAccessTo("festival_generus") && (
+              <button onClick={() => setActiveTab("festival_generus")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "hover:bg-slate-900 text-amber-400 hover:text-amber-200"}`}>
+                <Trophy className="h-4.5 w-4.5" /> FESTIVAL GENERUS
+              </button>
+            )}
             {hasAccessTo("presensi") && (
               <button onClick={() => setActiveTab("presensi")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "presensi" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Calendar className="h-4.5 w-4.5" /> Presensi Kehadiran
@@ -1665,6 +1673,7 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           {hasAccessTo("database") && <button onClick={() => setActiveTab("database")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "database" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Fitur Database</button>}
           {hasAccessTo("pendanaan") && <button onClick={() => setActiveTab("pendanaan")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pendanaan" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pendanaan</button>}
           {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>MONEV PPG</button>}
+          {hasAccessTo("festival_generus") && <button onClick={() => setActiveTab("festival_generus")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950" : "hover:bg-slate-900 text-amber-400"}`}>FESTIVAL GENERUS</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("face_attendance")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "face_attendance" ? "bg-indigo-600 text-white" : "hover:bg-slate-900 text-indigo-400"}`}>Presensi Wajah</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}

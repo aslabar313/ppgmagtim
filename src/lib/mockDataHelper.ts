@@ -1,19 +1,28 @@
-// LocalStorage helpers
+// LocalStorage helpers with isomorphic fallback
+const memoryStorage: Record<string, string> = {};
+
 export const loadData = <T>(key: string, initialData: T): T => {
-  if (typeof window === "undefined") return initialData;
-  try {
-    const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : initialData;
-  } catch (error) {
-    console.error("Error loading data from localStorage", error);
-    return initialData;
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialData;
+    } catch (error) {
+      console.error("Error loading data from localStorage", error);
+      return initialData;
+    }
   }
+  const mem = memoryStorage[key];
+  return mem ? JSON.parse(mem) : initialData;
 };
 
 export const saveData = <T>(key: string, data: T): void => {
-  if (typeof window === "undefined") return;
+  const jsonStr = JSON.stringify(data);
+  if (typeof window === "undefined" || !window.localStorage) {
+    memoryStorage[key] = jsonStr;
+    return;
+  }
   try {
-    window.localStorage.setItem(key, JSON.stringify(data));
+    window.localStorage.setItem(key, jsonStr);
 
     // Auto logging for data changes
     if (key !== "sim_tpq_audit_logs" && key.startsWith("sim_tpq_")) {

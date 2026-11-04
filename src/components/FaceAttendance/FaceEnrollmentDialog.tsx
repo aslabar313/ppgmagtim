@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Camera, CheckCircle2, AlertTriangle, Trash2, RefreshCw, Sparkles, ShieldCheck } from "lucide-react";
-import { checkFrameQuality, extractEmbeddingFromCanvas } from "@/lib/faceRecognitionEngine";
+import { 
+  initFaceApiModels, 
+  checkFrameQualityAsync, 
+  extractEmbedding, 
+  isFaceModelReady 
+} from "@/lib/faceRecognitionEngine";
 import { enrollGenerusFace, deleteFaceEnrollment, getFaceEnrollments } from "@/lib/faceStorage";
 import { toast } from "sonner";
 
@@ -25,19 +30,27 @@ export function FaceEnrollmentDialog({
 }: FaceEnrollmentDialogProps) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [qualityFeedback, setQualityFeedback] = useState<string>("Arahkan wajah ke kamera");
+  const [qualityFeedback, setQualityFeedback] = useState<string>("Menyiapkan kamera & model AI...");
   const [isFaceValid, setIsFaceValid] = useState(false);
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isCheckingRef = useRef(false);
 
+  // Inisialisasi Model & Cek Status Terdaftar
   useEffect(() => {
     if (generus && isOpen) {
       const enrollments = getFaceEnrollments();
       const existing = enrollments.find(e => e.generusId === generus.id && e.status === "active");
       setIsAlreadyEnrolled(!!existing);
+
+      initFaceApiModels().then((ready) => {
+        setModelReady(ready);
+      });
+
       startCamera();
     } else {
       stopCamera();
@@ -60,7 +73,7 @@ export function FaceEnrollmentDialog({
       }
     } catch (err) {
       console.error("Camera access error:", err);
-      toast.error("Gagal membuka kamera. Pastikan izin kamera aktif.");
+      toast.error("Gagal membuka kamera. Pastikan izin akses kamera diaktifkan di browser.");
       setIsCameraActive(false);
     }
   };
@@ -73,42 +86,57 @@ export function FaceEnrollmentDialog({
     setIsCameraActive(false);
   };
 
-  // Frame check interval
+  // Frame check loop menggunakan Neural Network FaceNet / TinyFace
   useEffect(() => {
     if (!isOpen || !isCameraActive) return;
 
-    const interval = setInterval(() => {
-      if (videoRef.current && canvasRef.current) {
-        const quality = checkFrameQuality(videoRef.current, canvasRef.current);
+    const interval = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current || isCheckingRef.current) return;
+      isCheckingRef.current = true;
+
+      try {
+        const quality = await checkFrameQualityAsync(videoRef.current, canvasRef.current);
         setIsFaceValid(quality.isValid);
         setQualityFeedback(quality.message || "Posisi wajah pas");
+      } catch (e) {
+        // Fallback silently
+      } finally {
+        isCheckingRef.current = false;
       }
-    }, 400);
+    }, 350);
 
     return () => clearInterval(interval);
   }, [isOpen, isCameraActive]);
 
-  const handleCaptureAndEnroll = () => {
+  const handleCaptureAndEnroll = async () => {
     if (!generus || !canvasRef.current || !videoRef.current) return;
     setIsProcessing(true);
 
     try {
-      const quality = checkFrameQuality(videoRef.current, canvasRef.current);
+      const quality = await checkFrameQualityAsync(videoRef.current, canvasRef.current);
       if (!quality.isValid) {
         toast.error("Kualitas wajah belum memadai: " + (quality.message || "Ulangi lagi"));
         setIsProcessing(false);
         return;
       }
 
-      const embedding = extractEmbeddingFromCanvas(canvasRef.current);
-      enrollGenerusFace(generus.id, embedding, currentUser, quality.sharpness / 100);
+      // Ekstraksi 128-D descriptor berbasis FaceNet sejati
+      const embedding = await extractEmbedding(videoRef.current);
+      if (!embedding || embedding.length !== 128 || embedding.every(v => v === 0)) {
+        toast.error("Gagal mengekstrak fitur biometrik wajah. Pastikan wajah terlihat jelas.");
+        setIsProcessing(false);
+        return;
+      }
 
-      toast.success(`Wajah ${generus.namaLengkap} berhasil didaftarkan!`);
+      const qualityScore = quality.sharpness > 0 ? Number((quality.sharpness / 100).toFixed(2)) : 0.9;
+      enrollGenerusFace(generus.id, embedding, currentUser || "Petugas", qualityScore);
+
+      toast.success(`Wajah ${generus.namaLengkap} berhasil didaftarkan (128-D FaceNet Template)!`);
       setIsAlreadyEnrolled(true);
       if (onEnrolled) onEnrolled();
       setTimeout(() => {
         onClose();
-      }, 1000);
+      }, 800);
     } catch (err) {
       console.error("Enrollment error:", err);
       toast.error("Terjadi kesalahan saat menyimpan data biometrik.");
@@ -185,6 +213,11 @@ export function FaceEnrollmentDialog({
               )}
               {qualityFeedback}
             </span>
+            {modelReady && (
+              <span className="text-[9px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded font-mono">
+                AI Ready
+              </span>
+            )}
           </div>
         </div>
 
@@ -192,7 +225,7 @@ export function FaceEnrollmentDialog({
         <div className="mt-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <span>
-            <strong>Privasi Terjamin:</strong> Sistem hanya menyimpan vektor embedding matematis (bukan foto mentah), sesuai standar UU PDP.
+            <strong>Privasi Terjamin:</strong> Sistem hanya menyimpan vektor matematis 128-D (bukan foto mentah), sesuai standar UU PDP.
           </span>
         </div>
 

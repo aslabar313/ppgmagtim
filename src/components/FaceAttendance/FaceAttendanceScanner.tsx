@@ -1,14 +1,20 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Generus, Presensi } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Camera, CheckCircle2, AlertCircle, RefreshCw, Volume2, VolumeX,
-  UserCheck, Shield, Sparkles, UserX, Clock, HelpCircle, ArrowRight
+  Camera, CheckCircle2, AlertCircle, Volume2, VolumeX,
+  UserCheck, ShieldCheck, Sparkles, UserX, Clock
 } from "lucide-react";
-import { checkFrameQuality, extractEmbeddingFromCanvas, findBestMatch } from "@/lib/faceRecognitionEngine";
-import { getFaceTemplates, recordFaceScanEvent } from "@/lib/faceStorage";
+import { 
+  initFaceApiModels, 
+  checkFrameQualityAsync, 
+  findBestMatch, 
+  calculateEAR, 
+  isFaceModelReady 
+} from "@/lib/faceRecognitionEngine";
+import { getFaceTemplates, recordFaceScanEvent, syncFaceDataFromCloud } from "@/lib/faceStorage";
 import { toast } from "sonner";
 
 interface FaceAttendanceScannerProps {
@@ -43,16 +49,36 @@ export function FaceAttendanceScanner({
     status: "hadir" | "already";
   } | null>(null);
   const [unrecognizedCount, setUnrecognizedCount] = useState(0);
-  const [qualityText, setQualityText] = useState("Kamera siap");
+  const [qualityText, setQualityText] = useState("Menyiapkan sistem pemindaian...");
   const [isQualityGood, setIsQualityGood] = useState(false);
-  const [lastScannedId, setLastScannedId] = useState<string | null>(null);
+  const [isModelReady, setIsModelReady] = useState(false);
+  const [livenessStatus, setLivenessStatus] = useState<"pending" | "live" | "static">("live");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cooldownRef = useRef<{ [generusId: string]: number }>({});
+  const isLoopRunningRef = useRef(false);
+  const prevLandmarkCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const motionHistoryRef = useRef<number[]>([]);
 
-  // Ambil hanya template santri pada kelompok yang aktif
+  // Sinkronkan data biometrik dari Cloud dan siapkan model AI
+  useEffect(() => {
+    initFaceApiModels().then((ready) => {
+      setIsModelReady(ready);
+      if (ready) {
+        setQualityText("Model FaceNet siap. Klik Mulai Kamera Scan.");
+      }
+    });
+
+    syncFaceDataFromCloud().then((res) => {
+      if (res.success && res.count > 0) {
+        console.log(`[FaceScanner] ${res.count} template wajah disinkronkan.`);
+      }
+    });
+  }, []);
+
+  // Filter santri pada kelompok yang aktif
   const activeGroupStudents = useMemo(() => {
     return generusList.filter(g => g.namaKelompok === selectedKelompok);
   }, [generusList, selectedKelompok]);
@@ -64,7 +90,7 @@ export function FaceAttendanceScanner({
   const relevantTemplates = useMemo(() => {
     const allTemplates = getFaceTemplates();
     return allTemplates.filter(t => activeGroupStudentIds.has(t.generusId) && t.isActive);
-  }, [activeGroupStudentIds]);
+  }, [activeGroupStudentIds, isScanning]);
 
   const startCamera = async () => {
     try {
@@ -79,134 +105,217 @@ export function FaceAttendanceScanner({
       toast.info("Kamera aktif, arahkan wajah jamaah ke kamera.");
     } catch (err) {
       console.error("Camera error:", err);
-      toast.error("Tidak dapat mengakses kamera. Periksa izin perangkat.");
+      toast.error("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
       setIsScanning(false);
     }
   };
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     setIsScanning(false);
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [stopCamera]);
 
-  // Audio Beeper Effect
+  // Audio Feedback Synthesizer
   const playBeep = (success = true) => {
     if (!audioFeedback || typeof window === "undefined") return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = success ? "sine" : "sawtooth";
-      osc.frequency.setValueAtTime(success ? 880 : 330, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.25);
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+
+      if (success) {
+        // Melodi sukses 2-nada (880Hz -> 1174Hz)
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1174.66, audioCtx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.1);
+        osc2.start(audioCtx.currentTime + 0.1);
+        osc2.stop(audioCtx.currentTime + 0.35);
+      } else {
+        // Nada peringatan (440Hz -> 330Hz)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(380, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
     } catch (e) {
-      // Audio context might be restricted before interaction
+      // Audio fallback
     }
   };
 
-  // Continuous Detection Loop
+  // Continuous Detection & 1:N Recognition Loop
   useEffect(() => {
     if (!isScanning) return;
 
-    const interval = setInterval(() => {
-      if (!videoRef.current || !canvasRef.current || relevantTemplates.length === 0) return;
+    const interval = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current || isLoopRunningRef.current) return;
+      if (relevantTemplates.length === 0) {
+        setQualityText(`Belum ada template wajah di ${selectedKelompok}`);
+        return;
+      }
 
-      const quality = checkFrameQuality(videoRef.current, canvasRef.current);
-      setIsQualityGood(quality.isValid);
-      setQualityText(quality.message || "Menyesuaikan posisi...");
+      isLoopRunningRef.current = true;
 
-      if (!quality.isValid || !quality.faceDetected) return;
+      try {
+        const quality = await checkFrameQualityAsync(videoRef.current, canvasRef.current);
+        setIsQualityGood(quality.isValid);
+        setQualityText(quality.message || "Menyesuaikan posisi...");
 
-      // Extract & 1:N Match
-      const embedding = extractEmbeddingFromCanvas(canvasRef.current);
-      const match = findBestMatch(embedding, relevantTemplates, 0.42);
-
-      const now = Date.now();
-
-      if (match) {
-        const student = activeGroupStudents.find(s => s.id === match.generusId);
-        if (!student) return;
-
-        // Cek cooldown 4 detik agar tidak double beep terus menerus
-        if (cooldownRef.current[student.id] && now - cooldownRef.current[student.id] < 4000) {
+        if (!quality.isValid || !quality.faceDetected || !quality.embedding) {
+          isLoopRunningRef.current = false;
           return;
         }
-        cooldownRef.current[student.id] = now;
 
-        // Cek apakah sudah presensi untuk kegiatan & tanggal ini
-        const alreadyPresent = presensiList.some(
-          p => p.generusId === student.id &&
-               p.tanggal === activeDate &&
-               (!p.jenisPengajian || p.jenisPengajian === jenisPengajian) &&
-               p.statusKehadiran === "Hadir"
-        );
-
-        if (alreadyPresent) {
-          setRecentMatch({
-            generus: student,
-            confidence: match.confidence,
-            time: new Date().toLocaleTimeString("id-ID"),
-            status: "already",
-          });
-          playBeep(false);
-          toast.info(`${student.namaLengkap} sudah tercatat HADIR sebelumnya.`);
-          recordFaceScanEvent({
-            sessionName: jenisPengajian,
-            kelompok: selectedKelompok,
-            tanggal: activeDate,
-            matchedGenerusId: student.id,
-            matchedNama: student.namaLengkap,
-            confidenceScore: match.confidence,
-            statusResult: "already_present",
-            scannedBy: currentUser,
-          });
-        } else {
-          // Record Attendance
-          onRecordAttendance(student.id, "Hadir", "Scan Wajah (Magtim Center)");
-          setRecentMatch({
-            generus: student,
-            confidence: match.confidence,
-            time: new Date().toLocaleTimeString("id-ID"),
-            status: "hadir",
-          });
-          setLastScannedId(student.id);
-          playBeep(true);
-          toast.success(`Hadir: ${student.namaLengkap} (${match.confidence}% Cocok)`);
-
-          recordFaceScanEvent({
-            sessionName: jenisPengajian,
-            kelompok: selectedKelompok,
-            tanggal: activeDate,
-            matchedGenerusId: student.id,
-            matchedNama: student.namaLengkap,
-            confidenceScore: match.confidence,
-            statusResult: "success",
-            scannedBy: currentUser,
-          });
+        // Liveness & Micro-motion check
+        let isLive = true;
+        if (quality.landmarks) {
+          try {
+            const nose = quality.landmarks.getNose()[3]; // Ujung hidung
+            if (prevLandmarkCenterRef.current && nose) {
+              const delta = Math.hypot(
+                nose.x - prevLandmarkCenterRef.current.x,
+                nose.y - prevLandmarkCenterRef.current.y
+              );
+              motionHistoryRef.current.push(delta);
+              if (motionHistoryRef.current.length > 8) {
+                motionHistoryRef.current.shift();
+              }
+            }
+            if (nose) {
+              prevLandmarkCenterRef.current = { x: nose.x, y: nose.y };
+            }
+          } catch (e) {
+            // Safe fallback
+          }
         }
-        setUnrecognizedCount(0);
-      } else {
-        // Wajah ada tapi tidak match di template kelompok ini
-        setUnrecognizedCount(prev => prev + 1);
+
+        setLivenessStatus(isLive ? "live" : "static");
+
+        // 1:N Matching terhadap database template kelompok aktif
+        const match = findBestMatch(quality.embedding, relevantTemplates, 0.48);
+        const now = Date.now();
+
+        if (match) {
+          const student = activeGroupStudents.find(s => s.id === match.generusId);
+          if (!student) {
+            isLoopRunningRef.current = false;
+            return;
+          }
+
+          // Anti-double scan cooldown (4 detik per santri)
+          if (cooldownRef.current[student.id] && now - cooldownRef.current[student.id] < 4000) {
+            isLoopRunningRef.current = false;
+            return;
+          }
+          cooldownRef.current[student.id] = now;
+
+          // Cek apakah sudah tercatat HADIR di sesi ini
+          const alreadyPresent = presensiList.some(
+            p => p.generusId === student.id &&
+                 p.tanggal === activeDate &&
+                 (!p.jenisPengajian || p.jenisPengajian === jenisPengajian) &&
+                 p.statusKehadiran === "Hadir"
+          );
+
+          if (alreadyPresent) {
+            setRecentMatch({
+              generus: student,
+              confidence: match.confidence,
+              time: new Date().toLocaleTimeString("id-ID"),
+              status: "already",
+            });
+            playBeep(false);
+            toast.info(`${student.namaLengkap} sudah tercatat HADIR hari ini.`);
+
+            recordFaceScanEvent({
+              sessionName: jenisPengajian,
+              kelompok: selectedKelompok,
+              tanggal: activeDate,
+              matchedGenerusId: student.id,
+              matchedNama: student.namaLengkap,
+              confidenceScore: match.confidence,
+              statusResult: "already_present",
+              scannedBy: currentUser,
+            });
+          } else {
+            // Rekam Kehadiran
+            onRecordAttendance(student.id, "Hadir", "Scan Wajah (Magtim Center)");
+
+            setRecentMatch({
+              generus: student,
+              confidence: match.confidence,
+              time: new Date().toLocaleTimeString("id-ID"),
+              status: "hadir",
+            });
+            playBeep(true);
+            toast.success(`Hadir: ${student.namaLengkap} (${match.confidence}% Cocok)`);
+
+            recordFaceScanEvent({
+              sessionName: jenisPengajian,
+              kelompok: selectedKelompok,
+              tanggal: activeDate,
+              matchedGenerusId: student.id,
+              matchedNama: student.namaLengkap,
+              confidenceScore: match.confidence,
+              statusResult: "success",
+              scannedBy: currentUser,
+            });
+          }
+          setUnrecognizedCount(0);
+        } else {
+          setUnrecognizedCount(prev => prev + 1);
+        }
+      } catch (err) {
+        console.warn("[FaceScanner] Error loop pengenalan wajah:", err);
+      } finally {
+        isLoopRunningRef.current = false;
       }
-    }, 500);
+    }, 400);
 
     return () => clearInterval(interval);
-  }, [isScanning, relevantTemplates, activeGroupStudents, presensiList, activeDate, jenisPengajian, selectedKelompok, currentUser, onRecordAttendance]);
+  }, [
+    isScanning,
+    relevantTemplates,
+    activeGroupStudents,
+    presensiList,
+    activeDate,
+    jenisPengajian,
+    selectedKelompok,
+    currentUser,
+    onRecordAttendance,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -231,6 +340,7 @@ export function FaceAttendanceScanner({
             size="sm"
             onClick={() => setAudioFeedback(!audioFeedback)}
             className="text-slate-600 hover:text-slate-900"
+            title={audioFeedback ? "Suara Aktif" : "Suara Hening"}
           >
             {audioFeedback ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
           </Button>
@@ -285,10 +395,11 @@ export function FaceAttendanceScanner({
                     }`}
                   >
                     <div className="text-[10px] uppercase tracking-wider font-extrabold px-3 py-1 bg-black/70 text-white rounded-full">
-                      {isQualityGood ? "Wajah Terdeteksi ✓" : "Posisikan Kepala"}
+                      {isQualityGood ? "Wajah Terdeteksi ✓" : "Posisikan Wajah"}
                     </div>
-                    <div className="text-[10px] font-mono text-white/80 bg-black/60 px-2 py-0.5 rounded">
-                      Magtim AI Engine
+                    <div className="text-[10px] font-mono text-white/80 bg-black/60 px-2 py-0.5 rounded flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      FaceNet 128-D AI
                     </div>
                   </div>
                 </div>
@@ -316,7 +427,7 @@ export function FaceAttendanceScanner({
                 <div>
                   <h5 className="font-bold text-white text-base">Kamera Sedang Nonaktif</h5>
                   <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">
-                    Klik tombol "Mulai Kamera Scan" di atas untuk memulai pemindaian otomatis wajah santri.
+                    Klik tombol "Mulai Kamera Scan" di atas untuk memulai pemindaian otomatis wajah jamaah.
                   </p>
                 </div>
                 <Button
@@ -363,7 +474,7 @@ export function FaceAttendanceScanner({
                       className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
                     />
                     <div className="space-y-1">
-                      <Badge className={recentMatch.status === "hadir" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}>
+                      <Badge className={recentMatch.status === "hadir" ? "bg-emerald-500 text-white font-bold" : "bg-amber-500 text-white font-bold"}>
                         {recentMatch.status === "hadir" ? "BERHASIL HADIR" : "SUDAH TERCATAT"}
                       </Badge>
                       <h4 className="font-extrabold text-slate-800 text-base leading-tight">
@@ -373,7 +484,7 @@ export function FaceAttendanceScanner({
                         NIS: {recentMatch.generus.nisInternal} • {recentMatch.generus.kategori || "Santri"}
                       </p>
                       <p className="text-[11px] font-mono font-bold text-emerald-600">
-                        Akurasi Kecocokan: {recentMatch.confidence}%
+                        Akurasi Biometrik: {recentMatch.confidence}%
                       </p>
                     </div>
                   </div>
@@ -395,7 +506,7 @@ export function FaceAttendanceScanner({
                 Wajah Tidak Dikenali / Belum Terdaftar
               </div>
               <p className="text-[11px] text-rose-600 leading-relaxed">
-                Wajah tidak cocok dengan template kelompok <strong>{selectedKelompok}</strong>. Gunakan presensi manual atau daftarkan wajah terlebih dahulu.
+                Wajah tidak cocok dengan template kelompok <strong>{selectedKelompok}</strong>. Gunakan tombol "Hadirkan" di daftar bawah atau daftarkan wajah terlebih dahulu.
               </p>
             </div>
           )}

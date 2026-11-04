@@ -20,6 +20,7 @@ import {
   createCompetitionRegistration,
   detectScheduleConflicts,
   enrollParticipantFromGenerus,
+  performQrCheckin,
   registerTeamForCompetition,
   updateArenaParticipantQueue,
   updateCompetitionCategoryConfig,
@@ -72,6 +73,19 @@ export function FestivalCompetitionsAndParticipantsView({
   const [teamMember1, setTeamMember1] = useState<string>("fg-part-01");
   const [teamMember2, setTeamMember2] = useState<string>("fg-part-08");
   const [teamMember3, setTeamMember3] = useState<string>("");
+  const [qrInputToken, setQrInputToken] = useState<string>("REG-2026-MWR-001");
+
+  const handleQrCheckinSubmit = () => {
+    try {
+      const rec = performQrCheckin(actor, { qrTokenOrCode: qrInputToken });
+      toast.success(
+        `Check-in QR Berhasil! Token '${rec.qrTokenUsed}' tercatat hadir di ${rec.arenaId}.`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal melakukan QR Check-in.");
+    }
+  };
 
   const generusMasterList = getGenerus().filter((g) => g.usia <= 19);
   const scheduleConflicts = detectScheduleConflicts();
@@ -680,6 +694,51 @@ export function FestivalCompetitionsAndParticipantsView({
   // Default: jadwal_arena
   return (
     <div className="space-y-6 text-left animate-fade-in">
+      {/* QR Code Check-in & Anti-Duplicate Guard (Part 3 Section 9 #9) */}
+      <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Meja Registrasi & QR Code Check-in Peserta (Anti-Check-in Ganda)
+            </h3>
+            <p className="text-xs text-slate-500">
+              Setiap QR Code / Kode Registrasi hanya dapat digunakan untuk 1 kali check-in; percobaan kedua otomatis ditolak
+            </p>
+          </div>
+          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+            {(store.checkins || []).length} Peserta Sudah Check-in QR
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+          <select
+            value={qrInputToken}
+            onChange={(e) => setQrInputToken(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+          >
+            {store.registrations.map((r) => (
+              <option key={r.id} value={r.registrationCode}>
+                {r.registrationCode} ({r.displayNumber} • {r.groupName}) — Status Check-in: {r.checkinStatus}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={qrInputToken}
+            onChange={(e) => setQrInputToken(e.target.value)}
+            placeholder="Scan / ketik Kode QR Registrasi..."
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold"
+          />
+          <Button
+            onClick={handleQrCheckinSubmit}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+          >
+            Scan & Verifikasi QR Check-in
+          </Button>
+        </div>
+      </Card>
+
       <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>

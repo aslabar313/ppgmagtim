@@ -15,13 +15,18 @@ import {
   getAccessibleFestivalPages,
 } from "@/lib/festival/festivalAuth";
 import {
+  approveAndRatifyCompetitionResults,
+  exportFestivalReportData,
   getScopedSubmissionsForActor,
+  issueCompetitionCertificate,
   pressQuizBuzzer,
   recordQuizMatchScoreEvent,
   replaceAssignedJudgeWithAudit,
   resetQuizBuzzerAndSetTurn,
   reviseLockedSubmissionScore,
+  revokeCompetitionApprovalWithAudit,
   submitJudgeScore,
+  verifyFestivalDataIntegrity,
 } from "@/lib/festival/festivalService";
 import {
   Award,
@@ -34,6 +39,7 @@ import {
   Zap,
   Palette,
   Lock,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,6 +84,76 @@ export function FestivalScoringAndResultsView({
   const [replaceCompId, setReplaceCompId] = useState<string>("fg-comp-hadist-sma");
   const [replacePos, setReplacePos] = useState<1 | 2 | 3>(3);
   const [replaceReason, setReplaceReason] = useState<string>("Berhalangan hadir mendadak");
+  const [approvalCompId, setApprovalCompId] = useState<string>("fg-comp-tahfidz-sd");
+  const [approvalNotesInput, setApprovalNotesInput] = useState<string>(
+    "Berita Acara Pengesahan Resmi Hasil Penilaian Dewan Juri"
+  );
+  const [certRegId, setCertRegId] = useState<string>("fg-reg-01");
+
+  const handleApproveCompetition = () => {
+    try {
+      const res = approveAndRatifyCompetitionResults(actor, {
+        competitionId: approvalCompId,
+        approvalNotes: approvalNotesInput,
+      });
+      toast.success(
+        `Hasil kategori '${approvalCompId}' resmi DISAHKAN (${res.results.length} Pemenang) & dikunci dari perubahan sembarangan!`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengesahkan hasil kategori.");
+    }
+  };
+
+  const handleRevokeApproval = (compId: string) => {
+    try {
+      revokeCompetitionApprovalWithAudit(actor, {
+        competitionId: compId,
+        reason: "Pembukaan kunci resmi oleh Ketua Panitia / Superadmin untuk koreksi berita acara",
+      });
+      toast.info(`Kunci pengesahan kategori '${compId}' dibuka dengan catatan Audit Log.`);
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membuka kunci pengesahan.");
+    }
+  };
+
+  const handleIssueCertificate = () => {
+    try {
+      const cert = issueCompetitionCertificate(actor, {
+        registrationId: certRegId,
+        recipientRole: "JUARA",
+      });
+      toast.success(
+        `Sertifikat ${cert.certificateNumber} (${cert.predicateLabel}) untuk ${cert.recipientName} berhasil diterbitkan!`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menerbitkan sertifikat.");
+    }
+  };
+
+  const handleDownloadReport = (
+    reportType: "REKAP_NILAI" | "JUARA_UMUM" | "PRESENSI_QR" | "AUDIT_LOG"
+  ) => {
+    try {
+      const rep = exportFestivalReportData(actor, reportType);
+      if (typeof window !== "undefined") {
+        const blob = new Blob([rep.csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", rep.filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+      toast.success(`Laporan '${rep.filename}' (${rep.rows.length} baris) berhasil diunduh!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengunduh laporan.");
+    }
+  };
 
   const activeReg =
     store.registrations.find((r) => r.id === selectedScoreRegId) ||
@@ -581,6 +657,65 @@ export function FestivalScoringAndResultsView({
   if (activeSubPage === "hasil_juara") {
     return (
       <div className="space-y-6 text-left animate-fade-in">
+        {/* Pengesahan Resmi Berita Acara & Kunci Hasil (Part 3 Section 8 & Section 9 #8) */}
+        <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Lock className="h-4 w-4 text-emerald-600" />
+                Pengesahan Resmi Berita Acara & Kunci Hasil Kategori (fg_approvals)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Hasil yang sudah disahkan tidak dapat diubah sembarangan dan poin juara umum dijamin bebas hitung ganda
+              </p>
+            </div>
+            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+              {(store.approvals || []).filter((a) => a.approvalStatus === "APPROVED").length} Kategori Disahkan
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <select
+              value={approvalCompId}
+              onChange={(e) => setApprovalCompId(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+            >
+              {store.competitions.map((c) => {
+                const isApv = (store.approvals || []).some(
+                  (a) => a.competitionId === c.id && a.approvalStatus === "APPROVED"
+                );
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {isApv ? "— [DISAHKAN]" : "— [BELUM DISAHKAN]"}
+                  </option>
+                );
+              })}
+            </select>
+            <input
+              type="text"
+              value={approvalNotesInput}
+              onChange={(e) => setApprovalNotesInput(e.target.value)}
+              placeholder="Catatan berita acara pengesahan..."
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={handleApproveCompetition}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex-1"
+              >
+                Sahkan & Kunci Hasil
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleRevokeApproval(approvalCompId)}
+                className="text-xs font-bold rounded-xl"
+              >
+                Buka Kunci
+              </Button>
+            </div>
+          </div>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
             <CardHeader className="p-0">
@@ -645,39 +780,134 @@ export function FestivalScoringAndResultsView({
   }
 
   if (activeSubPage === "sertifikat" || activeSubPage === "laporan") {
+    const integrity = verifyFestivalDataIntegrity();
     return (
       <div className="space-y-6 text-left animate-fade-in">
-        <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <CardHeader className="p-0">
-            <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="h-4.5 w-4.5 text-emerald-600" />
-              {activeSubPage === "sertifikat"
-                ? "Manajemen E-Sertifikat Juara & Peserta Terverifikasi QR (fg_certificates)"
-                : "Laporan Eksekutif & Berita Acara Festival Generus (fg_approvals)"}
-            </CardTitle>
-          </CardHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {store.certificates.map((cert) => (
-              <div
-                key={cert.id}
-                className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2"
+        {activeSubPage === "sertifikat" ? (
+          <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <CardHeader className="p-0">
+              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="h-4.5 w-4.5 text-emerald-600" />
+                Manajemen E-Sertifikat Juara & Peserta Terverifikasi QR (fg_certificates)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Proteksi Ketat: Sertifikat TIDAK DAPAT diterbitkan dari kategori yang hasilnya belum disahkan (fg_approvals)
+              </CardDescription>
+            </CardHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <select
+                value={certRegId}
+                onChange={(e) => setCertRegId(e.target.value)}
+                className="sm:col-span-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
               >
-                <div className="flex items-center justify-between">
-                  <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
-                    {cert.certificateNumber}
-                  </Badge>
-                  <span className="text-[10px] font-mono text-emerald-800 font-bold">
-                    {cert.qrVerificationToken}
-                  </span>
+                {store.registrations.map((r) => {
+                  const comp = store.competitions.find((c) => c.id === r.competitionId);
+                  const isApv = (store.approvals || []).some(
+                    (a) => a.competitionId === r.competitionId && a.approvalStatus === "APPROVED"
+                  );
+                  return (
+                    <option key={r.id} value={r.id}>
+                      {r.registrationCode} ({r.displayNumber} • {comp?.name}) — {isApv ? "DISAHKAN" : "BELUM DISAHKAN"}
+                    </option>
+                  );
+                })}
+              </select>
+              <Button
+                onClick={handleIssueCertificate}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+              >
+                Terbitkan E-Sertifikat Resmi
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {store.certificates.map((cert) => (
+                <div
+                  key={cert.id}
+                  className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
+                      {cert.certificateNumber}
+                    </Badge>
+                    <span className="text-[10px] font-mono text-emerald-800 font-bold">
+                      {cert.qrVerificationToken}
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-slate-900">{cert.recipientName}</div>
+                  <div className="text-xs text-slate-600">
+                    {cert.predicateLabel} — {cert.competitionName} ({cert.groupName}, {cert.villageName})
+                  </div>
                 </div>
-                <div className="font-bold text-sm text-slate-900">{cert.recipientName}</div>
-                <div className="text-xs text-slate-600">
-                  {cert.predicateLabel} — {cert.competitionName} ({cert.groupName}, {cert.villageName})
-                </div>
+              ))}
+            </div>
+          </Card>
+        ) : (
+          <Card className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <CardHeader className="p-0">
+              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Download className="h-4.5 w-4.5 text-emerald-600" />
+                Pusat Unduh Laporan Resmi & Verifikasi Integritas Data 9-Titik
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Unduh laporan resmi CSV/Excel-compatible untuk arsip kepanitiaan PPG Magetan Timur
+              </CardDescription>
+            </CardHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Button
+                onClick={() => handleDownloadReport("REKAP_NILAI")}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl py-3"
+              >
+                <Download className="h-4 w-4 mr-1.5" /> Unduh Rekap Nilai 17 Lomba
+              </Button>
+              <Button
+                onClick={() => handleDownloadReport("JUARA_UMUM")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl py-3"
+              >
+                <Download className="h-4 w-4 mr-1.5" /> Unduh Klasemen Juara Umum
+              </Button>
+              <Button
+                onClick={() => handleDownloadReport("PRESENSI_QR")}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl py-3"
+              >
+                <Download className="h-4 w-4 mr-1.5" /> Unduh Presensi QR Check-in
+              </Button>
+              <Button
+                onClick={() => handleDownloadReport("AUDIT_LOG")}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl py-3"
+              >
+                <Download className="h-4 w-4 mr-1.5" /> Unduh Log Audit Keamanan
+              </Button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900">
+                  Status Verifikasi Integritas Data (Part 3 Section 8):
+                </span>
+                <Badge
+                  className={
+                    integrity.valid
+                      ? "bg-emerald-600 text-white text-[10px] font-bold"
+                      : "bg-rose-600 text-white text-[10px] font-bold"
+                  }
+                >
+                  {integrity.valid ? "100% VALID & KONSISTEN" : "PERLU PERHATIAN"}
+                </Badge>
               </div>
-            ))}
-          </div>
-        </Card>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-700">
+                <div>✅ Bebas Hitung Ganda Poin Juara Umum: {String(integrity.zeroDoubleChampionshipPoints)}</div>
+                <div>✅ Bebas Duplikasi Hasil Lomba: {String(integrity.zeroDuplicateResults)}</div>
+                <div>✅ Hasil Final = Data Sumber: {String(integrity.finalResultsMatchSource)}</div>
+                <div>✅ Bebas Bocor Lintas Organisasi: {String(integrity.zeroCrossOrgLeakage)}</div>
+                <div>✅ Revisi Wajib Alasan: {String(integrity.allRevisionsHaveReason)}</div>
+                <div>✅ Standar Timestamp ISO-8601: {String(integrity.allTimestampsIsoValid)}</div>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     );
   }

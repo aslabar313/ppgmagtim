@@ -577,6 +577,7 @@ export interface FgCertificate {
   id: string;
   eventId: string;
   certificateNumber: string;
+  competitionId?: string;
   registrationId?: string;
   recipientName: string;
   recipientRole: "PESERTA" | "JUARA" | "JURI" | "PANITIA" | "PENDAMPING";
@@ -588,6 +589,85 @@ export interface FgCertificate {
   qrVerificationToken: string;
   issuedBy: string;
   issuedAt: string;
+}
+
+export interface FgCheckinRecord {
+  id: string;
+  eventId: string;
+  competitionId: string;
+  registrationId: string;
+  arenaId: string;
+  qrTokenUsed: string;
+  checkinStatus: CheckinStatus;
+  checkedInBy: string;
+  checkedInAt: string;
+  notes?: string;
+}
+
+export interface FgApprovalRecord {
+  id: string;
+  eventId: string;
+  competitionId: string;
+  stageId: string;
+  approvalStatus: "PENDING" | "APPROVED" | "REVOKED";
+  approvedBy: string;
+  approvedRole: FestivalRole;
+  approvedAt: string;
+  approvalNotes: string;
+  revokedBy?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+}
+
+export interface FgChampionshipConfig {
+  id: string;
+  eventId: string;
+  goldPoints: number;
+  silverPoints: number;
+  bronzePoints: number;
+  honorable1Points: number;
+  honorable2Points: number;
+  honorable3Points: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface FinalDashboardMetrics {
+  totalParticipants: number;
+  totalTeams: number;
+  totalCategories: number;
+  totalJudges: number;
+  totalJudgeAssignments: number;
+  activeSchedulesCount: number;
+  arenaStatuses: Array<{
+    arenaId: string;
+    code: string;
+    name: string;
+    locationDetail: string;
+    status: "READY" | "ACTIVE" | "BREAK" | "CLOSED";
+    operatorUsername: string;
+    activeCompetitionCount: number;
+    performingEntryName: string | null;
+  }>;
+  currentlyCompetingEntries: Array<{
+    queueId: string;
+    registrationId: string;
+    displayNumber: string;
+    entryName: string;
+    competitionName: string;
+    arenaName: string;
+    callStatus: ArenaCallStatus;
+    groupName: string;
+    villageName: string;
+  }>;
+  scoringProgressPercent: number;
+  totalExpectedJudgeSubmissions: number;
+  completedJudgeSubmissions: number;
+  completedCategoriesCount: number;
+  ratifiedCategoriesCount: number;
+  provisionalPointsTotal: number;
+  groupStandings: FgChampionshipStanding[];
+  villageStandings: FgChampionshipStanding[];
 }
 
 export interface FgAuditLog {
@@ -621,6 +701,7 @@ export interface FestivalStoreState {
   registrations: FgRegistration[];
   artworks: FgArtwork[];
   arenaQueues: FgArenaQueue[];
+  checkins?: FgCheckinRecord[];
   judges: FgJudge[];
   judgeAssignments: FgJudgeAssignment[];
   criteria: FgScoringCriteria[];
@@ -631,6 +712,8 @@ export interface FestivalStoreState {
   quizScoreEvents: FgQuizScoreEvent[];
   quizLeaderboards: FgQuizLeaderboard[];
   competitionResults: FgCompetitionResult[];
+  approvals?: FgApprovalRecord[];
+  championshipConfig?: FgChampionshipConfig;
   certificates: FgCertificate[];
   auditLogs: FgAuditLog[];
   updatedAt: string;

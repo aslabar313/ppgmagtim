@@ -12,15 +12,20 @@ import {
   resolveCanonicalFestivalActor,
 } from "../src/lib/festival/festivalAuth";
 import {
+  approveAndRatifyCompetitionResults,
   calculateChampionshipStandings,
   createCompetitionRegistration,
   detectScheduleConflicts,
   enrollParticipantFromGenerus,
+  exportFestivalReportData,
   getFestivalStore,
+  getFinalDashboardMetrics,
   getScopedContingents,
   getScopedParticipants,
   getScopedRegistrations,
   getScopedSubmissionsForActor,
+  issueCompetitionCertificate,
+  performQrCheckin,
   pressQuizBuzzer,
   recordQuizMatchScoreEvent,
   registerArtworkForEntry,
@@ -30,6 +35,7 @@ import {
   resetQuizBuzzerAndSetTurn,
   resolveManualTieBreakDeliberation,
   reviseLockedSubmissionScore,
+  revokeCompetitionApprovalWithAudit,
   saveFestivalStore,
   submitJudgeScore,
   toDecimal2,
@@ -37,7 +43,9 @@ import {
   updateArenaParticipantQueue,
   updateCompetitionCategoryConfig,
   updateRegistrationStatus,
+  verifyFestivalDataIntegrity,
 } from "../src/lib/festival/festivalService";
+import { getGenerus, getKelompok, verifyCredentials } from "../src/lib/mockData";
 
 test("Part 1 & 2 — Audit SQL Migrations (Foundation + Part 2 Core Engine) & RLS Verification", () => {
   const part1Path = path.resolve(
@@ -566,4 +574,302 @@ test("Acceptance Test 12, 13 & 14 — Cerdas Cermat (Giliran & Buzzer Lock), Pen
   const standings = calculateChampionshipStandings();
   assert.strictEqual(standings.villageStandings.length, 4);
   assert.strictEqual(standings.groupStandings.length, 30);
+});
+
+test("Part 3 Section 7 & 8 — Dashboard Final (11 Indikator), Audit & Integritas Data, Anti-Hitung Ganda Poin Juara Umum & Unduh Laporan", () => {
+  resetFestivalStoreToSeed();
+  const ketuaPanitia = resolveCanonicalFestivalActor("ketuapanitia1");
+
+  // 1. Verifikasi file SQL Migration Part 3 tersedia & bebas perintah destruktif
+  const part3Path = path.resolve(
+    process.cwd(),
+    "supabase/migrations/20261106_festival_generus_part3_finalization.sql"
+  );
+  assert.ok(fs.existsSync(part3Path), "File migration SQL Part 3 harus tersedia");
+  const sql3 = fs.readFileSync(part3Path, "utf-8");
+  assert.ok(sql3.includes("trg_fg_prevent_duplicate_qr_checkin"));
+  assert.ok(sql3.includes("uq_fg_championship_points_comp_reg"));
+  assert.ok(sql3.includes("trg_fg_lock_approved_scoring_submissions"));
+  assert.ok(sql3.includes("trg_fg_guard_certificate_requires_approval"));
+
+  // 2. Uji 11 Indikator Dashboard Final (Section 7)
+  const metrics = getFinalDashboardMetrics();
+  assert.strictEqual(metrics.totalCategories, 17, "Total kategori wajib 17");
+  assert.strictEqual(metrics.arenaStatuses.length, 12, "Total arena pada Dashboard Final wajib 12 arena");
+  assert.strictEqual(metrics.totalJudgeAssignments, 51, "Total penugasan juri wajib 51 (17 x 3)");
+  assert.ok(metrics.totalParticipants >= 8);
+  assert.ok(metrics.totalTeams >= 3);
+  assert.ok(metrics.currentlyCompetingEntries.length >= 1);
+  assert.ok(metrics.scoringProgressPercent > 0);
+  assert.strictEqual(metrics.villageStandings.length, 4);
+  assert.strictEqual(metrics.groupStandings.length, 30);
+
+  // 3. Uji Anti-Hitung Ganda Poin Juara Umum (Section 8)
+  const store = getFestivalStore();
+  // Sengaja suntikkan baris duplikat ke competitionResults untuk menguji deduplikasi
+  store.competitionResults.push({ ...store.competitionResults[0], id: "fcr-dup-test" });
+  saveFestivalStore(store);
+
+  const standingsDedup = calculateChampionshipStandings();
+  const karasStanding = standingsDedup.groupStandings.find((g) => g.groupName === "Kelompok Karas")!;
+  assert.strictEqual(
+    karasStanding.totalPoints,
+    5.0,
+    "Poin Juara 1 Kelompok Karas (5.0) TIDAK BOLEH terhitung dua kali (bukan 10.0) meskipun ada duplikasi baris"
+  );
+  assert.strictEqual(karasStanding.goldCount, 1);
+
+  // Bersihkan melalui pengesahan resmi yang idempoten
+  approveAndRatifyCompetitionResults(ketuaPanitia, {
+    competitionId: "fg-comp-tahfidz-sd",
+    approvalNotes: "Pengesahan resmi hasil Tahfidz SD tanpa duplikasi",
+  });
+
+  const integrity = verifyFestivalDataIntegrity();
+  assert.strictEqual(integrity.valid, true, `Integritas data wajib valid: ${integrity.issues.join(", ")}`);
+  assert.strictEqual(integrity.zeroDoubleChampionshipPoints, true);
+  assert.strictEqual(integrity.zeroDuplicateResults, true);
+  assert.strictEqual(integrity.finalResultsMatchSource, true);
+  assert.strictEqual(integrity.zeroCrossOrgLeakage, true);
+  assert.strictEqual(integrity.allTimestampsIsoValid, true);
+
+  // 4. Uji Unduh 4 Jenis Laporan Resmi (Section 12)
+  for (const rType of ["REKAP_NILAI", "JUARA_UMUM", "PRESENSI_QR", "AUDIT_LOG"] as const) {
+    const rep = exportFestivalReportData(ketuaPanitia, rType);
+    assert.ok(rep.csvContent.length > 20, `Laporan ${rType} wajib menghasilkan konten CSV`);
+    assert.ok(rep.rows.length > 0, `Laporan ${rType} wajib memiliki baris data`);
+  }
+});
+
+test("Part 3 Section 9 — 10 Pengujian Keamanan (QR Anti-Ganda, Kunci Hasil Disahkan, Guard Sertifikat) & Regression Testing Aplikasi Utama", () => {
+  resetFestivalStoreToSeed();
+  const superAdmin = resolveCanonicalFestivalActor("superadminaldi");
+  const adminDaerah = resolveCanonicalFestivalActor("daerah1");
+  const adminDesaSelatan = resolveCanonicalFestivalActor("desaselatan1");
+  const adminKaras = resolveCanonicalFestivalActor("adminkaras1");
+  const juri1 = resolveCanonicalFestivalActor("juri1");
+  const operatorArena = resolveCanonicalFestivalActor("operatorarena1");
+  const petugasCheckin = resolveCanonicalFestivalActor("petugascheckin1");
+  const ketuaPanitia = resolveCanonicalFestivalActor("ketuapanitia1");
+  const viewer = resolveCanonicalFestivalActor("viewer1");
+
+  // Security 1, 2, 3, 6: Hierarki Kelompok, Desa, Daerah, Superadmin
+  assert.strictEqual(getScopedContingents(adminKaras).length, 1);
+  assert.strictEqual(getScopedContingents(adminDesaSelatan).length, 7);
+  assert.strictEqual(getScopedContingents(adminDaerah).length, 30);
+  assert.strictEqual(getScopedContingents(superAdmin).length, 30);
+
+  // Security 4 & 5: Juri & Operator hanya mengakses penugasan/fungsi operasionalnya
+  assert.throws(() => {
+    updateArenaParticipantQueue(juri1, { registrationId: "fg-reg-01", callStatus: "CALLED" });
+  }, /DENY/);
+
+  // Security 7: Pengguna tanpa izin (Viewer / Admin Kelompok) tidak dapat mengubah nilai
+  assert.throws(() => {
+    submitJudgeScore(viewer, {
+      registrationId: "fg-reg-04",
+      stageId: "stg-penyisihan",
+      judgePosition: 1,
+      rawScore: 90,
+    });
+  }, /DENY/);
+
+  // Security 9: QR Code TIDAK DAPAT digunakan untuk check-in ganda
+  const firstCheckin = performQrCheckin(petugasCheckin, {
+    qrTokenOrCode: "REG-2026-MWR-001", // fg-reg-04 belum ada di INITIAL_FG_CHECKINS
+    arenaId: "arn-04",
+  });
+  assert.strictEqual(firstCheckin.checkinStatus, "PRESENT");
+
+  assert.throws(
+    () => {
+      performQrCheckin(petugasCheckin, {
+        qrTokenOrCode: "REG-2026-MWR-001",
+        arenaId: "arn-04",
+      });
+    },
+    /QR CHECK-IN DITOLAK/,
+    "Percobaan check-in kedua dengan QR Code yang sama wajib ditolak!"
+  );
+
+  // Security 10: Sertifikat TIDAK DAPAT diterbitkan dari hasil yang belum disahkan
+  assert.throws(
+    () => {
+      issueCompetitionCertificate(ketuaPanitia, {
+        registrationId: "fg-reg-04", // Kategori Mewarnai PAUD belum disahkan di fg_approvals
+        recipientRole: "JUARA",
+      });
+    },
+    /PENERBITAN SERTIFIKAT DITOLAK/,
+    "Sertifikat tidak boleh diterbitkan dari hasil yang belum disahkan!"
+  );
+
+  // Security 8: Hasil yang sudah disahkan TIDAK DAPAT diubah sembarangan
+  const apv = approveAndRatifyCompetitionResults(ketuaPanitia, {
+    competitionId: "fg-comp-tahfidz-sd",
+    approvalNotes: "Pengesahan Final Berita Acara Tahfidz SD",
+  });
+  assert.strictEqual(apv.approval.approvalStatus, "APPROVED");
+
+  // Setelah disahkan, baik submitJudgeScore maupun reviseLockedSubmissionScore wajib ditolak!
+  assert.throws(
+    () => {
+      reviseLockedSubmissionScore(ketuaPanitia, {
+        submissionId: "sub-01-j1",
+        newRawScore: 99,
+        reason: "Coba ubah nilai setelah hasil disahkan",
+      });
+    },
+    /HASIL SUDAH DISAHKAN/,
+    "Hasil yang sudah disahkan tidak dapat diubah sembarangan!"
+  );
+
+  // Setelah kategori Tahfidz SD disahkan, penerbitan sertifikat untuk Juara 2 (fg-reg-02) BERHASIL
+  const certJuara2 = issueCompetitionCertificate(ketuaPanitia, {
+    registrationId: "fg-reg-02",
+    recipientRole: "JUARA",
+  });
+  assert.strictEqual(certJuara2.predicateLabel, "Juara 2");
+  assert.ok(certJuara2.certificateNumber.startsWith("SERT/FG-MAGTIM/2026/"));
+
+  // Hanya Superadmin atau Ketua Panitia yang dapat mencabut pengesahan dengan alasan wajib
+  assert.throws(() => {
+    revokeCompetitionApprovalWithAudit(operatorArena, {
+      competitionId: "fg-comp-tahfidz-sd",
+      reason: "Operator coba buka kunci",
+    });
+  }, /DENY/);
+
+  // Regression Testing Aplikasi Utama (Autentikasi, Kelompok, Generus)
+  assert.strictEqual(getKelompok().length, 30, "Regression: 30 Kelompok utama tetap utuh");
+  assert.ok(getGenerus().length >= 5, "Regression: Data santri/generus aplikasi utama tetap utuh");
+  assert.strictEqual(verifyCredentials("superadminaldi", "admin123")?.success, true);
+  assert.strictEqual(verifyCredentials("adminfestival1", "admin123")?.role, "Admin Festival");
+  assert.strictEqual(verifyCredentials("juri1", "admin123")?.role, "Juri");
+});
+
+test("Part 3 Section 10 — Performance & Load Testing: 500 Peserta, 17 Kategori, 3 Juri/Kategori, 12 Arena & 100 Pengguna Bersamaan", async () => {
+  resetFestivalStoreToSeed();
+  const store = getFestivalStore();
+  const superAdmin = resolveCanonicalFestivalActor("superadminaldi");
+
+  // 1. Verifikasi 17 kategori, 3 juri/kategori (51 penugasan), dan 12 arena
+  assert.strictEqual(store.competitions.length, 17);
+  assert.strictEqual(store.judgeAssignments.length, 51);
+  assert.strictEqual(store.arenas.length, 12);
+
+  // 2. Bangkitkan hingga tepat 500 Peserta & 500 Registrasi tersebar di 17 kategori dan 30 kelompok
+  const existingPartCount = store.participants.length;
+  const individualComps = store.competitions.filter((c) => c.competitionType === "INDIVIDUAL");
+
+  for (let i = existingPartCount + 1; i <= 500; i++) {
+    const contingent = store.contingents[(i - 1) % store.contingents.length];
+    const comp = individualComps[(i - 1) % individualComps.length];
+    const partId = `fg-part-load-${i}`;
+    const regId = `fg-reg-load-${i}`;
+
+    store.participants.push({
+      id: partId,
+      eventId: "fg-evt-2026",
+      contingentId: contingent.id,
+      generusId: `gen-load-${i}`,
+      snapshotFullName: `Santri Peserta LoadTest #${i}`,
+      snapshotNis: `NIS-LT-${String(i).padStart(4, "0")}`,
+      snapshotGender: i % 2 === 0 ? "Perempuan" : "Laki-laki",
+      snapshotBirthDate: "2015-05-10",
+      snapshotAge: 11,
+      snapshotEducationLevel: comp.educationLevel,
+      snapshotCategory: "Caberawit",
+      snapshotParentName: `Wali Santri #${i}`,
+      snapshotParentWhatsapp: "081234567890",
+      snapshotGroupId: contingent.groupId,
+      snapshotGroupName: contingent.groupName,
+      snapshotVillageName: contingent.villageName,
+      snapshotRegionName: contingent.regionName,
+      eligibilityStatus: "VERIFIED",
+      createdBy: "loadtest",
+      createdAt: "2026-11-05T00:00:00Z",
+    });
+
+    store.registrations.push({
+      id: regId,
+      eventId: "fg-evt-2026",
+      competitionId: comp.id,
+      contingentId: contingent.id,
+      participantId: partId,
+      teamId: null,
+      registrationCode: `REG-LT-${String(i).padStart(4, "0")}`,
+      regionName: contingent.regionName,
+      villageName: contingent.villageName,
+      groupName: contingent.groupName,
+      status: "VERIFIED",
+      displayNumber: `${comp.code}-${String(i).padStart(3, "0")}`,
+      turnOrder: i,
+      checkinStatus: "PRESENT",
+      createdBy: "loadtest",
+      createdAt: "2026-11-05T00:00:00Z",
+      updatedAt: "2026-11-05T00:00:00Z",
+    });
+  }
+  saveFestivalStore(store);
+
+  assert.strictEqual(getFestivalStore().participants.length, 500, "Skenario load test wajib memiliki 500 peserta");
+
+  // 3. Simulasi 100 Pengguna Bersamaan (Promise.all 100 Concurrent Operations):
+  //    - 30 operasi penyimpanan nilai & autosave oleh 3 juri
+  //    - 30 operasi pemuatan Dashboard Final & Leaderboard
+  //    - 40 operasi query RLS oleh Admin Kelompok, Admin Desa, dan Admin Daerah
+  const juri1 = resolveCanonicalFestivalActor("juri1");
+  const juri2 = resolveCanonicalFestivalActor("juri2");
+  const juri3 = resolveCanonicalFestivalActor("juri3");
+  const adminDesa = resolveCanonicalFestivalActor("desaselatan1");
+  const adminKelompok = resolveCanonicalFestivalActor("adminkaras1");
+
+  const startMs = performance.now();
+
+  const concurrentTasks = Array.from({ length: 100 }, (_, idx) =>
+    Promise.resolve().then(() => {
+      if (idx < 30) {
+        // 30 operasi penyimpanan nilai & autosave pada 10 peserta load test (masing-masing 3 juri)
+        const targetIndex = 20 + Math.floor(idx / 3);
+        const judgePos = ((idx % 3) + 1) as 1 | 2 | 3;
+        const actor = judgePos === 1 ? juri1 : judgePos === 2 ? juri2 : juri3;
+        const statusMode = idx % 2 === 0 ? "DRAFT" : "SUBMITTED";
+        const scoreVal = 80 + (idx % 18);
+        return submitJudgeScore(actor, {
+          registrationId: `fg-reg-load-${targetIndex}`,
+          stageId: "stg-penyisihan",
+          judgePosition: judgePos,
+          rawScore: scoreVal,
+          status: statusMode,
+        });
+      } else if (idx < 60) {
+        // 30 operasi pemuatan Dashboard Final & perhitungan klasemen
+        return getFinalDashboardMetrics();
+      } else {
+        // 40 operasi RLS query lintas peran
+        const actor = idx % 2 === 0 ? adminDesa : adminKelompok;
+        return getScopedRegistrations(actor);
+      }
+    })
+  );
+
+  const results = await Promise.all(concurrentTasks);
+  const elapsedMs = performance.now() - startMs;
+
+  assert.strictEqual(results.length, 100, "Seluruh 100 operasi pengguna bersamaan wajib berhasil tanpa kehilangan input");
+  assert.ok(elapsedMs < 5000, `Waktu eksekusi 100 operasi bersamaan pada 500 peserta harus responsif (<5000ms, aktual: ${elapsedMs.toFixed(2)}ms)`);
+
+  // 4. Verifikasi tidak ada duplikasi submission & konsistensi data pasca 100 operasi konkuren
+  const postStore = getFestivalStore();
+  const subKeySet = new Set<string>();
+  for (const s of postStore.scoringSubmissions) {
+    const key = `${s.registrationId}::${s.stageId}::${s.judgePosition}`;
+    assert.ok(!subKeySet.has(key), `Tidak boleh ada duplikasi submission pada ${key}`);
+    subKeySet.add(key);
+  }
+
+  // Kembalikan ke seed bersih setelah load test selesai
+  resetFestivalStoreToSeed();
+  assert.strictEqual(getFestivalStore().competitions.length, 17);
 });

@@ -26,6 +26,7 @@ import {
   FgRegistration,
 } from "@/lib/festival/types";
 import { CanonicalFestivalActor, FESTIVAL_VILLAGE_GROUPS_MAP } from "@/lib/festival/festivalAuth";
+import { getFinalDashboardMetrics } from "@/lib/festival/festivalService";
 
 interface FestivalDashboardViewProps {
   actor: CanonicalFestivalActor;
@@ -52,6 +53,7 @@ export function FestivalDashboardView({
   const individualComps = store.competitions.filter((c) => c.competitionType === "INDIVIDUAL").length;
   const teamComps = store.competitions.filter((c) => c.competitionType !== "INDIVIDUAL").length;
   const activeStage = store.stages.find((s) => s.isActive) || store.stages[0];
+  const finalMetrics = getFinalDashboardMetrics();
 
   return (
     <div className="space-y-6 text-left animate-fade-in">
@@ -112,19 +114,19 @@ export function FestivalDashboardView({
         </div>
       </div>
 
-      {/* 2. KPI Summary Cards */}
+      {/* 2. KPI Summary Cards (11 Indikator Dashboard Final) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Cabang Perlombaan
+                Total Kategori & Jadwal Aktif
               </span>
               <div className="text-2xl font-display font-black text-slate-900 mt-1">
-                {store.competitions.length} Kategori
+                {finalMetrics.totalCategories} Kategori
               </div>
               <span className="text-[11px] font-semibold text-emerald-700 mt-1 block">
-                {individualComps} Individu • {teamComps} Beregu & CCA
+                {individualComps} Individu • {teamComps} Beregu • {finalMetrics.activeSchedulesCount} Jadwal Aktif
               </span>
             </div>
             <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -137,35 +139,16 @@ export function FestivalDashboardView({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Kontingen & Wilayah (Scoped)
+                Total Peserta & Tim Beregu
               </span>
               <div className="text-2xl font-display font-black text-slate-900 mt-1">
-                {scopedContingents.length} Kelompok
+                {scopedParticipants.length} Peserta / {finalMetrics.totalTeams} Tim
               </div>
               <span className="text-[11px] font-semibold text-indigo-700 mt-1 block">
-                Struktur Kelompok → 4 Desa → Daerah
+                {scopedRegistrations.length} Entri Lomba • {scopedContingents.length} Kelompok
               </span>
             </div>
             <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Layers className="h-5 w-5" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Peserta & Entri Lomba
-              </span>
-              <div className="text-2xl font-display font-black text-slate-900 mt-1">
-                {scopedParticipants.length} Santri / {scopedRegistrations.length} Entri
-              </div>
-              <span className="text-[11px] font-semibold text-amber-700 mt-1 block">
-                Snapshot Identitas & XOR Constraint Aktif
-              </span>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Users className="h-5 w-5" />
             </div>
           </div>
@@ -175,13 +158,32 @@ export function FestivalDashboardView({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Dewan Juri & Arena
+                Progres Penilaian & Kategori Selesai
               </span>
               <div className="text-2xl font-display font-black text-slate-900 mt-1">
-                3 Juri / Lomba
+                {finalMetrics.scoringProgressPercent}% Selesai
+              </div>
+              <span className="text-[11px] font-semibold text-amber-700 mt-1 block">
+                {finalMetrics.completedCategoriesCount} Kategori Selesai • {finalMetrics.ratifiedCategoriesCount} Disahkan
+              </span>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Dewan Juri & Status 12 Arena
+              </span>
+              <div className="text-2xl font-display font-black text-slate-900 mt-1">
+                {finalMetrics.totalJudges} Juri ({finalMetrics.totalJudgeAssignments} Slot)
               </div>
               <span className="text-[11px] font-semibold text-teal-700 mt-1 block">
-                {store.arenas.length} Arena • Presisi NUMERIC(8,2)
+                {finalMetrics.arenaStatuses.length} Arena • {finalMetrics.currentlyCompetingEntries.length} Sedang Tampil
               </span>
             </div>
             <div className="h-10 w-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
@@ -190,6 +192,63 @@ export function FestivalDashboardView({
           </div>
         </Card>
       </div>
+
+      {/* 2B. Status 12 Arena & Peserta yang Sedang Bertanding (Section 7 Dashboard Final) */}
+      <Card className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-emerald-600" />
+              Monitor Real-Time 12 Arena & Peserta yang Sedang Bertanding
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Menampilkan status operasional seluruh 12 arena dan peserta berstatus PERFORMING / CALLED
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onNavigate("jadwal_arena")}
+            className="h-7 text-[10px] font-bold rounded-xl"
+          >
+            Buka Kontrol Arena & QR Check-in
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {finalMetrics.arenaStatuses.map((ar) => (
+            <div
+              key={ar.arenaId}
+              className={`p-3 rounded-xl border text-xs ${
+                ar.performingEntryName
+                  ? "bg-emerald-50/60 border-emerald-300"
+                  : "bg-slate-50/70 border-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-black text-[11px] text-slate-900">{ar.code}</span>
+                <Badge
+                  className={
+                    ar.status === "ACTIVE"
+                      ? "bg-emerald-600 text-white text-[9px]"
+                      : "bg-slate-200 text-slate-700 text-[9px]"
+                  }
+                >
+                  {ar.status}
+                </Badge>
+              </div>
+              <div className="font-semibold text-[11px] text-slate-700 truncate">{ar.name}</div>
+              <div className="text-[10px] text-slate-500 mt-1 truncate">
+                {ar.performingEntryName ? (
+                  <span className="text-emerald-800 font-bold">🎙️ Tampil: {ar.performingEntryName}</span>
+                ) : (
+                  <span>Siaga ({ar.activeCompetitionCount} Kategori)</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* 3. Struktur Organisasi Kontingen (4 Desa -> 30 Kelompok) & Klasemen Juara Umum */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

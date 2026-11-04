@@ -5,11 +5,14 @@
 import type {
   EducationLevel,
   FestivalStoreState,
+  FgApprovalRecord,
   FgArena,
   FgArenaQueue,
   FgArtwork,
   FgAuditLog,
   FgCertificate,
+  FgChampionshipConfig,
+  FgCheckinRecord,
   FgCompetition,
   FgCompetitionCategory,
   FgCompetitionResult,
@@ -96,12 +99,18 @@ export const INITIAL_FG_CATEGORIES: FgCompetitionCategory[] = [
 ];
 
 export const INITIAL_FG_ARENAS: FgArena[] = [
-  { id: "arn-01", eventId: "fg-evt-2026", code: "ARENA-A", name: "Arena Utama Masjid Baitul Makmur Lt. 1", buildingOrZone: "Zona A (Utama)", capacity: 150, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Tahfidz SD, Bacaan Al-Quran, Tilawati, Adzan." },
-  { id: "arn-02", eventId: "fg-evt-2026", code: "ARENA-B", name: "Aula PPG Magetan Timur Lt. 2", buildingOrZone: "Zona B (Aula)", capacity: 120, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Nasehat SD, Nasehat SMP, dan Nasehat SMA/SMK." },
-  { id: "arn-03", eventId: "fg-evt-2026", code: "ARENA-C", name: "Ruang Kelas Keilmuan 1 & 2", buildingOrZone: "Zona C (Timur)", capacity: 60, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Penyampaian Hadist SMA/SMK & Bacaan + Makna Al-Quran SMP/SMA." },
-  { id: "arn-04", eventId: "fg-evt-2026", code: "ARENA-D", name: "Pendopo Kreativitas Kaligrafi", buildingOrZone: "Zona D (Pendopo)", capacity: 100, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Mewarnai PAUD/TK & Menggambar Kaligrafi SD 1-3 dan SD 4-6 (Durasi 90 Menit)." },
-  { id: "arn-05", eventId: "fg-evt-2026", code: "ARENA-E", name: "Gelanggang Asad Pasanggiri", buildingOrZone: "Zona E (Barat)", capacity: 80, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Asad Pasanggiri SD." },
-  { id: "arn-06", eventId: "fg-evt-2026", code: "ARENA-CCA", name: "Panggung Utama Cerdas Cermat Buzzer", buildingOrZone: "Zona F (Panggung Buzzer)", capacity: 200, operatorUsername: "operatorcc1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Cerdas Cermat Beregu SD dan SMP-SMA." },
+  { id: "arn-01", eventId: "fg-evt-2026", code: "ARENA-01", name: "Arena 1 — Masjid Baitul Makmur Lt. 1", buildingOrZone: "Zona A (Utama)", capacity: 150, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Tahfidz SD, Bacaan Al-Quran, Tilawati, Adzan SD." },
+  { id: "arn-02", eventId: "fg-evt-2026", code: "ARENA-02", name: "Arena 2 — Aula PPG Magetan Timur Lt. 2", buildingOrZone: "Zona B (Aula)", capacity: 120, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Nasehat SD, Nasehat SMP, dan Nasehat SMA/SMK." },
+  { id: "arn-03", eventId: "fg-evt-2026", code: "ARENA-03", name: "Arena 3 — Ruang Kelas Keilmuan 1 & 2", buildingOrZone: "Zona C (Timur)", capacity: 60, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Penyampaian Hadist SMA/SMK & Bacaan + Makna Al-Quran SMP/SMA." },
+  { id: "arn-04", eventId: "fg-evt-2026", code: "ARENA-04", name: "Arena 4 — Pendopo Kreativitas Kaligrafi", buildingOrZone: "Zona D (Pendopo)", capacity: 100, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Mewarnai PAUD/TK & Menggambar Kaligrafi SD 1-3 dan SD 4-6 (Durasi 90 Menit)." },
+  { id: "arn-05", eventId: "fg-evt-2026", code: "ARENA-05", name: "Arena 5 — Gelanggang Asad Pasanggiri", buildingOrZone: "Zona E (Barat)", capacity: 80, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Asad Pasanggiri SD." },
+  { id: "arn-06", eventId: "fg-evt-2026", code: "ARENA-06", name: "Arena 6 — Panggung Utama Cerdas Cermat Buzzer", buildingOrZone: "Zona F (Panggung Buzzer)", capacity: 200, operatorUsername: "operatorcc1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Cerdas Cermat Beregu SD dan SMP-SMA." },
+  { id: "arn-07", eventId: "fg-evt-2026", code: "ARENA-07", name: "Arena 7 — Serambi Selatan Masjid Baitul Makmur", buildingOrZone: "Zona G (Serambi Selatan)", capacity: 70, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Arena Paralel Adzan SMP & Tilawati Cadangan." },
+  { id: "arn-08", eventId: "fg-evt-2026", code: "ARENA-08", name: "Arena 8 — Serambi Utara Masjid Baitul Makmur", buildingOrZone: "Zona H (Serambi Utara)", capacity: 70, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Arena Paralel Tahfidz & Bacaan Al-Quran." },
+  { id: "arn-09", eventId: "fg-evt-2026", code: "ARENA-09", name: "Arena 9 — Ruang Multimedia PPG Lt. 1", buildingOrZone: "Zona I (Multimedia)", capacity: 50, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Arena Penyisihan Cerdas Cermat Grup B." },
+  { id: "arn-10", eventId: "fg-evt-2026", code: "ARENA-10", name: "Arena 10 — Gedung Dakwah Desa Selatan", buildingOrZone: "Zona J (Gedung Dakwah)", capacity: 90, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "READY", notes: "Arena Paralel Nasehat & Penyampaian Hadist." },
+  { id: "arn-11", eventId: "fg-evt-2026", code: "ARENA-11", name: "Arena 11 — Galeri Karya & Display F4", buildingOrZone: "Zona K (Galeri Karya)", capacity: 80, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Ruang Penjurian Karya Fisik Kaligrafi & Mewarnai F4." },
+  { id: "arn-12", eventId: "fg-evt-2026", code: "ARENA-12", name: "Arena 12 — Posko Sekretariat & Meja Check-in QR", buildingOrZone: "Zona L (Registrasi & Check-in)", capacity: 100, operatorUsername: "operatorarena1", checkinOfficerUsername: "petugascheckin1", status: "ACTIVE", notes: "Sentra Registrasi Ulang, Verifikasi Berkas & QR Check-in Kontingen." },
 ];
 
 // 17 Master Competition Categories (Part 2 Exact Specification with Consistent Internal IDs)
@@ -522,8 +531,29 @@ export const INITIAL_FG_COMPETITION_RESULTS: FgCompetitionResult[] = [
 ];
 
 export const INITIAL_FG_CERTIFICATES: FgCertificate[] = [
-  { id: "cert-01", eventId: "fg-evt-2026", certificateNumber: "SERT/FG-MAGTIM/2026/0001", registrationId: "fg-reg-01", recipientName: "Ahmad Bagus Pratama", recipientRole: "JUARA", competitionName: "Tahfidz — SD", predicateLabel: "Juara 1", regionName: CANONICAL_REGION_NAME, villageName: "Desa Selatan", groupName: "Kelompok Karas", qrVerificationToken: "QR-FG-2026-THF1-AHMAD-BAGUS", issuedBy: "ketuapanitia1", issuedAt: "2026-11-15T11:00:00Z" },
+  { id: "cert-01", eventId: "fg-evt-2026", certificateNumber: "SERT/FG-MAGTIM/2026/0001", competitionId: "fg-comp-tahfidz-sd", registrationId: "fg-reg-01", recipientName: "Ahmad Bagus Pratama", recipientRole: "JUARA", competitionName: "Tahfidz — SD", predicateLabel: "Juara 1", regionName: CANONICAL_REGION_NAME, villageName: "Desa Selatan", groupName: "Kelompok Karas", qrVerificationToken: "QR-FG-2026-THF1-AHMAD-BAGUS", issuedBy: "ketuapanitia1", issuedAt: "2026-11-15T11:00:00Z" },
 ];
+
+export const INITIAL_FG_CHECKINS: FgCheckinRecord[] = [
+  { id: "chk-01", eventId: "fg-evt-2026", competitionId: "fg-comp-tahfidz-sd", registrationId: "fg-reg-01", arenaId: "arn-01", qrTokenUsed: "REG-2026-THF-001", checkinStatus: "PRESENT", checkedInBy: "petugascheckin1", checkedInAt: "2026-11-15T07:30:00Z", notes: "Check-in QR terverifikasi di meja registrasi" },
+  { id: "chk-02", eventId: "fg-evt-2026", competitionId: "fg-comp-tahfidz-sd", registrationId: "fg-reg-02", arenaId: "arn-01", qrTokenUsed: "REG-2026-THF-002", checkinStatus: "PRESENT", checkedInBy: "petugascheckin1", checkedInAt: "2026-11-15T07:35:00Z", notes: "Check-in QR terverifikasi di meja registrasi" },
+  { id: "chk-03", eventId: "fg-evt-2026", competitionId: "fg-comp-tahfidz-sd", registrationId: "fg-reg-03", arenaId: "arn-01", qrTokenUsed: "REG-2026-THF-003", checkinStatus: "PRESENT", checkedInBy: "petugascheckin1", checkedInAt: "2026-11-15T07:40:00Z", notes: "Check-in QR terverifikasi di meja registrasi" },
+];
+
+export const INITIAL_FG_APPROVALS: FgApprovalRecord[] = [];
+
+export const INITIAL_FG_CHAMPIONSHIP_CONFIG: FgChampionshipConfig = {
+  id: "cfg-champ-2026",
+  eventId: "fg-evt-2026",
+  goldPoints: 5,
+  silverPoints: 3,
+  bronzePoints: 1,
+  honorable1Points: 0,
+  honorable2Points: 0,
+  honorable3Points: 0,
+  updatedBy: "superadminaldi",
+  updatedAt: "2026-11-04T08:00:00Z",
+};
 
 export const INITIAL_FG_AUDIT_LOGS: FgAuditLog[] = [
   { id: "fga-01", eventId: "fg-evt-2026", actionCategory: "DATA_CREATE", entityTable: "fg_events", entityId: "fg-evt-2026", actorUsername: "superadminaldi", actorRole: "Superadmin", actorScope: "Semua", regionName: CANONICAL_REGION_NAME, description: "Inisialisasi Festival Generus Daerah Magetan Timur 2026 (17 Kategori Lomba).", createdAt: "2026-11-04T08:00:00Z" },
@@ -544,6 +574,7 @@ export function buildDefaultFestivalStore(): FestivalStoreState {
     participants: INITIAL_FG_PARTICIPANTS,
     teams: INITIAL_FG_TEAMS,
     registrations: INITIAL_FG_REGISTRATIONS,
+    checkins: INITIAL_FG_CHECKINS,
     judges: INITIAL_FG_JUDGES,
     judgeAssignments: INITIAL_FG_JUDGE_ASSIGNMENTS,
     criteria: INITIAL_FG_CRITERIA,
@@ -556,6 +587,8 @@ export function buildDefaultFestivalStore(): FestivalStoreState {
     quizLeaderboards: INITIAL_FG_QUIZ_LEADERBOARDS,
     quizScoreEvents: INITIAL_FG_QUIZ_SCORE_EVENTS,
     competitionResults: INITIAL_FG_COMPETITION_RESULTS,
+    approvals: INITIAL_FG_APPROVALS,
+    championshipConfig: INITIAL_FG_CHAMPIONSHIP_CONFIG,
     certificates: INITIAL_FG_CERTIFICATES,
     auditLogs: INITIAL_FG_AUDIT_LOGS,
     updatedAt: new Date().toISOString(),

@@ -86,11 +86,17 @@ export function getFestivalStore(): FestivalStoreState {
     saveData(STORAGE_KEY_FESTIVAL, defaultStore);
     return defaultStore;
   }
-  // Ensure Part 2 arrays are initialized
+  // Ensure Part 2 & Part 3 arrays are initialized
   loaded.artworks = loaded.artworks || [];
   loaded.arenaQueues = loaded.arenaQueues || [];
   loaded.scoringRevisions = loaded.scoringRevisions || [];
   loaded.quizScoreEvents = loaded.quizScoreEvents || [];
+  loaded.checkins = loaded.checkins || defaultStore.checkins || [];
+  loaded.approvals = loaded.approvals || defaultStore.approvals || [];
+  loaded.championshipConfig = loaded.championshipConfig || defaultStore.championshipConfig;
+  if (!Array.isArray(loaded.arenas) || loaded.arenas.length < 12) {
+    loaded.arenas = defaultStore.arenas;
+  }
   return loaded;
 }
 
@@ -820,7 +826,15 @@ export function calculateChampionshipStandings(): {
     });
   }
 
+  const seenCompRegKeys = new Set<string>();
   for (const res of publishedResults) {
+    // Anti-Double-Count Guard (Section 8: Tidak ada poin juara umum yang terhitung dua kali)
+    const uniqueKey = `${res.competitionId}::${res.registrationId}`;
+    if (seenCompRegKeys.has(uniqueKey)) {
+      continue;
+    }
+    seenCompRegKeys.add(uniqueKey);
+
     const gStanding = groupMap.get(res.groupName);
     if (gStanding) {
       if (res.medalType === "GOLD") gStanding.goldCount += 1;

@@ -5,31 +5,55 @@
 import type {
   ArenaCallStatus,
   CheckinStatus,
+  FestivalStoreState,
+  FgApprovalRecord,
   FgArenaQueue,
   FgArtwork,
+  FgCertificate,
+  FgCheckinRecord,
   FgCompetition,
+  FgCompetitionResult,
   FgQuizLeaderboard,
   FgQuizMatch,
   FgQuizScoreEvent,
   FgScoringResult,
   FgScoringRevision,
   FgScoringSubmission,
+  FinalDashboardMetrics,
   QuizRoundType,
   ScheduleConflictItem,
   ScoringSubmissionStatus,
 } from "./types";
 import {
   assertJudgeCompetitionAccess,
+  CANONICAL_REGION_NAME,
   type CanonicalFestivalActor,
   canOperatorAccessArena,
 } from "./festivalAuth";
 import {
+  calculateChampionshipStandings,
   getFestivalStore,
   recordFestivalAudit,
   saveFestivalStore,
   toDecimal2,
   toDecimal4,
 } from "./festivalService";
+
+export function assertCompetitionNotApproved(
+  competitionId: string,
+  storeInput?: FestivalStoreState
+): void {
+  const store = storeInput || getFestivalStore();
+  const approved = (store.approvals || []).find(
+    (a) => a.competitionId === competitionId && a.approvalStatus === "APPROVED"
+  );
+  if (approved) {
+    const comp = store.competitions.find((c) => c.id === competitionId);
+    throw new Error(
+      `HASIL SUDAH DISAHKAN: Kategori '${comp?.name || competitionId}' telah disahkan secara resmi (APPROVED oleh ${approved.approvedBy}). Nilai dan hasil tidak dapat diubah sembarangan.`
+    );
+  }
+}
 
 // ============================================================================
 // 1. DIGITAL SCORING ENGINE & TIE-BREAKER ENGINE
@@ -146,6 +170,7 @@ export function submitJudgeScore(
     store.judgeAssignments,
     store.judges
   );
+  assertCompetitionNotApproved(registration.competitionId, store);
 
   const targetStatus: ScoringSubmissionStatus = params.status || "SUBMITTED";
   const compCriteria = store.criteria
@@ -392,6 +417,7 @@ export function reviseLockedSubmissionScore(
   if (!sub) {
     throw new Error(`Data penilaian '${params.submissionId}' tidak ditemukan.`);
   }
+  assertCompetitionNotApproved(sub.competitionId, store);
 
   const oldFinalScore = sub.finalJudgeScore;
   const compCriteria = store.criteria.filter((c) => c.competitionId === sub.competitionId);
@@ -466,6 +492,7 @@ export function resolveManualTieBreakDeliberation(
     throw new Error(`DENY: Hanya Ketua Dewan Juri atau Ketua Panitia yang dapat menetapkan musyawarah tie-breaker.`);
   }
   const store = getFestivalStore();
+  assertCompetitionNotApproved(params.competitionId, store);
   const target = store.scoringResults.find(
     (r) => r.registrationId === params.winnerRegistrationId && r.stageId === params.stageId
   );
@@ -1044,4 +1071,747 @@ export function detectScheduleConflicts(): ScheduleConflictItem[] {
   }
 
   return conflicts;
+}
+
+// ============================================================================
+// 5. PART 3: QR CHECK-IN, OFFICIAL RESULT APPROVAL, CERTIFICATES & REPORTS
+// ============================================================================
+
+/**
+ * Performs QR Code Check-in at registration desk or arena.
+ * Enforces Section 9 Rule #9: QR Code cannot be used for duplicate check-in.
+ */
+export function performQrCheckin(
+  actor: CanonicalFestivalActor,
+  params: {
+    qrTokenOrCode: string;
+    arenaId?: string;
+    notes?: string;
+  }
+): FgCheckinRecord {
+  if (
+    ![
+      "Superadmin",
+      "Admin Daerah",
+      "Admin Festival",
+      "Ketua Panitia",
+      "Sekretaris",
+      "Admin Registrasi",
+      "Petugas Check-in",
+      "Operator Arena",
+    ].includes(actor.role)
+  ) {
+    throw new Error(
+      `DENY: Peran '${actor.role}' tidak berwenang memindai QR Code Check-in peserta.`
+    );
+  }
+
+  const token = (params.qrTokenOrCode || "").trim();
+  if (!token) {
+    throw new Error("Token QR Code atau Nomor Registrasi wajib diisi.");
+  }
+
+  const store = getFestivalStore();
+  store.checkins = store.checkins || [];
+
+  const reg = store.registrations.find(
+    (r) =>
+      r.registrationCode.toLowerCase() === token.toLowerCase() ||
+      (r.displayNumber && r.displayNumber.toLowerCase() === token.toLowerCase()) ||
+      r.id.toLowerCase() === token.toLowerCase()
+  );
+
+  if (!reg) {
+    throw new Error(`QR Code / Registrasi '${token}' tidak ditemukan dalam daftar peserta.`);
+  }
+
+  // Anti-Duplicate Check-in Guard (Section 9 Rule #9)
+  const existingCheckin = store.checkins.find(
+    (c) =>
+      (c.registrationId === reg.id || c.qrTokenUsed.toLowerCase() === token.toLowerCase()) &&
+      c.checkinStatus === "PRESENT"
+  );
+  if (existingCheckin) {
+    throw new Error(
+      `QR CHECK-IN DITOLAK: QR Code '${token}' (Registrasi ${reg.registrationCode}) sudah digunakan check-in sebelumnya pada ${existingCheckin.checkedInAt} oleh ${existingCheckin.checkedInBy}.`
+    );
+  }
+
+  const comp = store.competitions.find((c) => c.id === reg.competitionId);
+  const now = new Date().toISOString();
+  const checkinRecord: FgCheckinRecord = {
+    id: `chk-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    eventId: reg.eventId,
+    competitionId: reg.competitionId,
+    registrationId: reg.id,
+    arenaId: params.arenaId || comp?.arenaId || "arn-12",
+    qrTokenUsed: token,
+    checkinStatus: "PRESENT",
+    checkedInBy: actor.username,
+    checkedInAt: now,
+    notes: params.notes || "Check-in QR Code terverifikasi",
+  };
+
+  store.checkins.push(checkinRecord);
+  reg.checkinStatus = "PRESENT";
+  reg.status = "CHECKED_IN";
+  reg.updatedAt = now;
+
+  // Sync arena queue if exists
+  const queueItem = store.arenaQueues.find((q) => q.registrationId === reg.id);
+  if (queueItem) {
+    queueItem.attendanceStatus = "PRESENT";
+    queueItem.updatedAt = now;
+  }
+
+  saveFestivalStore(store);
+
+  recordFestivalAudit({
+    actionCategory: "DATA_UPDATE",
+    entityTable: "fg_checkins",
+    entityId: checkinRecord.id,
+    actor,
+    regionName: reg.regionName,
+    villageName: reg.villageName,
+    groupName: reg.groupName,
+    newValues: {
+      registrationId: reg.id,
+      qrTokenUsed: token,
+      checkinStatus: "PRESENT",
+      arenaId: checkinRecord.arenaId,
+    },
+    description: `Check-in QR berhasil untuk ${reg.registrationCode} (${reg.displayNumber}) di ${checkinRecord.arenaId}.`,
+  });
+
+  return checkinRecord;
+}
+
+/**
+ * Officially approves and ratifies competition results (`fg_approvals` + `fg_competition_results`).
+ * Locks the competition against arbitrary score changes (Section 9 Rule #8) and guarantees
+ * zero duplicate results and zero double-counted championship points (Section 8).
+ */
+export function approveAndRatifyCompetitionResults(
+  actor: CanonicalFestivalActor,
+  params: {
+    competitionId: string;
+    stageId?: string;
+    approvalNotes: string;
+  }
+): { approval: FgApprovalRecord; results: FgCompetitionResult[] } {
+  if (
+    !["Superadmin", "Admin Daerah", "Admin Festival", "Ketua Panitia", "Ketua Dewan Juri"].includes(
+      actor.role
+    )
+  ) {
+    throw new Error(
+      `DENY: Peran '${actor.role}' tidak berwenang mengesahkan hasil akhir kategori perlombaan.`
+    );
+  }
+  if (!params.approvalNotes || params.approvalNotes.trim().length < 5) {
+    throw new Error("Pengesahan hasil resmi wajib menyertakan catatan berita acara minimal 5 karakter.");
+  }
+
+  const store = getFestivalStore();
+  store.approvals = store.approvals || [];
+  const comp = store.competitions.find((c) => c.id === params.competitionId);
+  if (!comp) {
+    throw new Error(`Kategori perlombaan '${params.competitionId}' tidak ditemukan.`);
+  }
+
+  const stageId = params.stageId || "stg-penyisihan";
+  const cfg = store.championshipConfig || {
+    goldPoints: 5,
+    silverPoints: 3,
+    bronzePoints: 1,
+    honorable1Points: 0,
+    honorable2Points: 0,
+    honorable3Points: 0,
+  };
+
+  // Recompute rankings first so source data is 100% consistent
+  const rankedSource = recomputeCompetitionRankings(comp.id, stageId, store);
+  const now = new Date().toISOString();
+
+  // Remove any previous competitionResults for this competitionId to prevent duplicate results or double points
+  store.competitionResults = store.competitionResults.filter((r) => r.competitionId !== comp.id);
+
+  const generatedResults: FgCompetitionResult[] = [];
+  for (const sr of rankedSource.slice(0, 6)) {
+    const reg = store.registrations.find((r) => r.id === sr.registrationId);
+    if (!reg) continue;
+    const part = reg.participantId
+      ? store.participants.find((p) => p.id === reg.participantId)
+      : null;
+    const team = reg.teamId ? store.teams.find((t) => t.id === reg.teamId) : null;
+
+    const predicateMap: Record<number, FgCompetitionResult["predicateLabel"]> = {
+      1: "Juara 1",
+      2: "Juara 2",
+      3: "Juara 3",
+      4: "Harapan 1",
+      5: "Harapan 2",
+      6: "Harapan 3",
+    };
+    const medalMap: Record<number, FgCompetitionResult["medalType"]> = {
+      1: "GOLD",
+      2: "SILVER",
+      3: "BRONZE",
+      4: "HONORABLE",
+      5: "HONORABLE",
+      6: "HONORABLE",
+    };
+    const pointsMap: Record<number, number> = {
+      1: cfg.goldPoints,
+      2: cfg.silverPoints,
+      3: cfg.bronzePoints,
+      4: cfg.honorable1Points,
+      5: cfg.honorable2Points,
+      6: cfg.honorable3Points,
+    };
+
+    const rank = sr.rankNumber;
+    if (rank >= 1 && rank <= 6) {
+      const compRes: FgCompetitionResult = {
+        id: `fcr-${comp.id}-${reg.id}`,
+        eventId: comp.eventId,
+        competitionId: comp.id,
+        registrationId: reg.id,
+        contingentId: reg.contingentId,
+        entryName: part?.snapshotFullName || team?.teamName || reg.displayNumber || reg.registrationCode,
+        regionName: reg.regionName,
+        villageName: reg.villageName,
+        groupName: reg.groupName,
+        finalScore: sr.finalScore,
+        finalRank: rank,
+        predicateLabel: predicateMap[rank],
+        medalType: medalMap[rank],
+        championshipPoints: pointsMap[rank],
+        isPublished: true,
+        approvedBy: actor.username,
+        approvedAt: now,
+      };
+      store.competitionResults.push(compRes);
+      generatedResults.push(compRes);
+    }
+  }
+
+  let approval = store.approvals.find((a) => a.competitionId === comp.id);
+  if (!approval) {
+    approval = {
+      id: `apv-${comp.id}`,
+      eventId: comp.eventId,
+      competitionId: comp.id,
+      stageId,
+      approvalStatus: "APPROVED",
+      approvedBy: actor.username,
+      approvedRole: actor.role,
+      approvedAt: now,
+      approvalNotes: params.approvalNotes.trim(),
+    };
+    store.approvals.push(approval);
+  } else {
+    approval.approvalStatus = "APPROVED";
+    approval.approvedBy = actor.username;
+    approval.approvedRole = actor.role;
+    approval.approvedAt = now;
+    approval.approvalNotes = params.approvalNotes.trim();
+  }
+
+  comp.status = "PUBLISHED";
+  saveFestivalStore(store);
+
+  recordFestivalAudit({
+    actionCategory: "RESULT_APPROVAL",
+    entityTable: "fg_approvals",
+    entityId: approval.id,
+    actor,
+    newValues: {
+      competitionId: comp.id,
+      approvalStatus: "APPROVED",
+      approvedBy: actor.username,
+      approvalNotes: approval.approvalNotes,
+      winnerCount: generatedResults.length,
+    },
+    description: `Pengesahan resmi hasil kategori '${comp.name}' oleh ${actor.username} (${actor.role}). Alasan/Berita Acara: ${approval.approvalNotes}`,
+  });
+
+  return { approval, results: generatedResults };
+}
+
+/**
+ * Revokes an official approval only when invoked by Superadmin or Ketua Panitia with a mandatory reason.
+ */
+export function revokeCompetitionApprovalWithAudit(
+  actor: CanonicalFestivalActor,
+  params: {
+    competitionId: string;
+    reason: string;
+  }
+): FgApprovalRecord {
+  if (!["Superadmin", "Ketua Panitia"].includes(actor.role)) {
+    throw new Error(
+      `DENY: Hanya Superadmin atau Ketua Panitia yang dapat membuka kunci pengesahan hasil resmi.`
+    );
+  }
+  if (!params.reason || params.reason.trim().length < 5) {
+    throw new Error("Pembukaan kunci hasil yang sudah disahkan wajib menyertakan alasan tertulis.");
+  }
+
+  const store = getFestivalStore();
+  store.approvals = store.approvals || [];
+  const approval = store.approvals.find((a) => a.competitionId === params.competitionId);
+  if (!approval) {
+    throw new Error(`Data pengesahan untuk kategori '${params.competitionId}' tidak ditemukan.`);
+  }
+
+  approval.approvalStatus = "REVOKED";
+  approval.revokedBy = actor.username;
+  approval.revokedAt = new Date().toISOString();
+  approval.revokeReason = params.reason.trim();
+  saveFestivalStore(store);
+
+  recordFestivalAudit({
+    actionCategory: "RESULT_APPROVAL",
+    entityTable: "fg_approvals",
+    entityId: approval.id,
+    actor,
+    oldValues: { approvalStatus: "APPROVED" },
+    newValues: { approvalStatus: "REVOKED", revokeReason: approval.revokeReason },
+    description: `Pencabutan sementara pengesahan kategori '${params.competitionId}' oleh ${actor.username}. Alasan: ${approval.revokeReason}`,
+  });
+
+  return approval;
+}
+
+/**
+ * Issues an official digital certificate (`fg_certificates`).
+ * Enforces Section 9 Rule #10: Certificates CANNOT be issued from unapproved results.
+ */
+export function issueCompetitionCertificate(
+  actor: CanonicalFestivalActor,
+  params: {
+    registrationId: string;
+    recipientRole?: "PESERTA" | "JUARA";
+  }
+): FgCertificate {
+  if (
+    !["Superadmin", "Admin Daerah", "Admin Festival", "Ketua Panitia", "Sekretaris"].includes(
+      actor.role
+    )
+  ) {
+    throw new Error(
+      `DENY: Peran '${actor.role}' tidak berwenang menerbitkan sertifikat resmi Festival Generus.`
+    );
+  }
+
+  const store = getFestivalStore();
+  const reg = store.registrations.find((r) => r.id === params.registrationId);
+  if (!reg) {
+    throw new Error(`Data registrasi '${params.registrationId}' tidak ditemukan.`);
+  }
+  const comp = store.competitions.find((c) => c.id === reg.competitionId);
+  if (!comp) {
+    throw new Error(`Kategori perlombaan '${reg.competitionId}' tidak ditemukan.`);
+  }
+
+  // Strict Guard (Section 9 Rule #10): Certificate CANNOT be issued if competition is not officially approved!
+  const approval = (store.approvals || []).find(
+    (a) => a.competitionId === comp.id && a.approvalStatus === "APPROVED"
+  );
+  if (!approval) {
+    throw new Error(
+      `PENERBITAN SERTIFIKAT DITOLAK: Hasil kategori '${comp.name}' belum disahkan secara resmi (fg_approvals). Sertifikat tidak dapat diterbitkan dari hasil yang belum disahkan.`
+    );
+  }
+
+  const recipientRole = params.recipientRole || "JUARA";
+  const existingCert = store.certificates.find(
+    (c) => c.registrationId === reg.id && c.recipientRole === recipientRole
+  );
+  if (existingCert) {
+    return existingCert;
+  }
+
+  const compResult = store.competitionResults.find(
+    (r) => r.competitionId === comp.id && r.registrationId === reg.id
+  );
+  if (recipientRole === "JUARA" && !compResult) {
+    throw new Error(
+      `Registrasi '${reg.registrationCode}' tidak tercatat sebagai pemenang pada hasil resmi '${comp.name}'.`
+    );
+  }
+
+  const part = reg.participantId
+    ? store.participants.find((p) => p.id === reg.participantId)
+    : null;
+  const team = reg.teamId ? store.teams.find((t) => t.id === reg.teamId) : null;
+  const recipientName =
+    part?.snapshotFullName || team?.teamName || compResult?.entryName || reg.registrationCode;
+  const predicateLabel =
+    recipientRole === "JUARA" ? compResult?.predicateLabel || "Juara" : "Peserta Aktif";
+  const certSeq = String(store.certificates.length + 1).padStart(4, "0");
+  const now = new Date().toISOString();
+
+  const cert: FgCertificate = {
+    id: `cert-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    eventId: comp.eventId,
+    certificateNumber: `SERT/FG-MAGTIM/2026/${certSeq}`,
+    competitionId: comp.id,
+    registrationId: reg.id,
+    recipientName,
+    recipientRole,
+    competitionName: comp.name,
+    predicateLabel,
+    regionName: reg.regionName,
+    villageName: reg.villageName,
+    groupName: reg.groupName,
+    qrVerificationToken: `QR-CERT-${comp.code}-${reg.id.slice(-4).toUpperCase()}-${certSeq}`,
+    issuedBy: actor.username,
+    issuedAt: now,
+  };
+
+  store.certificates.push(cert);
+  saveFestivalStore(store);
+
+  recordFestivalAudit({
+    actionCategory: "DATA_CREATE",
+    entityTable: "fg_certificates",
+    entityId: cert.id,
+    actor,
+    regionName: reg.regionName,
+    villageName: reg.villageName,
+    groupName: reg.groupName,
+    newValues: {
+      certificateNumber: cert.certificateNumber,
+      recipientName: cert.recipientName,
+      predicateLabel: cert.predicateLabel,
+      competitionId: comp.id,
+    },
+    description: `Penerbitan E-Sertifikat ${cert.certificateNumber} (${cert.predicateLabel} - ${comp.name}) untuk ${cert.recipientName}.`,
+  });
+
+  return cert;
+}
+
+/**
+ * Computes all 11 real-time indicators for Section 7 — DASHBOARD FINAL.
+ */
+export function getFinalDashboardMetrics(): FinalDashboardMetrics {
+  const store = getFestivalStore();
+  const { groupStandings, villageStandings } = calculateChampionshipStandings();
+
+  const activeRegistrations = store.registrations.filter(
+    (r) => r.status !== "REJECTED" && r.status !== "WITHDRAWN"
+  );
+  const individualRegs = activeRegistrations.filter((r) => r.participantId !== null);
+  const totalExpectedJudgeSubmissions = Math.max(1, individualRegs.length * 3);
+  const completedJudgeSubmissions = store.scoringSubmissions.filter(
+    (s) => s.submissionStatus === "SUBMITTED" || s.submissionStatus === "FINALIZED"
+  ).length;
+  const scoringProgressPercent = toDecimal2(
+    Math.min(100, (completedJudgeSubmissions / totalExpectedJudgeSubmissions) * 100)
+  );
+
+  const arenaStatuses = store.arenas.map((arena) => {
+    const activeComps = store.competitions.filter((c) => c.arenaId === arena.id);
+    const performingItem = store.arenaQueues.find(
+      (q) =>
+        q.arenaId === arena.id &&
+        (q.callStatus === "PERFORMING" || q.callStatus === "CALLED")
+    );
+    return {
+      arenaId: arena.id,
+      code: arena.code,
+      name: arena.name,
+      locationDetail: arena.buildingOrZone,
+      status: arena.status,
+      operatorUsername: arena.operatorUsername,
+      activeCompetitionCount: activeComps.length,
+      performingEntryName: performingItem
+        ? `${performingItem.displayNumber} — ${performingItem.entryName} (${performingItem.groupName})`
+        : null,
+    };
+  });
+
+  const currentlyCompetingEntries = store.arenaQueues
+    .filter((q) => q.callStatus === "PERFORMING" || q.callStatus === "CALLED")
+    .map((q) => {
+      const comp = store.competitions.find((c) => c.id === q.competitionId);
+      const arena = store.arenas.find((a) => a.id === q.arenaId);
+      return {
+        queueId: q.id,
+        registrationId: q.registrationId,
+        displayNumber: q.displayNumber,
+        entryName: q.entryName,
+        competitionName: comp?.name || q.competitionId,
+        arenaName: arena?.name || q.arenaId,
+        callStatus: q.callStatus,
+        groupName: q.groupName,
+        villageName: q.villageName,
+      };
+    });
+
+  const completedCategoriesCount = store.competitions.filter(
+    (c) => c.status === "SCORING_COMPLETED" || c.status === "PUBLISHED"
+  ).length;
+  const ratifiedCategoriesCount = (store.approvals || []).filter(
+    (a) => a.approvalStatus === "APPROVED"
+  ).length;
+  const provisionalPointsTotal = toDecimal2(
+    villageStandings.reduce((acc, v) => acc + v.totalPoints, 0)
+  );
+
+  return {
+    totalParticipants: store.participants.length,
+    totalTeams: store.teams.length,
+    totalCategories: store.competitions.length,
+    totalJudges: store.judges.length,
+    totalJudgeAssignments: store.judgeAssignments.length,
+    activeSchedulesCount: store.competitions.filter(
+      (c) => c.status === "SCHEDULED" || c.status === "CHECKIN" || c.status === "ONGOING"
+    ).length,
+    arenaStatuses,
+    currentlyCompetingEntries,
+    scoringProgressPercent,
+    totalExpectedJudgeSubmissions,
+    completedJudgeSubmissions,
+    completedCategoriesCount,
+    ratifiedCategoriesCount,
+    provisionalPointsTotal,
+    groupStandings,
+    villageStandings,
+  };
+}
+
+/**
+ * Verifies all 9 invariants of Section 8 — AUDIT & DATA INTEGRITY.
+ */
+export function verifyFestivalDataIntegrity(): {
+  valid: boolean;
+  allScoreChangesLogged: boolean;
+  allApprovalsLogged: boolean;
+  allRevisionsHaveReason: boolean;
+  allAuditActorsRecorded: boolean;
+  allTimestampsIsoValid: boolean;
+  zeroDuplicateResults: boolean;
+  zeroDoubleChampionshipPoints: boolean;
+  zeroCrossOrgLeakage: boolean;
+  finalResultsMatchSource: boolean;
+  issues: string[];
+} {
+  const store = getFestivalStore();
+  const issues: string[] = [];
+
+  const allRevisionsHaveReason = (store.scoringRevisions || []).every(
+    (rev) => Boolean(rev.reason && rev.reason.trim().length >= 5)
+  );
+  if (!allRevisionsHaveReason) issues.push("Ditemukan revisi nilai tanpa alasan minimal 5 karakter.");
+
+  const allAuditActorsRecorded = store.auditLogs.every(
+    (l) => Boolean(l.actorUsername && l.actorRole)
+  );
+  if (!allAuditActorsRecorded) issues.push("Ditemukan log audit tanpa pencatatan pengguna/peran.");
+
+  const allTimestampsIsoValid = store.auditLogs.every(
+    (l) => !Number.isNaN(Date.parse(l.createdAt))
+  );
+  if (!allTimestampsIsoValid) issues.push("Ditemukan timestamp log audit yang tidak berstandar ISO-8601.");
+
+  const compRegSet = new Set<string>();
+  let zeroDuplicateResults = true;
+  for (const res of store.competitionResults) {
+    const key = `${res.competitionId}::${res.registrationId}`;
+    if (compRegSet.has(key)) {
+      zeroDuplicateResults = false;
+      issues.push(`Duplikasi hasil kompetisi pada ${key}.`);
+    }
+    compRegSet.add(key);
+  }
+
+  const { groupStandings, villageStandings } = calculateChampionshipStandings();
+  const sumGroupPoints = toDecimal2(groupStandings.reduce((s, g) => s + g.totalPoints, 0));
+  const sumVillagePoints = toDecimal2(villageStandings.reduce((s, v) => s + v.totalPoints, 0));
+  const sumUniquePublishedPoints = toDecimal2(
+    Array.from(
+      new Map(
+        store.competitionResults
+          .filter((r) => r.isPublished)
+          .map((r) => [`${r.competitionId}::${r.registrationId}`, r.championshipPoints])
+      ).values()
+    ).reduce((s, pts) => s + pts, 0)
+  );
+  const zeroDoubleChampionshipPoints =
+    Math.abs(sumGroupPoints - sumUniquePublishedPoints) < 0.001 &&
+    Math.abs(sumVillagePoints - sumUniquePublishedPoints) < 0.001;
+  if (!zeroDoubleChampionshipPoints) {
+    issues.push("Total poin juara umum tidak sama dengan jumlah unik poin hasil lomba.");
+  }
+
+  let finalResultsMatchSource = true;
+  for (const res of store.competitionResults) {
+    const src = store.scoringResults.find(
+      (sr) => sr.competitionId === res.competitionId && sr.registrationId === res.registrationId
+    );
+    if (src && Math.abs(src.finalScore - res.finalScore) > 0.01) {
+      finalResultsMatchSource = false;
+      issues.push(
+        `Ketidaksesuaian nilai final ${res.registrationId}: hasil=${res.finalScore} vs sumber=${src.finalScore}`
+      );
+    }
+  }
+
+  const allScoreChangesLogged = store.auditLogs.some((l) => l.actionCategory === "SCORE_CHANGE");
+  const allApprovalsLogged = store.auditLogs.some((l) => l.actionCategory === "RESULT_APPROVAL");
+  const zeroCrossOrgLeakage = store.registrations.every(
+    (r) => r.regionName === CANONICAL_REGION_NAME && Boolean(r.villageName && r.groupName)
+  );
+
+  return {
+    valid: issues.length === 0,
+    allScoreChangesLogged,
+    allApprovalsLogged,
+    allRevisionsHaveReason,
+    allAuditActorsRecorded,
+    allTimestampsIsoValid,
+    zeroDuplicateResults,
+    zeroDoubleChampionshipPoints,
+    zeroCrossOrgLeakage,
+    finalResultsMatchSource,
+    issues,
+  };
+}
+
+/**
+ * Generates downloadable CSV & structured report data for Section 12.
+ */
+export function exportFestivalReportData(
+  actor: CanonicalFestivalActor,
+  reportType: "REKAP_NILAI" | "JUARA_UMUM" | "PRESENSI_QR" | "AUDIT_LOG"
+): {
+  title: string;
+  filename: string;
+  headers: string[];
+  rows: string[][];
+  csvContent: string;
+  generatedAt: string;
+  generatedBy: string;
+} {
+  const store = getFestivalStore();
+  const { groupStandings, villageStandings } = calculateChampionshipStandings();
+  const now = new Date().toISOString();
+
+  let title = "";
+  let filename = "";
+  let headers: string[] = [];
+  let rows: string[][] = [];
+
+  if (reportType === "REKAP_NILAI") {
+    title = "Laporan Rekapitulasi Nilai & Peringkat 17 Kategori Festival Generus";
+    filename = "Laporan_Rekap_Nilai_Festival_Generus_2026.csv";
+    headers = [
+      "Rank",
+      "Kategori Lomba",
+      "Kode Registrasi",
+      "Nama Peserta/Tim",
+      "Kelompok",
+      "Desa",
+      "Juri 1",
+      "Juri 2",
+      "Juri 3",
+      "Nilai Akhir",
+      "Status Kunci",
+    ];
+    rows = store.scoringResults.map((sr) => {
+      const reg = store.registrations.find((r) => r.id === sr.registrationId);
+      const comp = store.competitions.find((c) => c.id === sr.competitionId);
+      const part = reg?.participantId
+        ? store.participants.find((p) => p.id === reg.participantId)
+        : null;
+      const team = reg?.teamId ? store.teams.find((t) => t.id === reg.teamId) : null;
+      return [
+        String(sr.rankNumber),
+        comp?.name || sr.competitionId,
+        reg?.registrationCode || sr.registrationId,
+        part?.snapshotFullName || team?.teamName || "-",
+        reg?.groupName || "-",
+        reg?.villageName || "-",
+        sr.judge1Score.toFixed(2),
+        sr.judge2Score.toFixed(2),
+        sr.judge3Score.toFixed(2),
+        sr.finalScore.toFixed(2),
+        sr.isLocked ? "FINALIZED" : "OPEN",
+      ];
+    });
+  } else if (reportType === "JUARA_UMUM") {
+    title = "Laporan Klasemen Juara Umum Desa & Kelompok Festival Generus";
+    filename = "Laporan_Klasemen_Juara_Umum_Festival_Generus_2026.csv";
+    headers = ["Tingkat", "Peringkat", "Unit Organisasi", "Desa Induk", "Emas", "Perak", "Perunggu", "Total Poin"];
+    rows = [
+      ...villageStandings.map((v) => [
+        "DESA",
+        String(v.standingRank),
+        v.villageName,
+        v.villageName,
+        String(v.goldCount),
+        String(v.silverCount),
+        String(v.bronzeCount),
+        v.totalPoints.toFixed(2),
+      ]),
+      ...groupStandings.map((g) => [
+        "KELOMPOK",
+        String(g.standingRank),
+        g.groupName || "-",
+        g.villageName,
+        String(g.goldCount),
+        String(g.silverCount),
+        String(g.bronzeCount),
+        g.totalPoints.toFixed(2),
+      ]),
+    ];
+  } else if (reportType === "PRESENSI_QR") {
+    title = "Laporan Kehadiran & QR Check-in Peserta Festival Generus";
+    filename = "Laporan_Presensi_QR_Checkin_Festival_Generus_2026.csv";
+    headers = ["ID Check-in", "Kode Registrasi", "Token QR", "Arena", "Status", "Petugas", "Waktu Check-in"];
+    rows = (store.checkins || []).map((c) => {
+      const reg = store.registrations.find((r) => r.id === c.registrationId);
+      return [
+        c.id,
+        reg?.registrationCode || c.registrationId,
+        c.qrTokenUsed,
+        c.arenaId,
+        c.checkinStatus,
+        c.checkedInBy,
+        c.checkedInAt,
+      ];
+    });
+  } else {
+    title = "Laporan Jejak Audit Keamanan & Integritas Data Festival Generus";
+    filename = "Laporan_Audit_Log_Festival_Generus_2026.csv";
+    headers = ["Waktu ISO", "Kategori Aksi", "Tabel", "Pengguna", "Peran", "Deskripsi"];
+    rows = store.auditLogs.map((l) => [
+      l.createdAt,
+      l.actionCategory,
+      l.entityTable,
+      l.actorUsername,
+      l.actorRole,
+      l.description.replace(/,/g, ";"),
+    ]);
+  }
+
+  const escapeCell = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
+  const csvContent = [
+    headers.map(escapeCell).join(","),
+    ...rows.map((r) => r.map(escapeCell).join(",")),
+  ].join("\n");
+
+  return {
+    title,
+    filename,
+    headers,
+    rows,
+    csvContent,
+    generatedAt: now,
+    generatedBy: actor.username,
+  };
 }

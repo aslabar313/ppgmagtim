@@ -573,6 +573,7 @@ export interface MonevCommandCenterData {
   inProgressFollowUps: number;
   overdueFollowUps: number;
   completedFollowUps: number;
+  villagePerformance?: VillagePerformanceItem[];
 }
 
 export interface QuickFillItemInput {

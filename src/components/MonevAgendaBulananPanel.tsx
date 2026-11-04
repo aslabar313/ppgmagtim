@@ -802,7 +802,7 @@ export function MonevAgendaBulananPanel({ userRole }: MonevAgendaBulananPanelPro
         "No", "Desa", "Kelompok", "Periode", "Total", "Selesai", "Sebagian",
         "Belum Selesai", "Progress", "Status", "Disetujui/Direview Oleh", "Catatan Persetujuan / Alasan Reject"
       ]],
-      body: summaryRows,
+      body: summaryRows as any,
       theme: "grid",
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
       styles: { fontSize: 7.5, cellPadding: 2 }
@@ -1222,7 +1222,7 @@ export function MonevAgendaBulananPanel({ userRole }: MonevAgendaBulananPanelPro
           </div>
 
           {/* Antrean Cepat Laporan Menunggu Persetujuan (Status: SUBMITTED) */}
-          {cmdData.villagePerformance.some(v => v.submissionStatus === "SUBMITTED") && (
+          {(cmdData.villagePerformance || []).some(v => v.submissionStatus === "SUBMITTED") && (
             <div className="bg-cyan-50/70 border-2 border-cyan-300 rounded-3xl p-4 space-y-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -1235,12 +1235,12 @@ export function MonevAgendaBulananPanel({ userRole }: MonevAgendaBulananPanelPro
                   </p>
                 </div>
                 <Badge className="bg-cyan-600 text-white text-xs font-black px-3 py-1">
-                  {cmdData.villagePerformance.filter(v => v.submissionStatus === "SUBMITTED").length} Laporan Menunggu
+                  {(cmdData.villagePerformance || []).filter(v => v.submissionStatus === "SUBMITTED").length} Laporan Menunggu
                 </Badge>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {cmdData.villagePerformance
+                {(cmdData.villagePerformance || [])
                   .filter(v => v.submissionStatus === "SUBMITTED")
                   .map(v => {
                     const canApproveCard = canApproveReport(userRole, userScope, v.desa, v.wilayah).allowed;

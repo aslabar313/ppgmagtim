@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { 
   School, Lock, Search, BookOpen, Star, Sparkles, ShieldCheck, 
-  MapPin, Calendar, Users, Eye, HelpCircle, ArrowRight, Info, Wallet, Coins
+  MapPin, Calendar, Users, Eye, HelpCircle, ArrowRight, Info, Wallet, Coins, Trophy
 } from "lucide-react";
 import { getKelompok, verifyCredentials, Kelompok } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { toast } from "sonner";
 import { DirektoriKelompok } from "./DirektoriKelompok";
 import { PendanaanPanel } from "./PendanaanPanel";
+import { FestivalGenerusContainer } from "./FestivalGenerus/FestivalGenerusContainer";
 
 interface PortalPublicProps {
   onEnterAdmin: (role: string) => void;
@@ -210,6 +211,13 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               </DialogContent>
             </Dialog>
 
+            <a
+              href="#festival-generus"
+              className="inline-flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 rounded-xl font-bold text-xs px-3.5 py-2 transition-all shadow-sm"
+            >
+              <Trophy className="h-4 w-4 text-amber-400" /> Festival Generus
+            </a>
+
             <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold gap-1.5 shadow-md shadow-emerald-600/10 text-xs px-4 py-2">
@@ -257,8 +265,11 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
                       <div>Daerah: <code>daerah1</code></div>
                       <div>Desa: <code>desaselatan1</code></div>
                       <div>Kelompok: <code>adminkaras1</code></div>
+                      <div>Admin Festival: <code>adminfestival1</code></div>
+                      <div>Dewan Juri: <code>juri1</code> / <code>juri2</code> / <code>juri3</code></div>
+                      <div>Operator CC: <code>operatorcc1</code></div>
+                      <div>Operator Arena: <code>operatorarena1</code></div>
                       <div>Mubaligh: <code>mubalighkaras1</code></div>
-                      <div>Pengajar: <code>pengajar1</code></div>
                       <div>Viewer: <code>viewer1</code></div>
                     </div>
                   </div>
@@ -295,6 +306,9 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               <Button onClick={() => setLoginOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-emerald-500/15 transition-all text-xs flex items-center gap-2">
                 Akses Dashboard Monitor <ShieldCheck className="h-4.5 w-4.5" />
               </Button>
+              <a href="#festival-generus" className="inline-flex items-center justify-center border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 px-8 py-3 rounded-xl font-bold text-xs transition-all flex items-center gap-2 shadow-lg shadow-amber-500/10">
+                <Trophy className="h-4 w-4 text-amber-400" /> 🏆 Festival Generus (17 Lomba)
+              </a>
               <a href="#pendanaan" className="inline-flex items-center justify-center border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-8 py-3 rounded-xl font-bold text-xs transition-all flex items-center gap-2">
                 <Wallet className="h-4 w-4" /> Fitur Pendanaan
               </a>
@@ -373,6 +387,37 @@ export function PortalPublic({ onEnterAdmin }: PortalPublicProps) {
               </CardDescription>
             </CardHeader>
           </Card>
+        </div>
+      </section>
+
+      {/* Festival Generus Section */}
+      <section id="festival-generus" className="py-16 border-t border-slate-900/60 relative z-10 bg-slate-950/80">
+        <div className="max-w-7xl mx-auto px-6 relative z-10 text-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-950/90 via-teal-950/90 to-slate-900/90 border border-emerald-500/30 rounded-3xl p-5 text-white shadow-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
+                  LIVE COMPETITION ENGINE
+                </Badge>
+                <span className="text-xs text-emerald-300 font-semibold">17 Kategori Lomba • 3 Juri Independen • Cerdas Cermat</span>
+              </div>
+              <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+                🏆 Modul Festival Generus Caberawit & Remaja
+              </h2>
+              <p className="text-xs text-slate-300">
+                Mode Publik menampilkan papan skor, jadwal arena, cerdas cermat, dan klasemen juara umum. Untuk mendaftarkan peserta, menilai lomba, atau mengelola arena, silakan masuk ke Portal Monitoring.
+              </p>
+            </div>
+            <Button
+              onClick={() => setLoginOpen(true)}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs px-5 py-3 shrink-0 shadow-lg shadow-amber-500/20"
+            >
+              <Lock className="h-4 w-4 mr-1.5" /> Login Panitia / Juri / Admin Kelompok
+            </Button>
+          </div>
+          <div className="bg-slate-50 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200">
+            <FestivalGenerusContainer userRole="Viewer" />
+          </div>
         </div>
       </section>
 

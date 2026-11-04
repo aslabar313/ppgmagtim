@@ -379,6 +379,25 @@ export const getUserDetails = (user: string): UserDetails | null => {
     return { username: u, role: "Viewer", level: "global", scope: "Semua", adminNum: u === "viewer2" ? 2 : 1 };
   }
 
+  // 7. Festival Generus Specialized Accounts
+  const fgAccounts: Record<string, { role: string; level: "daerah" | "desa" | "kelompok" | "global"; scope: string }> = {
+    adminfestival1: { role: "Admin Festival", level: "daerah", scope: "Daerah Magetan Timur" },
+    ketuapanitia1: { role: "Ketua Panitia", level: "daerah", scope: "Daerah Magetan Timur" },
+    sekretarisfg1: { role: "Sekretaris", level: "daerah", scope: "Daerah Magetan Timur" },
+    adminregistrasi1: { role: "Admin Registrasi", level: "daerah", scope: "Daerah Magetan Timur" },
+    ketuajuri1: { role: "Ketua Dewan Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri1: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri2: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri3: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    operatorarena1: { role: "Operator Arena", level: "daerah", scope: "Daerah Magetan Timur" },
+    operatorcc1: { role: "Operator Cerdas Cermat", level: "daerah", scope: "Daerah Magetan Timur" },
+    petugascheckin1: { role: "Petugas Check-in", level: "daerah", scope: "Daerah Magetan Timur" },
+    pendamping1: { role: "Pendamping", level: "kelompok", scope: "Kelompok Karas" }
+  };
+  if (fgAccounts[u]) {
+    return { username: u, ...fgAccounts[u], adminNum: 1 };
+  }
+
   return null;
 };
 
@@ -460,6 +479,25 @@ export const verifyCredentials = (user: string, pass: string): AuthResult | null
   // 6. Viewer (viewer1, viewer2)
   if (u === "viewer1" || u === "viewer2") {
     return { success: true, role: "Viewer", level: "global", scope: "Semua", adminNum: u === "viewer2" ? 2 : 1 };
+  }
+
+  // 7. Festival Generus Specialized Accounts
+  const fgAccounts: Record<string, { role: string; level: "daerah" | "desa" | "kelompok" | "global"; scope: string }> = {
+    adminfestival1: { role: "Admin Festival", level: "daerah", scope: "Daerah Magetan Timur" },
+    ketuapanitia1: { role: "Ketua Panitia", level: "daerah", scope: "Daerah Magetan Timur" },
+    sekretarisfg1: { role: "Sekretaris", level: "daerah", scope: "Daerah Magetan Timur" },
+    adminregistrasi1: { role: "Admin Registrasi", level: "daerah", scope: "Daerah Magetan Timur" },
+    ketuajuri1: { role: "Ketua Dewan Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri1: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri2: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    juri3: { role: "Juri", level: "daerah", scope: "Daerah Magetan Timur" },
+    operatorarena1: { role: "Operator Arena", level: "daerah", scope: "Daerah Magetan Timur" },
+    operatorcc1: { role: "Operator Cerdas Cermat", level: "daerah", scope: "Daerah Magetan Timur" },
+    petugascheckin1: { role: "Petugas Check-in", level: "daerah", scope: "Daerah Magetan Timur" },
+    pendamping1: { role: "Pendamping", level: "kelompok", scope: "Kelompok Karas" }
+  };
+  if (fgAccounts[u]) {
+    return { success: true, ...fgAccounts[u], adminNum: 1 };
   }
 
   return null;

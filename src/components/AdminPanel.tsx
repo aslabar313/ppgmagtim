@@ -389,7 +389,17 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           <div className="space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
-              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-6 md:min-w-0">
+                <button 
+                  onClick={() => setActiveTab("festival_generus")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-gradient-to-b from-amber-50/80 to-white hover:bg-amber-50 border-2 border-amber-300/90 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-amber-500/25">
+                    <Trophy className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-extrabold text-xs text-amber-900 mt-3 group-hover:text-amber-950 transition-colors">🏆 Festival Generus</span>
+                </button>
+
                 <button 
                   onClick={() => setActiveTab("pendanaan")} 
                   className="group flex flex-col items-center justify-center p-5 bg-gradient-to-b from-emerald-50/50 to-white hover:bg-emerald-50 border border-emerald-200/80 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
@@ -690,7 +700,17 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
           <div className="space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
             <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
-              <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+              <div className="flex gap-4 min-w-max md:grid md:grid-cols-6 md:min-w-0">
+                <button 
+                  onClick={() => setActiveTab("festival_generus")} 
+                  className="group flex flex-col items-center justify-center p-5 bg-gradient-to-b from-amber-50/80 to-white hover:bg-amber-50 border-2 border-amber-300/90 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+                >
+                  <div className="h-11 w-11 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-amber-500/25">
+                    <Trophy className="h-5.5 w-5.5" />
+                  </div>
+                  <span className="font-display font-extrabold text-xs text-amber-900 mt-3 group-hover:text-amber-950 transition-colors">🏆 Festival Generus</span>
+                </button>
+
                 <button 
                   onClick={() => setActiveTab("database")} 
                   className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
@@ -1005,7 +1025,17 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         <div className="space-y-3">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">Menu Kendali Cepat (Command Center)</span>
           <div className="overflow-x-auto pb-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
-            <div className="flex gap-4 min-w-max md:grid md:grid-cols-5 md:min-w-0">
+            <div className="flex gap-4 min-w-max md:grid md:grid-cols-6 md:min-w-0">
+              <button 
+                onClick={() => setActiveTab("festival_generus")} 
+                className="group flex flex-col items-center justify-center p-5 bg-gradient-to-b from-amber-50/80 to-white hover:bg-amber-50 border-2 border-amber-300/90 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
+              >
+                <div className="h-11 w-11 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-amber-500/25">
+                  <Trophy className="h-5.5 w-5.5" />
+                </div>
+                <span className="font-display font-extrabold text-xs text-amber-900 mt-3 group-hover:text-amber-950 transition-colors">🏆 Festival Generus</span>
+              </button>
+
               <button 
                 onClick={() => setActiveTab("database")} 
                 className="group flex flex-col items-center justify-center p-5 bg-white hover:bg-emerald-50/10 border border-slate-100 hover:border-emerald-250 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer w-44 md:w-full shrink-0"
@@ -1504,6 +1534,12 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
                 <LayoutDashboard className="h-4.5 w-4.5" /> Dashboard
               </button>
             )}
+            {hasAccessTo("festival_generus") && (
+              <button onClick={() => setActiveTab("festival_generus")} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>
+                <span className="flex items-center gap-3"><Trophy className="h-4.5 w-4.5" /> FESTIVAL GENERUS</span>
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">BARU</span>
+              </button>
+            )}
             {hasAccessTo("database") && (
               <button onClick={() => setActiveTab("database")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "database" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <Database className="h-4.5 w-4.5" /> Fitur Database
@@ -1517,11 +1553,6 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             {hasAccessTo("monitoring_mubaligh") && (
               <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white shadow-md" : "hover:bg-slate-900 text-slate-400 hover:text-slate-200"}`}>
                 <ClipboardList className="h-4.5 w-4.5" /> MONEV PPG
-              </button>
-            )}
-            {hasAccessTo("festival_generus") && (
-              <button onClick={() => setActiveTab("festival_generus")} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "hover:bg-slate-900 text-amber-400 hover:text-amber-200"}`}>
-                <Trophy className="h-4.5 w-4.5" /> FESTIVAL GENERUS
               </button>
             )}
             {hasAccessTo("presensi") && (
@@ -1628,6 +1659,13 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
             </div>
 
             {/* 12. PWA Install & Offline Sync Simulator Indicator */}
+            <button
+              onClick={() => setActiveTab("festival_generus")}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-black cursor-pointer transition-all shadow-sm"
+            >
+              <Trophy className="h-3.5 w-3.5" /> Festival Generus
+            </button>
+
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[10px] font-bold text-emerald-800 cursor-pointer hover:bg-emerald-100 transition-colors" onClick={handleInstallPwa}>
               <Download className="h-3 w-3" /> Pasang PWA
             </div>
@@ -1670,10 +1708,10 @@ export function AdminPanel({ initialRole, onLogout }: AdminPanelProps) {
         {/* Dynamic Mobile Nav Header */}
         <div className="bg-slate-950 text-slate-400 p-2 overflow-x-auto flex gap-2 md:hidden">
           {hasAccessTo("dashboard") && <button onClick={() => setActiveTab("dashboard")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "dashboard" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Dashboard</button>}
+          {hasAccessTo("festival_generus") && <button onClick={() => setActiveTab("festival_generus")} className={`px-3 py-1.5 rounded-lg text-[10px] font-black whitespace-nowrap ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>🏆 FESTIVAL GENERUS</button>}
           {hasAccessTo("database") && <button onClick={() => setActiveTab("database")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "database" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Fitur Database</button>}
           {hasAccessTo("pendanaan") && <button onClick={() => setActiveTab("pendanaan")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "pendanaan" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Pendanaan</button>}
           {hasAccessTo("monitoring_mubaligh") && <button onClick={() => setActiveTab("monitoring_mubaligh")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "monitoring_mubaligh" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>MONEV PPG</button>}
-          {hasAccessTo("festival_generus") && <button onClick={() => setActiveTab("festival_generus")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "festival_generus" ? "bg-amber-500 text-slate-950" : "hover:bg-slate-900 text-amber-400"}`}>FESTIVAL GENERUS</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("presensi")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "presensi" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Presensi</button>}
           {hasAccessTo("presensi") && <button onClick={() => setActiveTab("face_attendance")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "face_attendance" ? "bg-indigo-600 text-white" : "hover:bg-slate-900 text-indigo-400"}`}>Presensi Wajah</button>}
           {hasAccessTo("raport") && <button onClick={() => setActiveTab("raport")} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${activeTab === "raport" ? "bg-emerald-600 text-white" : "hover:bg-slate-900"}`}>Raport</button>}

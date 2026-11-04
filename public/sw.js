@@ -1,6 +1,5 @@
-const CACHE_NAME = "pintaryuk-sim-v2";
+const CACHE_NAME = "pintaryuk-sim-v3-festival-generus";
 const ASSETS = [
-  "/",
   "/manifest.json"
 ];
 
@@ -28,6 +27,13 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // Always use Network-First for HTML navigation requests so new deployments are visible immediately
+  if (e.request.mode === "navigate" || e.request.destination === "document") {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       return cachedResponse || fetch(e.request);
